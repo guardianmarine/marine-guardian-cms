@@ -15,6 +15,7 @@ import {
   ChevronDown,
   TrendingUp,
   DollarSign,
+  BarChart3,
 } from 'lucide-react';
 import { useState } from 'react';
 import { cn } from '@/lib/utils';
@@ -50,6 +51,7 @@ export function BackofficeLayout({ children }: BackofficeLayoutProps) {
     { path: '/backoffice/media', label: 'Media Library', icon: Image },
     { path: '/backoffice/inventory', label: 'Inventory', icon: Package },
     { path: '/backoffice/buyer-requests', label: 'Buyer Requests', icon: Users },
+    { path: '/backoffice/insights', label: 'Insights', icon: BarChart3, roles: ['sales', 'finance', 'admin'] },
   ];
 
   const purchasingItems = [
@@ -117,6 +119,11 @@ export function BackofficeLayout({ children }: BackofficeLayoutProps) {
           {/* Navigation */}
           <nav className="flex-1 p-4 space-y-1">
             {menuItems.map((item) => {
+              // Check role-based access
+              if (item.roles && !item.roles.includes(user?.role || '')) {
+                return null;
+              }
+              
               const Icon = item.icon;
               const active = isActive(item.path, item.exact);
               return (

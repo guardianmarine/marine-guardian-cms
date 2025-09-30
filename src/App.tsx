@@ -39,6 +39,7 @@ import FinanceDashboard from "./pages/backoffice/finance/FinanceDashboard";
 import FinanceOverview from "./pages/backoffice/finance/FinanceOverview";
 import Commissions from "./pages/backoffice/finance/Commissions";
 import CommissionsReport from "./pages/backoffice/finance/CommissionsReport";
+import Insights from "./pages/backoffice/Insights";
 import NotFound from "./pages/NotFound";
 import "@/i18n/config";
 
@@ -221,6 +222,9 @@ const App = () => (
             <Route path="/backoffice/finance/overview" element={<ProtectedRoute><FinanceOverview /></ProtectedRoute>} />
             <Route path="/backoffice/finance/commissions" element={<ProtectedRoute><Commissions /></ProtectedRoute>} />
             <Route path="/backoffice/finance/commissions-report" element={<ProtectedRoute><CommissionsReport /></ProtectedRoute>} />
+            
+            {/* Insights Route */}
+            <Route path="/backoffice/insights" element={<ProtectedRoute><Insights /></ProtectedRoute>} />
 
             {/* 404 */}
             <Route path="*" element={<NotFound />} />
