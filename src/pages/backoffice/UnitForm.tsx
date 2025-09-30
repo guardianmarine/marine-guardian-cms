@@ -32,6 +32,7 @@ import {
   Clock,
   AlertCircle,
 } from 'lucide-react';
+import { VINDecodePanel } from '@/components/inventory/VINDecodePanel';
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy, useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
@@ -41,7 +42,7 @@ export default function UnitForm() {
   const navigate = useNavigate();
   const { toast } = useToast();
   const { t } = useTranslation();
-  const { units, addUnit, updateUnit, publishUnit, canPublish, getUnitEvents, addPhoto, deletePhoto, setMainPhoto, updatePhotoOrder } = useInventoryStore();
+  const { units, addUnit, updateUnit, publishUnit, canPublish, getUnitEvents, addPhoto, deletePhoto, setMainPhoto, updatePhotoOrder, logEvent } = useInventoryStore();
 
   const existingUnit = id ? units.find((u) => u.id === id) : null;
   const isNew = !id;
@@ -70,6 +71,7 @@ export default function UnitForm() {
   const [status, setStatus] = useState<UnitStatus>(existingUnit?.status || 'draft');
   const [photos, setPhotos] = useState<UnitPhoto[]>(existingUnit?.photos || []);
   const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
+  const [unitMetadata, setUnitMetadata] = useState<Record<string, any>>(existingUnit?.unit_metadata || {});
 
   const currentYear = new Date().getFullYear();
   const sensors = useSensors(
@@ -182,6 +184,7 @@ export default function UnitForm() {
       cost_transport_in: costTransportIn ? parseFloat(costTransportIn) : undefined,
       cost_reconditioning: costReconditioning ? parseFloat(costReconditioning) : undefined,
       status,
+      unit_metadata: Object.keys(unitMetadata).length > 0 ? unitMetadata : undefined,
     };
 
     if (isNew) {
@@ -536,14 +539,46 @@ export default function UnitForm() {
                     <Label htmlFor="vin">
                       VIN/Serial * {category === 'truck' && '(17 chars)'}
                     </Label>
-                    <Input
-                      id="vin"
-                      value={vinOrSerial}
-                      onChange={(e) => setVinOrSerial(e.target.value)}
-                      placeholder="1FUJGEDV8LLBX1234"
-                      className={`font-mono ${validationErrors.vin ? 'border-destructive' : ''}`}
-                      maxLength={category === 'truck' ? 17 : undefined}
-                    />
+                    <div className="flex gap-2 items-start">
+                      <Input
+                        id="vin"
+                        value={vinOrSerial}
+                        onChange={(e) => setVinOrSerial(e.target.value)}
+                        placeholder="1FUJGEDV8LLBX1234"
+                        className={`font-mono flex-1 ${validationErrors.vin ? 'border-destructive' : ''}`}
+                        maxLength={category === 'truck' ? 17 : undefined}
+                      />
+                      <VINDecodePanel
+                        vin={vinOrSerial}
+                        modelYear={year ? parseInt(year) : undefined}
+                        category={category}
+                        onApply={(fields) => {
+                          if (fields.make) setMake(fields.make);
+                          if (fields.model) setModel(fields.model);
+                          if (fields.year) setYear(fields.year.toString());
+                          if (fields.engine) setEngine(fields.engine);
+                          if (fields.transmission) setTransmission(fields.transmission);
+                          if (fields.axles) setAxles(fields.axles.toString());
+                        }}
+                        onDecodeSuccess={(metadata) => {
+                          setUnitMetadata(prev => ({ ...prev, ...metadata }));
+                          // Log VIN decode event
+                          if (id) {
+                            logEvent({
+                              unit_id: id,
+                              event_type: 'vin_decoded',
+                              data: { 
+                                vin: vinOrSerial,
+                                provider: 'nhtsa',
+                                cached: metadata.vin_decode_cached,
+                                fields_available: Object.keys(metadata).filter(k => !k.startsWith('vin_decode_'))
+                              },
+                              actor_user_id: '1',
+                            });
+                          }
+                        }}
+                      />
+                    </div>
                     {validationErrors.vin && (
                       <p className="text-xs text-destructive">{validationErrors.vin}</p>
                     )}
