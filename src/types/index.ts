@@ -330,3 +330,129 @@ export interface BuyerRequest {
   created_at: string;
   updated_at: string;
 }
+
+// CRM Module Types
+export type AccountKind = 'company' | 'individual';
+export type LeadSource = 'web_form' | 'phone' | 'whatsapp' | 'email' | 'referral' | 'campaign' | 'other';
+export type LeadStatus = 'new' | 'qualified' | 'disqualified' | 'converted';
+export type OpportunityStage = 'new' | 'qualified' | 'visit' | 'quote' | 'negotiation' | 'won' | 'lost';
+export type OpportunityReasonLost = 'price' | 'timing' | 'specs' | 'financing' | 'inventory' | 'other';
+export type ActivityKind = 'note' | 'call' | 'meeting' | 'email' | 'whatsapp' | 'task';
+export type ActivityParentType = 'lead' | 'opportunity' | 'account' | 'contact';
+export type DocumentParentType = 'account' | 'contact' | 'opportunity';
+
+export interface Account {
+  id: string;
+  name: string;
+  kind: AccountKind;
+  tax_id?: string;
+  billing_address?: string;
+  billing_state?: string;
+  billing_country?: string;
+  phone?: string;
+  email?: string;
+  website?: string;
+  notes?: string;
+  is_tax_exempt: boolean;
+  resale_cert: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface Contact {
+  id: string;
+  account_id: string;
+  account?: Account;
+  first_name: string;
+  last_name: string;
+  email?: string;
+  phone?: string;
+  role_title?: string;
+  preferred_lang: Locale;
+  notes?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface Lead {
+  id: string;
+  source: LeadSource;
+  account_id?: string;
+  account?: Account;
+  contact_id?: string;
+  contact?: Contact;
+  category_interest?: UnitCategory;
+  unit_interest_id?: string;
+  unit_interest?: Unit;
+  status: LeadStatus;
+  lead_score: number;
+  sla_first_touch_hours: number;
+  first_touch_at?: string;
+  owner_user_id?: string;
+  owner?: User;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface Opportunity {
+  id: string;
+  account_id: string;
+  account?: Account;
+  contact_id?: string;
+  contact?: Contact;
+  owner_user_id: string;
+  owner?: User;
+  name: string;
+  pipeline_stage: OpportunityStage;
+  reason_lost?: OpportunityReasonLost;
+  reason_lost_notes?: string;
+  expected_close_at?: string;
+  closed_at?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface OpportunityUnit {
+  opportunity_id: string;
+  unit_id: string;
+  unit?: Unit;
+  quantity: number;
+  agreed_unit_price?: number;
+}
+
+export interface Activity {
+  id: string;
+  parent_type: ActivityParentType;
+  parent_id: string;
+  kind: ActivityKind;
+  subject: string;
+  body?: string;
+  due_at?: string;
+  completed_at?: string;
+  owner_user_id?: string;
+  owner?: User;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface Document {
+  id: string;
+  parent_type: DocumentParentType;
+  parent_id: string;
+  name: string;
+  file_url: string;
+  mime: string;
+  size_kb: number;
+  uploaded_by: string;
+  uploader?: User;
+  created_at: string;
+}
+
+export interface LeadIntakeLink {
+  id: string;
+  buyer_request_id: string;
+  buyer_request?: BuyerRequest;
+  lead_id: string;
+  lead?: Lead;
+  created_at: string;
+}

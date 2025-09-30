@@ -1,0 +1,178 @@
+import type {
+  Account,
+  Contact,
+  Lead,
+  Opportunity,
+  Activity,
+  OpportunityUnit,
+} from '@/types';
+
+export const mockAccounts: Account[] = [
+  {
+    id: '1',
+    name: 'ABC Trucking LLC',
+    kind: 'company',
+    tax_id: '12-3456789',
+    billing_address: '123 Main St',
+    billing_state: 'TX',
+    billing_country: 'USA',
+    phone: '214-555-0100',
+    email: 'contact@abctrucking.com',
+    website: 'https://abctrucking.com',
+    notes: 'Long-time customer, fleet of 50+ units',
+    is_tax_exempt: false,
+    resale_cert: true,
+    created_at: '2024-01-15T10:00:00Z',
+    updated_at: '2024-01-15T10:00:00Z',
+  },
+  {
+    id: '2',
+    name: 'John Smith',
+    kind: 'individual',
+    phone: '214-555-0200',
+    email: 'john.smith@email.com',
+    billing_address: '456 Oak Ave',
+    billing_state: 'TX',
+    billing_country: 'USA',
+    notes: 'Owner-operator looking to expand',
+    is_tax_exempt: false,
+    resale_cert: false,
+    created_at: '2024-02-01T10:00:00Z',
+    updated_at: '2024-02-01T10:00:00Z',
+  },
+];
+
+export const mockContacts: Contact[] = [
+  {
+    id: '1',
+    account_id: '1',
+    first_name: 'Maria',
+    last_name: 'Garcia',
+    email: 'maria@abctrucking.com',
+    phone: '214-555-0101',
+    role_title: 'Fleet Manager',
+    preferred_lang: 'es',
+    notes: 'Primary contact for purchasing decisions',
+    created_at: '2024-01-15T10:00:00Z',
+    updated_at: '2024-01-15T10:00:00Z',
+  },
+  {
+    id: '2',
+    account_id: '1',
+    first_name: 'Robert',
+    last_name: 'Johnson',
+    email: 'robert@abctrucking.com',
+    phone: '214-555-0102',
+    role_title: 'Operations Director',
+    preferred_lang: 'en',
+    created_at: '2024-01-15T10:00:00Z',
+    updated_at: '2024-01-15T10:00:00Z',
+  },
+];
+
+export const mockLeads: Lead[] = [
+  {
+    id: '1',
+    source: 'web_form',
+    account_id: '2',
+    category_interest: 'truck',
+    status: 'new',
+    lead_score: 75,
+    sla_first_touch_hours: 24,
+    created_at: '2024-03-10T14:30:00Z',
+    updated_at: '2024-03-10T14:30:00Z',
+  },
+  {
+    id: '2',
+    source: 'phone',
+    category_interest: 'trailer',
+    status: 'qualified',
+    lead_score: 85,
+    sla_first_touch_hours: 24,
+    first_touch_at: '2024-03-05T09:15:00Z',
+    created_at: '2024-03-05T08:00:00Z',
+    updated_at: '2024-03-05T09:15:00Z',
+  },
+];
+
+export const mockOpportunities: Opportunity[] = [
+  {
+    id: '1',
+    account_id: '1',
+    contact_id: '1',
+    owner_user_id: '1',
+    name: 'ABC Trucking - 3 Sleeper Trucks',
+    pipeline_stage: 'quote',
+    expected_close_at: '2024-04-15T00:00:00Z',
+    created_at: '2024-03-01T10:00:00Z',
+    updated_at: '2024-03-08T14:30:00Z',
+  },
+  {
+    id: '2',
+    account_id: '2',
+    owner_user_id: '1',
+    name: 'John Smith - Reefer Trailer',
+    pipeline_stage: 'negotiation',
+    expected_close_at: '2024-04-01T00:00:00Z',
+    created_at: '2024-02-20T10:00:00Z',
+    updated_at: '2024-03-10T11:00:00Z',
+  },
+];
+
+export const mockOpportunityUnits: OpportunityUnit[] = [
+  {
+    opportunity_id: '1',
+    unit_id: '1',
+    quantity: 2,
+    agreed_unit_price: 87000,
+  },
+  {
+    opportunity_id: '1',
+    unit_id: '3',
+    quantity: 1,
+    agreed_unit_price: 120000,
+  },
+  {
+    opportunity_id: '2',
+    unit_id: '2',
+    quantity: 1,
+    agreed_unit_price: 31000,
+  },
+];
+
+export const mockActivities: Activity[] = [
+  {
+    id: '1',
+    parent_type: 'lead',
+    parent_id: '1',
+    kind: 'note',
+    subject: 'Initial contact via web form',
+    body: 'Customer interested in sleeper trucks, mentioned fleet expansion',
+    owner_user_id: '1',
+    created_at: '2024-03-10T14:35:00Z',
+    updated_at: '2024-03-10T14:35:00Z',
+  },
+  {
+    id: '2',
+    parent_type: 'opportunity',
+    parent_id: '1',
+    kind: 'call',
+    subject: 'Discussed pricing for 3-unit deal',
+    body: 'Maria confirmed budget, sending formal quote by EOD',
+    owner_user_id: '1',
+    created_at: '2024-03-08T11:00:00Z',
+    updated_at: '2024-03-08T11:00:00Z',
+  },
+  {
+    id: '3',
+    parent_type: 'opportunity',
+    parent_id: '2',
+    kind: 'task',
+    subject: 'Schedule unit inspection',
+    body: 'Coordinate with John for on-site inspection of reefer trailer',
+    due_at: '2024-03-15T10:00:00Z',
+    owner_user_id: '1',
+    created_at: '2024-03-10T09:00:00Z',
+    updated_at: '2024-03-10T09:00:00Z',
+  },
+];
