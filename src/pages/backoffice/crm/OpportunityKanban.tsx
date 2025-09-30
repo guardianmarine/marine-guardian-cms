@@ -1,23 +1,25 @@
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { BackofficeLayout } from '@/components/backoffice/Layout';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useCRMStore } from '@/services/crmStore';
-import { Plus, TrendingUp, Eye, Table as TableIcon } from 'lucide-react';
+import { getOpportunityStageLabel } from '@/lib/crm-integrations';
+import { Plus, Eye, Table as TableIcon, Info } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { format } from 'date-fns';
 import { OpportunityStage } from '@/types';
 
-const stages: { key: OpportunityStage; label: string; color: string }[] = [
-  { key: 'new', label: 'New', color: 'bg-blue-500' },
-  { key: 'qualified', label: 'Qualified', color: 'bg-cyan-500' },
-  { key: 'visit', label: 'Visit', color: 'bg-indigo-500' },
-  { key: 'quote', label: 'Quote', color: 'bg-purple-500' },
-  { key: 'negotiation', label: 'Negotiation', color: 'bg-orange-500' },
-  { key: 'won', label: 'Won', color: 'bg-green-500' },
-  { key: 'lost', label: 'Lost', color: 'bg-gray-500' },
+const stages: { key: OpportunityStage; color: string }[] = [
+  { key: 'new', color: 'bg-blue-500' },
+  { key: 'qualified', color: 'bg-cyan-500' },
+  { key: 'visit', color: 'bg-indigo-500' },
+  { key: 'quote', color: 'bg-purple-500' },
+  { key: 'negotiation', color: 'bg-orange-500' },
+  { key: 'won', color: 'bg-green-500' },
+  { key: 'lost', color: 'bg-gray-500' },
 ];
 
 export default function OpportunityKanban() {
@@ -25,7 +27,13 @@ export default function OpportunityKanban() {
   const { opportunities, updateOpportunity, getOpportunityUnits } = useCRMStore();
   const navigate = useNavigate();
   const [draggedItem, setDraggedItem] = useState<string | null>(null);
+  
+  // Keyboard navigation state
+  const [selectedCard, setSelectedCard] = useState<string | null>(null);
+  const [focusedStage, setFocusedStage] = useState<OpportunityStage>('new');
+  const cardRefs = useRef<Record<string, HTMLDivElement | null>>({});
 
+  // Handle drag and drop
   const handleDragStart = (e: React.DragEvent, opportunityId: string) => {
     setDraggedItem(opportunityId);
     e.dataTransfer.effectAllowed = 'move';
@@ -44,6 +52,60 @@ export default function OpportunityKanban() {
     }
   };
 
+  // Keyboard navigation
+  const handleKeyDown = (e: React.KeyboardEvent, opportunityId: string, currentStage: OpportunityStage) => {
+    const currentStageIndex = stages.findIndex(s => s.key === currentStage);
+    const stageOpportunities = opportunities.filter(opp => opp.pipeline_stage === currentStage);
+    const currentCardIndex = stageOpportunities.findIndex(opp => opp.id === opportunityId);
+
+    switch (e.key) {
+      case 'ArrowLeft':
+        e.preventDefault();
+        if (currentStageIndex > 0) {
+          const prevStage = stages[currentStageIndex - 1].key;
+          setFocusedStage(prevStage);
+        }
+        break;
+      case 'ArrowRight':
+        e.preventDefault();
+        if (currentStageIndex < stages.length - 1) {
+          const nextStage = stages[currentStageIndex + 1].key;
+          setFocusedStage(nextStage);
+        }
+        break;
+      case 'ArrowUp':
+        e.preventDefault();
+        if (currentCardIndex > 0) {
+          const prevCard = stageOpportunities[currentCardIndex - 1];
+          setSelectedCard(prevCard.id);
+          cardRefs.current[prevCard.id]?.focus();
+        }
+        break;
+      case 'ArrowDown':
+        e.preventDefault();
+        if (currentCardIndex < stageOpportunities.length - 1) {
+          const nextCard = stageOpportunities[currentCardIndex + 1];
+          setSelectedCard(nextCard.id);
+          cardRefs.current[nextCard.id]?.focus();
+        }
+        break;
+      case ' ':
+        e.preventDefault();
+        setSelectedCard(selectedCard === opportunityId ? null : opportunityId);
+        break;
+      case 'Enter':
+        e.preventDefault();
+        if (selectedCard) {
+          const targetStageIndex = stages.findIndex(s => s.key === focusedStage);
+          if (targetStageIndex !== currentStageIndex) {
+            updateOpportunity(selectedCard, { pipeline_stage: focusedStage });
+            setSelectedCard(null);
+          }
+        }
+        break;
+    }
+  };
+
   const getOpportunityValue = (opportunityId: string) => {
     const units = getOpportunityUnits(opportunityId);
     return units.reduce((sum, ou) => sum + (ou.agreed_unit_price || 0), 0);
@@ -51,14 +113,14 @@ export default function OpportunityKanban() {
 
   return (
     <BackofficeLayout>
-      <div className="p-6 space-y-6">
+      <div className="p-6 space-y-6 bg-background">
         {/* Header */}
         <div className="flex justify-between items-center">
-          <h2 className="text-3xl font-bold">{t('crm.opportunities')} - Kanban</h2>
+          <h2 className="text-3xl font-bold text-foreground">{t('crm.opportunities')} - {t('crm.kanbanView')}</h2>
           <div className="flex gap-2">
             <Button variant="outline" onClick={() => navigate('/backoffice/crm/opportunities')}>
               <TableIcon className="h-4 w-4 mr-2" />
-              Table View
+              {t('crm.tableView')}
             </Button>
             <Button onClick={() => navigate('/backoffice/crm/opportunities/new')}>
               <Plus className="h-4 w-4 mr-2" />
@@ -66,6 +128,14 @@ export default function OpportunityKanban() {
             </Button>
           </div>
         </div>
+
+        {/* Keyboard help */}
+        <Alert className="bg-blue-50 dark:bg-blue-950 border-blue-200 dark:border-blue-800">
+          <Info className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+          <AlertDescription className="text-sm text-blue-900 dark:text-blue-100">
+            {t('crm.keyboardNavigation')}
+          </AlertDescription>
+        </Alert>
 
         {/* Kanban Board */}
         <div className="grid grid-cols-7 gap-4 min-h-[600px]">
@@ -77,14 +147,16 @@ export default function OpportunityKanban() {
             return (
               <div
                 key={stage.key}
-                className="bg-muted/30 rounded-lg p-4"
+                className={`bg-muted/30 rounded-lg p-4 border-2 transition-colors ${
+                  focusedStage === stage.key ? 'border-primary' : 'border-transparent'
+                }`}
                 onDragOver={handleDragOver}
                 onDrop={(e) => handleDrop(e, stage.key)}
               >
                 <div className="flex items-center justify-between mb-4">
                   <div className="flex items-center gap-2">
                     <Badge className={`${stage.color} text-white`}>
-                      {stage.label}
+                      {getOpportunityStageLabel(stage.key, t)}
                     </Badge>
                     <span className="text-sm text-muted-foreground">
                       ({stageOpportunities.length})
@@ -100,12 +172,18 @@ export default function OpportunityKanban() {
                     return (
                       <Card
                         key={opp.id}
-                        className="cursor-move hover:shadow-md transition-shadow"
+                        ref={(el) => (cardRefs.current[opp.id] = el)}
+                        className={`cursor-move hover:shadow-md transition-all bg-card border-border ${
+                          selectedCard === opp.id ? 'ring-2 ring-primary' : ''
+                        }`}
                         draggable
+                        tabIndex={0}
                         onDragStart={(e) => handleDragStart(e, opp.id)}
+                        onKeyDown={(e) => handleKeyDown(e, opp.id, stage.key)}
+                        onFocus={() => setFocusedStage(stage.key)}
                       >
                         <CardHeader className="pb-2">
-                          <CardTitle className="text-sm font-medium line-clamp-2">
+                          <CardTitle className="text-sm font-medium line-clamp-2 text-foreground">
                             {opp.name}
                           </CardTitle>
                           <p className="text-xs text-muted-foreground">
@@ -163,9 +241,9 @@ export default function OpportunityKanban() {
         </div>
 
         {/* Summary */}
-        <Card>
+        <Card className="bg-card border-border">
           <CardHeader>
-            <CardTitle>Pipeline Summary</CardTitle>
+            <CardTitle className="text-foreground">Pipeline Summary</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-7 gap-4">
@@ -180,7 +258,9 @@ export default function OpportunityKanban() {
 
                 return (
                   <div key={stage.key} className="text-center">
-                    <div className="text-sm font-medium">{stage.label}</div>
+                    <div className="text-sm font-medium text-foreground">
+                      {getOpportunityStageLabel(stage.key, t)}
+                    </div>
                     <div className="text-xs text-muted-foreground">
                       {stageOpportunities.length} opps
                     </div>

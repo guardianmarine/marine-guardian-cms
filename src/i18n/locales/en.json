@@ -144,6 +144,21 @@
     "reasonLostSpecs": "Specifications",
     "reasonLostFinancing": "Financing",
     "reasonLostInventory": "Inventory",
-    "reasonLostOther": "Other"
+    "reasonLostOther": "Other",
+    "filters": "Filters",
+    "clearFilters": "Clear Filters",
+    "filterByStatus": "Filter by Status",
+    "filterBySource": "Filter by Source",
+    "filterByStage": "Filter by Stage",
+    "filterByOwner": "Filter by Owner",
+    "compactView": "Compact View",
+    "normalView": "Normal View",
+    "allStatuses": "All Statuses",
+    "allSources": "All Sources",
+    "allStages": "All Stages",
+    "keyboardNavigation": "Use arrow keys to navigate, Space to select, Enter to move",
+    "moveToStage": "Move to stage",
+    "kanbanView": "Kanban View",
+    "tableView": "Table View"
   }
 }
