@@ -200,9 +200,23 @@ export default function OpportunityDetail() {
             </p>
           </div>
           <div className="flex items-center gap-2">
-            <Select value={opportunity.pipeline_stage} onValueChange={(v) => handleStageChange(v as OpportunityStage)}>
-              <SelectTrigger className="w-48">
-                <Badge className={getStageColor(opportunity.pipeline_stage)}>
+            {permissions.canEditCRM ? (
+              <Select value={opportunity.pipeline_stage} onValueChange={(v) => handleStageChange(v as OpportunityStage)}>
+                <SelectTrigger className="w-48">
+                  <Badge className={getStageColor(opportunity.pipeline_stage)}>
+                    {opportunity.pipeline_stage}
+                  </Badge>
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="new">New</SelectItem>
+                  <SelectItem value="qualified">Qualified</SelectItem>
+                  <SelectItem value="visit">Visit</SelectItem>
+                  <SelectItem value="quote">Quote</SelectItem>
+                  <SelectItem value="negotiation">Negotiation</SelectItem>
+                </SelectContent>
+              </Select>
+            ) : (
+              <Badge className={getStageColor(opportunity.pipeline_stage)}>
                 {opportunity.pipeline_stage}
               </Badge>
             )}
@@ -267,10 +281,8 @@ export default function OpportunityDetail() {
                       Confirm Close
                     </Button>
                   </div>
-                  </DialogContent>
-                </Dialog>
-                )}
-            )}
+                </DialogContent>
+              </Dialog>
             )}
           </div>
         </div>
@@ -343,49 +355,49 @@ export default function OpportunityDetail() {
               <CardHeader className="flex flex-row items-center justify-between">
                 <CardTitle>Units in Opportunity</CardTitle>
                 {permissions.canEditCRM && (
-                <Dialog open={unitDialog} onOpenChange={setUnitDialog}>
-                  <DialogTrigger asChild>
-                    <Button size="sm">
-                      <Plus className="h-4 w-4 mr-2" />
-                      Add Unit
-                    </Button>
-                  </DialogTrigger>
-                  <DialogContent>
-                    <DialogHeader>
-                      <DialogTitle>Add Unit</DialogTitle>
-                      <DialogDescription>Select a unit to add to this opportunity</DialogDescription>
-                    </DialogHeader>
-                    <div className="space-y-4">
-                      <div>
-                        <Label>Unit</Label>
-                        <Select value={selectedUnitId} onValueChange={setSelectedUnitId}>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select unit" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {units
-                              .filter((u) => u.status === 'published')
-                              .map((unit) => (
-                                <SelectItem key={unit.id} value={unit.id}>
-                                  {unit.year} {unit.make} {unit.model}
-                                </SelectItem>
-                              ))}
-                          </SelectContent>
-                        </Select>
+                  <Dialog open={unitDialog} onOpenChange={setUnitDialog}>
+                    <DialogTrigger asChild>
+                      <Button size="sm">
+                        <Plus className="h-4 w-4 mr-2" />
+                        Add Unit
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent>
+                      <DialogHeader>
+                        <DialogTitle>Add Unit</DialogTitle>
+                        <DialogDescription>Select a unit to add to this opportunity</DialogDescription>
+                      </DialogHeader>
+                      <div className="space-y-4">
+                        <div>
+                          <Label>Unit</Label>
+                          <Select value={selectedUnitId} onValueChange={setSelectedUnitId}>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select unit" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {units
+                                .filter((u) => u.status === 'published')
+                                .map((unit) => (
+                                  <SelectItem key={unit.id} value={unit.id}>
+                                    {unit.year} {unit.make} {unit.model}
+                                  </SelectItem>
+                                ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div>
+                          <Label>Agreed Price (Optional)</Label>
+                          <Input
+                            type="number"
+                            value={unitPrice}
+                            onChange={(e) => setUnitPrice(e.target.value)}
+                            placeholder="0.00"
+                          />
+                        </div>
+                        <Button onClick={handleAddUnit} className="w-full">Add Unit</Button>
                       </div>
-                      <div>
-                        <Label>Agreed Price (Optional)</Label>
-                        <Input
-                          type="number"
-                          value={unitPrice}
-                          onChange={(e) => setUnitPrice(e.target.value)}
-                          placeholder="0.00"
-                        />
-                      </div>
-                      <Button onClick={handleAddUnit} className="w-full">Add Unit</Button>
-                    </div>
-                  </DialogContent>
-                </Dialog>
+                    </DialogContent>
+                  </Dialog>
                 )}
               </CardHeader>
               <CardContent>
@@ -428,12 +440,13 @@ export default function OpportunityDetail() {
                             )}
                           </div>
                           {permissions.canEditCRM && (
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => handleRemoveUnit(ou.unit_id)}
-                          >
-                            <X className="h-4 w-4" />
-                          </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleRemoveUnit(ou.unit_id)}
+                            >
+                              <X className="h-4 w-4" />
+                            </Button>
                           )}
                         </div>
                       );
@@ -449,46 +462,46 @@ export default function OpportunityDetail() {
               <CardHeader className="flex flex-row items-center justify-between">
                 <CardTitle>Activity Timeline</CardTitle>
                 {permissions.canEditCRM && (
-                <Dialog open={activityDialog} onOpenChange={setActivityDialog}>
-                  <DialogTrigger asChild>
-                    <Button size="sm">
-                      <Plus className="h-4 w-4 mr-2" />
-                      Log Activity
-                    </Button>
-                  </DialogTrigger>
-                  <DialogContent>
-                    <DialogHeader>
-                      <DialogTitle>Log Activity</DialogTitle>
-                      <DialogDescription>Record an interaction</DialogDescription>
-                    </DialogHeader>
-                    <div className="space-y-4">
-                      <div>
-                        <Label>Type</Label>
-                        <Select value={activityKind} onValueChange={(v) => setActivityKind(v as ActivityKind)}>
-                          <SelectTrigger>
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="call">Call</SelectItem>
-                            <SelectItem value="email">Email</SelectItem>
-                            <SelectItem value="meeting">Meeting</SelectItem>
-                            <SelectItem value="whatsapp">WhatsApp</SelectItem>
-                            <SelectItem value="note">Note</SelectItem>
-                          </SelectContent>
-                        </Select>
+                  <Dialog open={activityDialog} onOpenChange={setActivityDialog}>
+                    <DialogTrigger asChild>
+                      <Button size="sm">
+                        <Plus className="h-4 w-4 mr-2" />
+                        Log Activity
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent>
+                      <DialogHeader>
+                        <DialogTitle>Log Activity</DialogTitle>
+                        <DialogDescription>Record an interaction</DialogDescription>
+                      </DialogHeader>
+                      <div className="space-y-4">
+                        <div>
+                          <Label>Type</Label>
+                          <Select value={activityKind} onValueChange={(v) => setActivityKind(v as ActivityKind)}>
+                            <SelectTrigger>
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="call">Call</SelectItem>
+                              <SelectItem value="email">Email</SelectItem>
+                              <SelectItem value="meeting">Meeting</SelectItem>
+                              <SelectItem value="whatsapp">WhatsApp</SelectItem>
+                              <SelectItem value="note">Note</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div>
+                          <Label>Subject</Label>
+                          <Input value={subject} onChange={(e) => setSubject(e.target.value)} />
+                        </div>
+                        <div>
+                          <Label>Notes</Label>
+                          <Textarea value={body} onChange={(e) => setBody(e.target.value)} rows={4} />
+                        </div>
+                        <Button onClick={handleLogActivity} className="w-full">Log Activity</Button>
                       </div>
-                      <div>
-                        <Label>Subject</Label>
-                        <Input value={subject} onChange={(e) => setSubject(e.target.value)} />
-                      </div>
-                      <div>
-                        <Label>Notes</Label>
-                        <Textarea value={body} onChange={(e) => setBody(e.target.value)} rows={4} />
-                      </div>
-                      <Button onClick={handleLogActivity} className="w-full">Log Activity</Button>
-                    </div>
-                  </DialogContent>
-                </Dialog>
+                    </DialogContent>
+                  </Dialog>
                 )}
               </CardHeader>
               <CardContent>
@@ -523,39 +536,40 @@ export default function OpportunityDetail() {
               <CardHeader className="flex flex-row items-center justify-between">
                 <CardTitle>Documents</CardTitle>
                 {permissions.canEditCRM && (
-                <Dialog open={documentDialog} onOpenChange={setDocumentDialog}>
-                  <DialogTrigger asChild>
-                    <Button size="sm">
-                      <Upload className="h-4 w-4 mr-2" />
-                      Upload Document
-                    </Button>
-                  </DialogTrigger>
-                  <DialogContent>
-                    <DialogHeader>
-                      <DialogTitle>Upload Document</DialogTitle>
-                      <DialogDescription>Add KYC documents, ID, licenses, etc.</DialogDescription>
-                    </DialogHeader>
-                    <div className="space-y-4">
-                      <div>
-                        <Label>Document Name</Label>
-                        <Input
-                          value={documentName}
-                          onChange={(e) => setDocumentName(e.target.value)}
-                          placeholder="e.g., Driver License"
-                        />
+                  <Dialog open={documentDialog} onOpenChange={setDocumentDialog}>
+                    <DialogTrigger asChild>
+                      <Button size="sm">
+                        <Upload className="h-4 w-4 mr-2" />
+                        Upload Document
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent>
+                      <DialogHeader>
+                        <DialogTitle>Upload Document</DialogTitle>
+                        <DialogDescription>Add KYC documents, ID, licenses, etc.</DialogDescription>
+                      </DialogHeader>
+                      <div className="space-y-4">
+                        <div>
+                          <Label>Document Name</Label>
+                          <Input
+                            value={documentName}
+                            onChange={(e) => setDocumentName(e.target.value)}
+                            placeholder="e.g., Driver License"
+                          />
+                        </div>
+                        <div>
+                          <Label>File URL</Label>
+                          <Input
+                            value={documentUrl}
+                            onChange={(e) => setDocumentUrl(e.target.value)}
+                            placeholder="https://..."
+                          />
+                        </div>
+                        <Button onClick={handleAddDocument} className="w-full">Upload</Button>
                       </div>
-                      <div>
-                        <Label>File URL</Label>
-                        <Input
-                          value={documentUrl}
-                          onChange={(e) => setDocumentUrl(e.target.value)}
-                          placeholder="https://..."
-                        />
-                      </div>
-                      <Button onClick={handleAddDocument} className="w-full">Upload</Button>
-                    </div>
-                  </DialogContent>
-                </Dialog>
+                    </DialogContent>
+                  </Dialog>
+                )}
               </CardHeader>
               <CardContent>
                 {documents.length === 0 ? (
