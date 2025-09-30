@@ -28,13 +28,18 @@ import {
 } from '@/components/ui/dialog';
 import { Card, CardContent } from '@/components/ui/card';
 import { usePurchasingStore } from '@/services/purchasingStore';
+import { useCRMStore } from '@/services/crmStore';
 import { BuyerRequest, BuyerRequestStatus } from '@/types';
-import { Search, Eye, CheckCircle, XCircle } from 'lucide-react';
+import { Search, Eye, CheckCircle, XCircle, UserPlus } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
+import { useNavigate } from 'react-router-dom';
+import { toast } from 'sonner';
 
 export default function BuyerRequests() {
   const { t } = useTranslation();
   const { buyerRequests, updateBuyerRequest } = usePurchasingStore();
+  const { createLeadFromBuyerRequest } = useCRMStore();
+  const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<BuyerRequestStatus | 'all'>('all');
   const [categoryFilter, setCategoryFilter] = useState<'all' | 'truck' | 'trailer' | 'equipment'>('all');
@@ -67,6 +72,18 @@ export default function BuyerRequests() {
 
   const handleStatusChange = (id: string, status: BuyerRequestStatus) => {
     updateBuyerRequest(id, { status });
+  };
+
+  const handleCreateLead = (request: BuyerRequest) => {
+    try {
+      const lead = createLeadFromBuyerRequest(request);
+      toast.success('Lead created successfully!');
+      handleStatusChange(request.id, 'in_review');
+      navigate(`/backoffice/crm/leads/${lead.id}`);
+    } catch (error) {
+      toast.error('Failed to create lead');
+      console.error(error);
+    }
   };
 
   return (
@@ -194,18 +211,21 @@ export default function BuyerRequests() {
                             size="sm"
                             variant="ghost"
                             onClick={() => setSelectedRequest(request)}
+                            title="View Details"
                           >
                             <Eye className="h-4 w-4" />
                           </Button>
-                          {request.status === 'new' && (
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              onClick={() => handleStatusChange(request.id, 'in_review')}
-                            >
-                              <CheckCircle className="h-4 w-4" />
-                            </Button>
-                          )}
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleCreateLead(request);
+                            }}
+                            title="Create Lead"
+                          >
+                            <UserPlus className="h-4 w-4" />
+                          </Button>
                         </div>
                       </TableCell>
                     </TableRow>
@@ -311,25 +331,31 @@ export default function BuyerRequests() {
                   </div>
                 )}
 
-                <div className="border-t pt-4 flex items-center gap-2">
-                  <label className="text-sm font-medium">Status:</label>
-                  <Select
-                    value={selectedRequest.status}
-                    onValueChange={(v) => {
-                      handleStatusChange(selectedRequest.id, v as BuyerRequestStatus);
-                      setSelectedRequest({ ...selectedRequest, status: v as BuyerRequestStatus });
-                    }}
-                  >
-                    <SelectTrigger className="w-40">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="new">New</SelectItem>
-                      <SelectItem value="in_review">In Review</SelectItem>
-                      <SelectItem value="matched">Matched</SelectItem>
-                      <SelectItem value="closed">Closed</SelectItem>
-                    </SelectContent>
-                  </Select>
+                <div className="border-t pt-4 flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <label className="text-sm font-medium">Status:</label>
+                    <Select
+                      value={selectedRequest.status}
+                      onValueChange={(v) => {
+                        handleStatusChange(selectedRequest.id, v as BuyerRequestStatus);
+                        setSelectedRequest({ ...selectedRequest, status: v as BuyerRequestStatus });
+                      }}
+                    >
+                      <SelectTrigger className="w-40">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="new">New</SelectItem>
+                        <SelectItem value="in_review">In Review</SelectItem>
+                        <SelectItem value="matched">Matched</SelectItem>
+                        <SelectItem value="closed">Closed</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <Button onClick={() => handleCreateLead(selectedRequest)}>
+                    <UserPlus className="h-4 w-4 mr-2" />
+                    Create Lead
+                  </Button>
                 </div>
               </div>
             )}

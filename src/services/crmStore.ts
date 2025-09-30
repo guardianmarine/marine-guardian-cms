@@ -79,6 +79,7 @@ interface CRMStore {
 
   // Lead Intake Links
   linkBuyerRequestToLead: (buyerRequestId: string, leadId: string) => void;
+  createLeadFromBuyerRequest: (buyerRequest: any) => Lead;
 }
 
 export const useCRMStore = create<CRMStore>((set, get) => ({
@@ -299,5 +300,75 @@ export const useCRMStore = create<CRMStore>((set, get) => ({
       created_at: new Date().toISOString(),
     };
     set((state) => ({ leadIntakeLinks: [...state.leadIntakeLinks, link] }));
+  },
+
+  // Create Lead from Buyer Request with deduplication
+  createLeadFromBuyerRequest: (buyerRequest: any) => {
+    const { contacts, accounts, addAccount, addContact, addLead, linkBuyerRequestToLead } = get();
+    
+    // Deduplication: search for existing contact by email or phone
+    let existingContact = contacts.find(
+      (c) => c.email === buyerRequest.email || c.phone === buyerRequest.phone
+    );
+    
+    let accountId: string;
+    let contactId: string;
+    
+    if (existingContact) {
+      // Use existing contact and their account
+      accountId = existingContact.account_id;
+      contactId = existingContact.id;
+    } else {
+      // Create new account (assume individual unless company name detected)
+      const isCompany = false; // Could add logic to detect company from name
+      const newAccount = addAccount({
+        name: buyerRequest.requester_name,
+        kind: isCompany ? 'company' : 'individual',
+        phone: buyerRequest.phone,
+        email: buyerRequest.email,
+        notes: `Created from buyer request on ${new Date().toLocaleDateString()}`,
+        is_tax_exempt: false,
+        resale_cert: false,
+      });
+      accountId = newAccount.id;
+      
+      // Create new contact
+      const nameParts = buyerRequest.requester_name.split(' ');
+      const firstName = nameParts[0] || '';
+      const lastName = nameParts.slice(1).join(' ') || '';
+      
+      const newContact = addContact({
+        account_id: accountId,
+        first_name: firstName,
+        last_name: lastName,
+        email: buyerRequest.email,
+        phone: buyerRequest.phone,
+        preferred_lang: buyerRequest.locale,
+      });
+      contactId = newContact.id;
+    }
+    
+    // Get owner assignment (round-robin among sales users)
+    const salesUsers = ['user-1', 'user-2', 'user-3']; // Mock sales user IDs
+    const ownerUserId = salesUsers[get().leads.length % salesUsers.length];
+    
+    // Create lead with buyer request data
+    const lead = addLead({
+      source: 'web_form' as LeadSource,
+      account_id: accountId,
+      contact_id: contactId,
+      category_interest: buyerRequest.category,
+      unit_interest_id: null,
+      status: 'new' as LeadStatus,
+      lead_score: 0,
+      sla_first_touch_hours: 24,
+      first_touch_at: null,
+      owner_user_id: ownerUserId,
+    });
+    
+    // Link buyer request to lead
+    linkBuyerRequestToLead(buyerRequest.id, lead.id);
+    
+    return lead;
   },
 }));
