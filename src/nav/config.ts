@@ -14,7 +14,7 @@ export const NAV_ITEMS: NavItem[] = [
     id: 'dashboard', 
     route: '/admin', 
     icon: 'Home', 
-    label: { en: 'Dashboard', es: 'Panel' }, 
+    label: { en: 'Company Dashboard', es: 'Panel de la Empresa' }, 
     roles: ['admin', 'inventory', 'sales', 'finance', 'viewer'] 
   },
 

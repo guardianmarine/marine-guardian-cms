@@ -16,10 +16,10 @@ export default function Dashboard() {
       <div className="p-6 space-y-6 animate-fade-in">
         <div>
           <h2 className="text-3xl font-bold">
-            {t('dashboard.welcomeBack', 'Welcome back')}, {user?.name}
+            {t('dashboard.companyDashboard', 'Company Dashboard')}
           </h2>
           <p className="text-muted-foreground">
-            {t('dashboard.subtitle', 'Stay updated with company news and your tasks')}
+            {t('dashboard.welcomeBack', 'Welcome back')}, {user?.name}
           </p>
         </div>
 

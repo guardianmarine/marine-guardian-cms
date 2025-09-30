@@ -43,8 +43,8 @@ export default function Login() {
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
           <img src={logo} alt="Guardian Marine" className="h-16 mx-auto mb-4" />
-          <CardTitle className="text-2xl">Backoffice Login</CardTitle>
-          <CardDescription>Enter your credentials to access the admin panel</CardDescription>
+          <CardTitle className="text-2xl">Company Dashboard</CardTitle>
+          <CardDescription>Enter your credentials to access the dashboard</CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">

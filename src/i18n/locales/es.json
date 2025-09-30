@@ -23,6 +23,7 @@
     "insufficientRoleMessage": "No tienes el rol requerido para acceder a este recurso."
   },
   "dashboard": {
+    "companyDashboard": "Panel de la Empresa",
     "welcomeBack": "Bienvenido de nuevo",
     "subtitle": "Mantente actualizado con las noticias de la empresa y tus tareas",
     "announcements": "Anuncios",

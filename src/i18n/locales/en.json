@@ -23,6 +23,7 @@
     "insufficientRoleMessage": "You do not have the required role to access this resource."
   },
   "dashboard": {
+    "companyDashboard": "Company Dashboard",
     "welcomeBack": "Welcome back",
     "subtitle": "Stay updated with company news and your tasks",
     "announcements": "Announcements",
