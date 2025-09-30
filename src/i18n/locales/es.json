@@ -231,6 +231,11 @@
     "dueDate": "Fecha de Vencimiento",
     "billTo": "Facturar a",
     "wireInstructions": "Instrucciones de Transferencia",
-    "disclaimer": "Aviso Legal"
+    "disclaimer": "Aviso Legal",
+    "issueDeal": "Emitir Trato",
+    "markDelivered": "Marcar Entregado",
+    "closeDeal": "Cerrar Trato",
+    "dealClosed": "Trato Cerrado",
+    "delivered": "Entregado"
   }
 }

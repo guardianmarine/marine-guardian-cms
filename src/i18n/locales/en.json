@@ -231,6 +231,11 @@
     "dueDate": "Due Date",
     "billTo": "Bill To",
     "wireInstructions": "Wire Transfer Instructions",
-    "disclaimer": "Disclaimer"
+    "disclaimer": "Disclaimer",
+    "issueDeal": "Issue Deal",
+    "markDelivered": "Mark Delivered",
+    "closeDeal": "Close Deal",
+    "dealClosed": "Deal Closed",
+    "delivered": "Delivered"
   }
 }

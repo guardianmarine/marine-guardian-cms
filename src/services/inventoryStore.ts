@@ -31,7 +31,24 @@ interface InventoryStore {
   canPublish: (id: string) => { valid: boolean; errors: string[] };
 }
 
-export const useInventoryStore = create<InventoryStore>((set, get) => ({
+export const useInventoryStore = create<InventoryStore>((set, get) => {
+  // Listen for deal-closed events
+  if (typeof window !== 'undefined') {
+    window.addEventListener('deal-closed', ((e: CustomEvent) => {
+      const { unitIds, soldAt } = e.detail;
+      unitIds.forEach((unitId: string) => {
+        const unit = get().units.find(u => u.id === unitId);
+        if (unit && unit.status !== 'sold') {
+          get().updateUnit(unitId, {
+            status: 'sold',
+            sold_at: soldAt,
+          });
+        }
+      });
+    }) as EventListener);
+  }
+
+  return {
   units: mockUnits,
   events: [],
 
@@ -305,4 +322,6 @@ export const useInventoryStore = create<InventoryStore>((set, get) => ({
 
     return { valid: errors.length === 0, errors };
   },
-}));
+  };
+});
+

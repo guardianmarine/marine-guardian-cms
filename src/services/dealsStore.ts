@@ -36,6 +36,10 @@ interface DealsStore {
   deleteDeal: (id: string) => void;
   getDealById: (id: string) => Deal | undefined;
   getDealsByOpportunity: (opportunityId: string) => Deal[];
+  createDealFromOpportunity: (opportunityId: string, accountId: string, salesRepId: string, units: Array<{ unit_id: string; agreed_unit_price?: number }>) => Deal;
+  issueDeal: (dealId: string) => void;
+  markDelivered: (dealId: string) => void;
+  closeDeal: (dealId: string) => void;
 
   // Deal Units
   addDealUnit: (dealUnit: DealUnit) => void;
@@ -86,6 +90,7 @@ interface DealsStore {
   applyTaxRule: (dealId: string, ruleId: string) => void;
 }
 
+
 export const useDealsStore = create<DealsStore>((set, get) => ({
   deals: mockDeals,
   dealUnits: mockDealUnits,
@@ -113,6 +118,108 @@ export const useDealsStore = create<DealsStore>((set, get) => ({
 
   getDealsByOpportunity: (opportunityId) =>
     get().deals.filter((d) => d.opportunity_id === opportunityId),
+
+  createDealFromOpportunity: (opportunityId, accountId, salesRepId, units) => {
+    const dealId = `deal-${Date.now()}`;
+    const now = new Date().toISOString();
+
+    // Calculate vehicle subtotal from units
+    const vehicleSubtotal = units.reduce((sum, u) => sum + (u.agreed_unit_price || 0), 0);
+
+    // Create the deal
+    const newDeal: Deal = {
+      id: dealId,
+      opportunity_id: opportunityId,
+      account_id: accountId,
+      sales_rep_id: salesRepId,
+      status: 'draft',
+      currency: 'USD',
+      vehicle_subtotal: vehicleSubtotal,
+      discounts_total: 0,
+      taxes_total: 0,
+      fees_total: 0,
+      total_due: vehicleSubtotal,
+      amount_paid: 0,
+      balance_due: vehicleSubtotal,
+      created_at: now,
+      updated_at: now,
+    };
+
+    set((state) => ({ deals: [...state.deals, newDeal] }));
+
+    // Add deal units
+    units.forEach((unit) => {
+      const dealUnit: DealUnit = {
+        deal_id: dealId,
+        unit_id: unit.unit_id,
+        agreed_unit_price: unit.agreed_unit_price || 0,
+      };
+      set((state) => ({ dealUnits: [...state.dealUnits, dealUnit] }));
+    });
+
+    // Create commission record (accrued)
+    const commission = {
+      id: `comm-${Date.now()}`,
+      deal_id: dealId,
+      sales_rep_id: salesRepId,
+      basis: 'net' as const,
+      percent: 3.0, // Default 3%
+      flat_amount: undefined,
+      calculated_amount: vehicleSubtotal * 0.03,
+      status: 'accrued' as const,
+      paid_at: undefined,
+      note: undefined,
+      created_at: now,
+      updated_at: now,
+    };
+    set((state) => ({ commissions: [...state.commissions, commission] }));
+
+    return newDeal;
+  },
+
+  issueDeal: (dealId) => {
+    const deal = get().getDealById(dealId);
+    if (!deal || deal.status !== 'draft') return;
+
+    get().updateDeal(dealId, {
+      status: 'issued',
+      issued_at: new Date().toISOString(),
+    });
+  },
+
+  markDelivered: (dealId) => {
+    const deal = get().getDealById(dealId);
+    if (!deal || deal.status !== 'paid') return;
+
+    get().updateDeal(dealId, {
+      delivered_at: new Date().toISOString(),
+    });
+  },
+
+  closeDeal: (dealId) => {
+    const deal = get().getDealById(dealId);
+    if (!deal || !deal.delivered_at) return;
+
+    const now = new Date().toISOString();
+    get().updateDeal(dealId, {
+      closed_at: now,
+    });
+
+    // Update all units in this deal to 'sold'
+    const dealUnits = get().getDealUnits(dealId);
+    // We need access to the inventory store to update units
+    // For now, we'll emit a custom event that the inventory store can listen to
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('deal-closed', { 
+        detail: { 
+          dealId, 
+          unitIds: dealUnits.map(du => du.unit_id),
+          soldAt: now,
+        } 
+      }));
+    }
+  },
+
 
   // Deal Units
   addDealUnit: (dealUnit) =>

@@ -13,9 +13,10 @@ import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useCRMStore } from '@/services/crmStore';
 import { useInventoryStore } from '@/services/inventoryStore';
+import { useDealsStore } from '@/services/dealsStore';
 import { useAuth } from '@/contexts/AuthContext';
 import { getCRMPermissions } from '@/lib/permissions';
-import { TrendingUp, Package, FileText, Activity as ActivityIcon, Plus, X, CheckCircle, XCircle, Upload } from 'lucide-react';
+import { TrendingUp, Package, FileText, Activity as ActivityIcon, Plus, X, CheckCircle, XCircle, Upload, DollarSign } from 'lucide-react';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
 import { OpportunityStage, OpportunityReasonLost, ActivityKind } from '@/types';
@@ -42,6 +43,7 @@ export default function OpportunityDetail() {
     addDocument,
   } = useCRMStore();
   const { units } = useInventoryStore();
+  const { createDealFromOpportunity, getDealsByOpportunity } = useDealsStore();
   
   const permissions = user ? getCRMPermissions(user.role) : { canEditCRM: false };
 
@@ -175,6 +177,31 @@ export default function OpportunityDetail() {
     setCloseDialog(false);
   };
 
+  const handleCreateDeal = () => {
+    if (opportunityUnits.length === 0) {
+      toast.error('Add at least one unit before creating a deal');
+      return;
+    }
+
+    const unitsWithPrice = opportunityUnits.map(ou => ({
+      unit_id: ou.unit_id,
+      agreed_unit_price: ou.agreed_unit_price || 0,
+    }));
+
+    const deal = createDealFromOpportunity(
+      opportunity.id,
+      opportunity.account_id,
+      opportunity.owner_user_id,
+      unitsWithPrice
+    );
+
+    toast.success('Deal created successfully!');
+    navigate(`/backoffice/deals/${deal.id}`);
+  };
+
+  const existingDeals = getDealsByOpportunity(opportunity.id);
+
+
   const getStageColor = (stage: OpportunityStage) => {
     const colors = {
       new: 'bg-blue-500',
@@ -219,6 +246,18 @@ export default function OpportunityDetail() {
               <Badge className={getStageColor(opportunity.pipeline_stage)}>
                 {opportunity.pipeline_stage}
               </Badge>
+            )}
+            {permissions.canEditCRM && opportunity.pipeline_stage === 'won' && existingDeals.length === 0 && (
+              <Button onClick={handleCreateDeal}>
+                <DollarSign className="h-4 w-4 mr-2" />
+                Create Deal
+              </Button>
+            )}
+            {existingDeals.length > 0 && (
+              <Button variant="outline" onClick={() => navigate(`/backoffice/deals/${existingDeals[0].id}`)}>
+                <DollarSign className="h-4 w-4 mr-2" />
+                View Deal
+              </Button>
             )}
             {permissions.canEditCRM && opportunity.pipeline_stage !== 'won' && opportunity.pipeline_stage !== 'lost' && (
               <Dialog open={closeDialog} onOpenChange={setCloseDialog}>

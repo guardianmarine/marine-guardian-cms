@@ -62,6 +62,9 @@ export default function DealDetail() {
     taxRegimes,
     applyTaxRule,
     getActiveTaxRule,
+    issueDeal,
+    markDelivered,
+    closeDeal,
   } = useDealsStore();
 
   const { opportunities, accounts } = useCRMStore();
@@ -206,6 +209,39 @@ export default function DealDetail() {
     });
   };
 
+  const handleIssueDeal = () => {
+    if (!deal) return;
+    issueDeal(deal.id);
+    const updatedDeal = deals.find((d) => d.id === deal.id);
+    if (updatedDeal) setDeal(updatedDeal);
+    toast({
+      title: 'Success',
+      description: 'Deal issued successfully',
+    });
+  };
+
+  const handleMarkDelivered = () => {
+    if (!deal) return;
+    markDelivered(deal.id);
+    const updatedDeal = deals.find((d) => d.id === deal.id);
+    if (updatedDeal) setDeal(updatedDeal);
+    toast({
+      title: 'Success',
+      description: 'Deal marked as delivered',
+    });
+  };
+
+  const handleCloseDeal = () => {
+    if (!deal) return;
+    closeDeal(deal.id);
+    const updatedDeal = deals.find((d) => d.id === deal.id);
+    if (updatedDeal) setDeal(updatedDeal);
+    toast({
+      title: 'Success',
+      description: 'Deal closed successfully. Units marked as sold.',
+    });
+  };
+
   if (isNew) {
     return (
       <BackofficeLayout>
@@ -295,10 +331,28 @@ export default function DealDetail() {
             <Badge className={deal.status === 'paid' ? 'bg-green-100 text-green-800' : ''}>
               {deal.status.replace('_', ' ').toUpperCase()}
             </Badge>
-            <Button onClick={handleGenerateInvoice}>
-              <Download className="h-4 w-4 mr-2" />
-              Generate Invoice
-            </Button>
+            {deal.status === 'draft' && (
+              <Button onClick={handleIssueDeal}>
+                <FileText className="h-4 w-4 mr-2" />
+                Issue Deal
+              </Button>
+            )}
+            {deal.status === 'paid' && !deal.delivered_at && (
+              <Button onClick={handleMarkDelivered} variant="outline">
+                Mark Delivered
+              </Button>
+            )}
+            {deal.status === 'paid' && deal.delivered_at && !deal.closed_at && (
+              <Button onClick={handleCloseDeal}>
+                Close Deal
+              </Button>
+            )}
+            {(deal.status === 'issued' || deal.status === 'paid') && (
+              <Button onClick={handleGenerateInvoice} variant="outline">
+                <Download className="h-4 w-4 mr-2" />
+                Generate Invoice
+              </Button>
+            )}
           </div>
         </div>
 
