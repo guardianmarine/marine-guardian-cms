@@ -289,5 +289,62 @@
     "decodeFailed": "Failed to decode VIN",
     "success": "Success",
     "fieldsApplied": "{{count}} fields applied from VIN decode"
+  },
+  "insights": {
+    "title": "Insights",
+    "subtitle": "Analytics and reports powered by client-side aggregation",
+    "refreshData": "Refresh Data",
+    "loading": "Loading...",
+    "dateRange": "Date Range",
+    "last90Days": "Last 90 Days",
+    "last30Days": "Last 30 Days",
+    "last180Days": "Last 180 Days",
+    "customRange": "Custom Range",
+    "limit": "Limit",
+    "exportCSV": "Export CSV",
+    "showExplanation": "Show Explanation",
+    "hideExplanation": "Hide Explanation",
+    "noData": "No data available",
+    "noDataDescription": "Try adjusting your date range or filters",
+    "errorLoading": "Failed to load insights. Please check your database connection and permissions.",
+    "quickChips": {
+      "topCombos": "Top Combos (90d)",
+      "slowMovers": "Slow Movers (90+ days)",
+      "leadsLost": "Leads Lost Reasons",
+      "repeatBuyers": "Repeat Buyers",
+      "repPerformance": "Rep Performance"
+    },
+    "tabs": {
+      "sales": "Sales",
+      "inventory": "Inventory",
+      "customers": "Customers",
+      "profitability": "Profitability",
+      "comingSoon": "Coming Soon"
+    },
+    "topPerformers": {
+      "title": "Top Sales Performers",
+      "description": "Sales representatives ranked by total deal value",
+      "explanation": "This report shows which sales reps are closing the most deals by total value. Use this to identify top performers and set benchmarks for your team."
+    },
+    "pipeline": {
+      "title": "Opportunity Pipeline by Stage",
+      "description": "Current opportunities grouped by sales stage",
+      "explanation": "Track your sales funnel health by seeing how opportunities are distributed across stages. A healthy pipeline should have more opportunities in early stages than late stages."
+    },
+    "slowMovers": {
+      "title": "Slow-Moving Inventory",
+      "description": "Units on the lot for over 90 days that need attention",
+      "explanation": "These units have been in inventory for more than 90 days. Consider price adjustments, promotions, or reconditioning to move them faster."
+    },
+    "turnover": {
+      "title": "Average Days on Lot by Category",
+      "description": "How quickly different unit types are selling",
+      "explanation": "Lower numbers indicate faster turnover. Use this to understand which categories are in high demand and adjust purchasing accordingly."
+    },
+    "repeatCustomers": {
+      "title": "Top Repeat Customers",
+      "description": "Customers with multiple purchases",
+      "explanation": "These customers have purchased multiple times. Focus on maintaining these relationships and understanding what drives their loyalty."
+    }
   }
 }

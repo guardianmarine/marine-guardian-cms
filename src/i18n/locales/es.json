@@ -289,5 +289,62 @@
     "decodeFailed": "Error al decodificar VIN",
     "success": "Éxito",
     "fieldsApplied": "{{count}} campos aplicados desde la decodificación VIN"
+  },
+  "insights": {
+    "title": "Analíticos",
+    "subtitle": "Análisis e informes basados en agregación del lado del cliente",
+    "refreshData": "Actualizar Datos",
+    "loading": "Cargando...",
+    "dateRange": "Rango de Fechas",
+    "last90Days": "Últimos 90 Días",
+    "last30Days": "Últimos 30 Días",
+    "last180Days": "Últimos 180 Días",
+    "customRange": "Rango Personalizado",
+    "limit": "Límite",
+    "exportCSV": "Exportar CSV",
+    "showExplanation": "Mostrar Explicación",
+    "hideExplanation": "Ocultar Explicación",
+    "noData": "No hay datos disponibles",
+    "noDataDescription": "Intenta ajustar tu rango de fechas o filtros",
+    "errorLoading": "Error al cargar analíticos. Por favor verifica tu conexión a la base de datos y permisos.",
+    "quickChips": {
+      "topCombos": "Mejores Combos (90d)",
+      "slowMovers": "Inventario Lento (90+ días)",
+      "leadsLost": "Razones de Prospectos Perdidos",
+      "repeatBuyers": "Compradores Repetidos",
+      "repPerformance": "Rendimiento de Vendedores"
+    },
+    "tabs": {
+      "sales": "Ventas",
+      "inventory": "Inventario",
+      "customers": "Clientes",
+      "profitability": "Rentabilidad",
+      "comingSoon": "Próximamente"
+    },
+    "topPerformers": {
+      "title": "Mejores Vendedores",
+      "description": "Representantes de ventas clasificados por valor total de tratos",
+      "explanation": "Este informe muestra qué vendedores están cerrando más tratos por valor total. Úsalo para identificar a los mejores y establecer puntos de referencia para tu equipo."
+    },
+    "pipeline": {
+      "title": "Pipeline de Oportunidades por Etapa",
+      "description": "Oportunidades actuales agrupadas por etapa de ventas",
+      "explanation": "Rastrea la salud de tu embudo de ventas viendo cómo se distribuyen las oportunidades en las etapas. Un pipeline saludable debe tener más oportunidades en etapas tempranas que tardías."
+    },
+    "slowMovers": {
+      "title": "Inventario de Movimiento Lento",
+      "description": "Unidades en el lote por más de 90 días que necesitan atención",
+      "explanation": "Estas unidades han estado en inventario por más de 90 días. Considera ajustes de precio, promociones o reacondicionamiento para moverlas más rápido."
+    },
+    "turnover": {
+      "title": "Promedio de Días en Lote por Categoría",
+      "description": "Qué tan rápido se están vendiendo diferentes tipos de unidades",
+      "explanation": "Números más bajos indican rotación más rápida. Usa esto para entender qué categorías tienen alta demanda y ajusta las compras en consecuencia."
+    },
+    "repeatCustomers": {
+      "title": "Principales Clientes Repetidos",
+      "description": "Clientes con múltiples compras",
+      "explanation": "Estos clientes han comprado múltiples veces. Enfócate en mantener estas relaciones y entender qué impulsa su lealtad."
+    }
   }
 }
