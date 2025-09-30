@@ -16,6 +16,34 @@ export const mockUser: User = {
   updated_at: new Date().toISOString(),
 };
 
+export const mockUsers: User[] = [
+  mockUser,
+  {
+    id: 'user-2',
+    name: 'John Sales',
+    email: 'john@guardianmarine.com',
+    role: 'sales',
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  },
+  {
+    id: 'user-3',
+    name: 'Maria Lopez',
+    email: 'maria@guardianmarine.com',
+    role: 'sales',
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  },
+  {
+    id: 'user-4',
+    name: 'Finance Manager',
+    email: 'finance@guardianmarine.com',
+    role: 'finance',
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  },
+];
+
 export const mockUnits: Unit[] = [
   {
     id: '1',

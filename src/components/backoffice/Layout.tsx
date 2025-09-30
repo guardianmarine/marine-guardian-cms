@@ -14,10 +14,7 @@ import {
   ShoppingCart,
   ChevronDown,
   TrendingUp,
-  Phone,
-  UserCircle,
-  Briefcase,
-  ClipboardList
+  DollarSign,
 } from 'lucide-react';
 import { useState } from 'react';
 import { cn } from '@/lib/utils';
@@ -37,6 +34,9 @@ export function BackofficeLayout({ children }: BackofficeLayoutProps) {
   );
   const [crmOpen, setCrmOpen] = useState(
     location.pathname.startsWith('/backoffice/crm')
+  );
+  const [dealsOpen, setDealsOpen] = useState(
+    location.pathname.startsWith('/backoffice/deals') || location.pathname.startsWith('/backoffice/finance')
   );
 
   const handleLogout = () => {
@@ -66,9 +66,20 @@ export function BackofficeLayout({ children }: BackofficeLayoutProps) {
     { path: '/backoffice/crm/tasks', label: 'My Tasks' },
   ];
 
+  const dealsFinanceItems = [
+    { path: '/backoffice/deals', label: 'Deals' },
+    { path: '/backoffice/deals/tax-regimes', label: 'Tax Regimes' },
+    { path: '/backoffice/finance/dashboard', label: 'Finance Dashboard' },
+    { path: '/backoffice/finance/commissions', label: 'Commissions' },
+  ];
+
   const isActive = (path: string, exact?: boolean) => {
     if (exact) return location.pathname === path;
-    return location.pathname.startsWith(path) && !location.pathname.includes('/purchasing') && !location.pathname.includes('/crm');
+    return location.pathname.startsWith(path) && 
+           !location.pathname.includes('/purchasing') && 
+           !location.pathname.includes('/crm') &&
+           !location.pathname.includes('/deals') &&
+           !location.pathname.includes('/finance');
   };
 
   return (
@@ -191,6 +202,49 @@ export function BackofficeLayout({ children }: BackofficeLayoutProps) {
               {crmOpen && (
                 <div className="ml-8 mt-1 space-y-1">
                   {crmItems.map((item) => (
+                    <Link
+                      key={item.path}
+                      to={item.path}
+                      onClick={() => setSidebarOpen(false)}
+                      className={cn(
+                        'block px-3 py-2 rounded-lg text-sm transition-colors',
+                        location.pathname === item.path
+                          ? 'bg-primary/10 text-primary font-medium'
+                          : 'hover:bg-accent hover:text-accent-foreground'
+                      )}
+                    >
+                      {item.label}
+                    </Link>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Deals & Finance Submenu */}
+            <div className="pt-2">
+              <button
+                onClick={() => setDealsOpen(!dealsOpen)}
+                className={cn(
+                  'flex items-center justify-between w-full px-3 py-2 rounded-lg transition-colors',
+                  (location.pathname.includes('/deals') || location.pathname.includes('/finance'))
+                    ? 'bg-primary text-primary-foreground'
+                    : 'hover:bg-accent hover:text-accent-foreground'
+                )}
+              >
+                <div className="flex items-center space-x-3">
+                  <DollarSign className="h-5 w-5" />
+                  <span className="font-medium">Deals & Finance</span>
+                </div>
+                <ChevronDown
+                  className={cn(
+                    'h-4 w-4 transition-transform',
+                    dealsOpen && 'rotate-180'
+                  )}
+                />
+              </button>
+              {dealsOpen && (
+                <div className="ml-8 mt-1 space-y-1">
+                  {dealsFinanceItems.map((item) => (
                     <Link
                       key={item.path}
                       to={item.path}

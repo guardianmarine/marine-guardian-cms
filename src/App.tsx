@@ -32,6 +32,11 @@ import Opportunities from "./pages/backoffice/crm/Opportunities";
 import OpportunityDetail from "./pages/backoffice/crm/OpportunityDetail";
 import OpportunityKanban from "./pages/backoffice/crm/OpportunityKanban";
 import MyTasks from "./pages/backoffice/crm/MyTasks";
+import Deals from "./pages/backoffice/deals/Deals";
+import DealDetail from "./pages/backoffice/deals/DealDetail";
+import TaxRegimes from "./pages/backoffice/deals/TaxRegimes";
+import FinanceDashboard from "./pages/backoffice/finance/FinanceDashboard";
+import Commissions from "./pages/backoffice/finance/Commissions";
 import NotFound from "./pages/NotFound";
 import "@/i18n/config";
 
@@ -204,6 +209,14 @@ const App = () => (
             <Route path="/backoffice/crm/opportunities/kanban" element={<ProtectedRoute><OpportunityKanban /></ProtectedRoute>} />
             <Route path="/backoffice/crm/opportunities/:id" element={<ProtectedRoute><OpportunityDetail /></ProtectedRoute>} />
             <Route path="/backoffice/crm/tasks" element={<ProtectedRoute><MyTasks /></ProtectedRoute>} />
+
+            {/* Deals & Finance Routes */}
+            <Route path="/backoffice/deals" element={<ProtectedRoute><Deals /></ProtectedRoute>} />
+            <Route path="/backoffice/deals/new" element={<ProtectedRoute><DealDetail /></ProtectedRoute>} />
+            <Route path="/backoffice/deals/:id" element={<ProtectedRoute><DealDetail /></ProtectedRoute>} />
+            <Route path="/backoffice/deals/tax-regimes" element={<ProtectedRoute><TaxRegimes /></ProtectedRoute>} />
+            <Route path="/backoffice/finance/dashboard" element={<ProtectedRoute><FinanceDashboard /></ProtectedRoute>} />
+            <Route path="/backoffice/finance/commissions" element={<ProtectedRoute><Commissions /></ProtectedRoute>} />
 
             {/* 404 */}
             <Route path="*" element={<NotFound />} />
