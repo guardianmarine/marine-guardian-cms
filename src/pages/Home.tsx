@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 import { HeroSection } from '@/components/home/HeroSection';
 import { UnitCard } from '@/components/inventory/UnitCard';
+import { UnitCardXL } from '@/components/inventory/UnitCardXL';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -86,9 +87,17 @@ export default function Home() {
               ))}
             </div>
           ) : featuredPicks.length > 0 ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-              {featuredPicks.map((pick) => pick.unit && <UnitCard key={pick.id} unit={pick.unit} />)}
-            </div>
+            featuredPicks.length < 4 ? (
+              // XL Cards for small inventory
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                {featuredPicks.map((pick) => pick.unit && <UnitCardXL key={pick.id} unit={pick.unit} />)}
+              </div>
+            ) : (
+              // Regular grid for 4+ items
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                {featuredPicks.map((pick) => pick.unit && <UnitCard key={pick.id} unit={pick.unit} />)}
+              </div>
+            )
           ) : (
             <div className="text-center py-12 text-muted-foreground">
               <p>No featured units at this time. Check back soon!</p>

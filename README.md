@@ -1,73 +1,47 @@
-# Welcome to your Lovable project
-
-## Project info
+# Guardian Marine - Heavy Transport Dealership Platform
 
 **URL**: https://lovable.dev/projects/5e4235bc-d159-45bd-b813-f63f85d081d8
 
-## How can I edit this code?
+A modern, bilingual (EN/ES) web application for Guardian Marine dealership.
 
-There are several ways of editing your application.
+## Phase 1 - Complete ✅
 
-**Use Lovable**
+### Public Website
+- **Home**: Hero with search, Featured Picks (XL cards when < 4 items), Categories, Request Unit CTA
+- **Inventory**: Grid with filters, search params integration, empty states
+- **Unit Detail**: Gallery, specs, similar units, contact CTAs
+- **Sell/Trade**: Simple inquiry form
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/5e4235bc-d159-45bd-b813-f63f85d081d8) and start prompting.
+### Backoffice CMS
+- **Dashboard**: Inventory stats overview
+- **Home Editor**: Hero blocks (EN/ES), Featured Picks drag-and-drop
+- **Media Library**: Upload, edit alt text (EN/ES), delete
+- **Inventory Admin**: View units (full CRUD in Phase 2)
+- **Authentication**: Role-based access, protected routes
 
-Changes made via Lovable will be committed automatically to this repo.
+### Features
+- ✅ Bilingual EN/ES with i18n
+- ✅ XL cards for small inventory (< 4 featured)
+- ✅ Categories hidden when zero stock
+- ✅ Hours field internal-only (never public)
+- ✅ Content cache (5-min TTL)
+- ✅ Responsive, accessible design
+- ✅ Modern white/blue design system
 
-**Use your preferred IDE**
+## Demo Login
+- Email: `admin@guardianmarine.com`
+- Password: `admin123`
 
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
+## Tech Stack
+React 18, TypeScript, Vite, Tailwind CSS, shadcn/ui, react-i18next, Zustand, dnd-kit
 
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
-
-Follow these steps:
+## Development
 
 ```sh
-# Step 1: Clone the repository using the project's Git URL.
 git clone <YOUR_GIT_URL>
-
-# Step 2: Navigate to the project directory.
 cd <YOUR_PROJECT_NAME>
-
-# Step 3: Install the necessary dependencies.
 npm i
-
-# Step 4: Start the development server with auto-reloading and an instant preview.
 npm run dev
 ```
 
-**Edit a file directly in GitHub**
-
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
-
-**Use GitHub Codespaces**
-
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
-
-## What technologies are used for this project?
-
-This project is built with:
-
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
-
-## How can I deploy this project?
-
-Simply open [Lovable](https://lovable.dev/projects/5e4235bc-d159-45bd-b813-f63f85d081d8) and click on Share -> Publish.
-
-## Can I connect a custom domain to my Lovable project?
-
-Yes, you can!
-
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
-
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/features/custom-domain#custom-domain)
+Deploy: Open [Lovable](https://lovable.dev/projects/5e4235bc-d159-45bd-b813-f63f85d081d8) → Share → Publish
