@@ -1,6 +1,12 @@
 import { Unit, InventoryFilters, Locale } from '@/types';
 import { mockUnits } from './mockData';
 
+// Public API serializer - strips internal-only fields
+function serializeForPublic(unit: Unit): Unit {
+  const { hours, ...publicFields } = unit;
+  return publicFields as Unit;
+}
+
 export class InventoryService {
   private static filterUnits(units: Unit[], filters: InventoryFilters): Unit[] {
     return units.filter((unit) => {
@@ -23,11 +29,8 @@ export class InventoryService {
     const publishedUnits = mockUnits.filter((unit) => unit.status === 'published');
     const filtered = this.filterUnits(publishedUnits, filters);
 
-    // Remove hours from public response
-    return filtered.map((unit) => {
-      const { hours, ...publicUnit } = unit;
-      return publicUnit as Unit;
-    });
+    // Strip internal fields using serializer
+    return filtered.map(serializeForPublic);
   }
 
   static async getPublicUnit(id: string, _lang: Locale = 'en'): Promise<Unit | null> {
@@ -36,19 +39,8 @@ export class InventoryService {
     const unit = mockUnits.find((u) => u.id === id && u.status === 'published');
     if (!unit) return null;
 
-    // Remove hours from public response
-    const { hours, ...publicUnit } = unit;
-    return publicUnit as Unit;
-  }
-
-  static async getAllUnits(filters: InventoryFilters = {}): Promise<Unit[]> {
-    await new Promise((resolve) => setTimeout(resolve, 300));
-    return this.filterUnits(mockUnits, filters);
-  }
-
-  static async getUnit(id: string): Promise<Unit | null> {
-    await new Promise((resolve) => setTimeout(resolve, 200));
-    return mockUnits.find((u) => u.id === id) || null;
+    // Strip internal fields using serializer
+    return serializeForPublic(unit);
   }
 
   static async getSimilarUnits(unit: Unit, limit: number = 4): Promise<Unit[]> {
@@ -70,10 +62,7 @@ export class InventoryService {
         return aDiff - bDiff;
       })
       .slice(0, limit)
-      .map((u) => {
-        const { hours, ...publicUnit } = u;
-        return publicUnit as Unit;
-      });
+      .map(serializeForPublic);
 
     // Fallback: if not enough similar units, include same category only
     if (similar.length < limit) {
@@ -87,10 +76,7 @@ export class InventoryService {
         )
         .sort((a, b) => b.year - a.year)
         .slice(0, limit - similar.length)
-        .map((u) => {
-          const { hours, ...publicUnit } = u;
-          return publicUnit as Unit;
-        });
+        .map(serializeForPublic);
       
       return [...similar, ...fallback];
     }
@@ -98,8 +84,9 @@ export class InventoryService {
     return similar;
   }
 
+  // Category counts API - returns only categories with published units
   static getCategoryCounts(): Record<string, number> {
-    const counts = {
+    const counts: Record<string, number> = {
       truck: 0,
       trailer: 0,
       equipment: 0,
@@ -114,13 +101,37 @@ export class InventoryService {
     return counts;
   }
 
+  // Get categories with published units only (for hiding empty categories)
+  static getActiveCategories(): Array<{ category: string; count: number }> {
+    const counts = this.getCategoryCounts();
+    return Object.entries(counts)
+      .filter(([_, count]) => count > 0)
+      .map(([category, count]) => ({ category, count }));
+  }
+
+  // Admin APIs - returns all fields including internal ones
+  static async getAllUnits(filters: InventoryFilters = {}): Promise<Unit[]> {
+    await new Promise((resolve) => setTimeout(resolve, 300));
+    return this.filterUnits(mockUnits, filters);
+  }
+
+  static async getUnit(id: string): Promise<Unit | null> {
+    await new Promise((resolve) => setTimeout(resolve, 200));
+    return mockUnits.find((u) => u.id === id) || null;
+  }
+
+  // Helper methods for filters - only show published units to public
   static getUniqueMakes(category?: string): string[] {
-    const units = category ? mockUnits.filter((u) => u.category === category) : mockUnits;
+    const units = category 
+      ? mockUnits.filter((u) => u.category === category && u.status === 'published') 
+      : mockUnits.filter(u => u.status === 'published');
     return [...new Set(units.map((u) => u.make))].sort();
   }
 
   static getUniqueTypes(category?: string): string[] {
-    const units = category ? mockUnits.filter((u) => u.category === category) : mockUnits;
+    const units = category 
+      ? mockUnits.filter((u) => u.category === category && u.status === 'published') 
+      : mockUnits.filter(u => u.status === 'published');
     return [...new Set(units.map((u) => u.type))].sort();
   }
 }

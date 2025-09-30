@@ -32,26 +32,30 @@ export default function Home() {
     loadContent();
   }, [i18n.language]);
 
+  // Filter out categories with zero stock
   const categories = [
     {
       name: t('categories.trucks'),
       count: categoryCounts.truck,
       icon: Truck,
       link: '/inventory?category=truck',
+      key: 'truck',
     },
     {
       name: t('categories.trailers'),
       count: categoryCounts.trailer,
       icon: Container,
       link: '/inventory?category=trailer',
+      key: 'trailer',
     },
     {
       name: t('categories.equipment'),
       count: categoryCounts.equipment,
       icon: Wrench,
       link: '/inventory?category=equipment',
+      key: 'equipment',
     },
-  ];
+  ].filter((cat) => cat.count > 0); // Hide empty categories
 
   return (
     <div className="flex flex-col min-h-screen">
@@ -113,8 +117,8 @@ export default function Home() {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {categories.map((category) => {
               const Icon = category.icon;
-              return category.count > 0 ? (
-                <Link key={category.name} to={category.link}>
+              return (
+                <Link key={category.key} to={category.link}>
                   <Card className="hover:shadow-medium transition-shadow h-full group">
                     <CardContent className="p-8 text-center space-y-4">
                       <div className="w-16 h-16 mx-auto bg-primary/10 rounded-full flex items-center justify-center group-hover:bg-primary/20 transition-colors">
@@ -133,7 +137,7 @@ export default function Home() {
                     </CardContent>
                   </Card>
                 </Link>
-              ) : null;
+              );
             })}
           </div>
         </div>

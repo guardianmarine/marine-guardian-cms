@@ -65,7 +65,7 @@ export interface UnitPhoto {
 export interface InventoryEvent {
   id: string;
   unit_id: string;
-  event_type: 'created' | 'updated' | 'published' | 'unpublished' | 'status_changed' | 'photo_added' | 'photo_removed' | 'photo_updated';
+  event_type: 'created' | 'updated' | 'published' | 'unpublished' | 'status_changed' | 'photo_added' | 'photo_removed' | 'photo_updated' | 'price_changed';
   data: Record<string, any>;
   actor_user_id: string;
   occurred_at: string;

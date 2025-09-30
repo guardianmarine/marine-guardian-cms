@@ -46,11 +46,28 @@ export const useInventoryStore = create<InventoryStore>((set, get) => ({
   },
 
   updateUnit: (id, data) => {
+    const oldUnit = get().units.find(u => u.id === id);
+    
     set((state) => ({
       units: state.units.map((u) =>
         u.id === id ? { ...u, ...data, updated_at: new Date().toISOString() } : u
       ),
     }));
+
+    // Log price changes
+    if (data.display_price !== undefined && oldUnit && oldUnit.display_price !== data.display_price) {
+      get().logEvent({
+        unit_id: id,
+        event_type: 'price_changed',
+        data: { 
+          old_price: oldUnit.display_price, 
+          new_price: data.display_price,
+          change: data.display_price - oldUnit.display_price
+        },
+        actor_user_id: '1',
+      });
+    }
+
     get().logEvent({
       unit_id: id,
       event_type: 'updated',
