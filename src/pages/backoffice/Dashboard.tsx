@@ -5,6 +5,7 @@ import { AnnouncementsCard } from '@/components/dashboard/AnnouncementsCard';
 import { CompanyCalendarCard } from '@/components/dashboard/CompanyCalendarCard';
 import { QuickActionsCard } from '@/components/dashboard/QuickActionsCard';
 import { BirthdaysCard } from '@/components/dashboard/BirthdaysCard';
+import { UpcomingDeliveriesCard } from '@/components/dashboard/UpcomingDeliveriesCard';
 
 export default function Dashboard() {
   const { t } = useTranslation();
@@ -22,20 +23,25 @@ export default function Dashboard() {
           </p>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Left Column */}
-          <div className="space-y-6">
-            <AnnouncementsCard />
-            <QuickActionsCard />
-          </div>
+        {/* Main Grid */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Left Column - Announcements (spans 2 columns) */}
+          <AnnouncementsCard />
 
           {/* Right Column */}
           <div className="space-y-6">
             <CompanyCalendarCard />
-            <BirthdaysCard />
+            <QuickActionsCard />
           </div>
+        </div>
+
+        {/* Optional Tiles Below */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <UpcomingDeliveriesCard />
+          <BirthdaysCard />
         </div>
       </div>
     </BackofficeLayout>
   );
 }
+

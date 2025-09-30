@@ -2,12 +2,38 @@ import { useTranslation } from 'react-i18next';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Cake, Info } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { format, getMonth, getDate } from 'date-fns';
+
+interface UserWithBirthday {
+  id: string;
+  name: string;
+  birthday?: string;
+  birth_date?: string;
+}
 
 export function BirthdaysCard() {
   const { t } = useTranslation();
 
-  // Mock birthdays - in a real app, fetch from user profiles
-  const birthdays: Array<{ name: string; date: string }> = [];
+  // Mock users - in a real app, fetch from users table
+  const users: UserWithBirthday[] = [];
+
+  // Try to get birthdays from users (checking both birthday and birth_date fields)
+  const currentMonth = getMonth(new Date());
+  const birthdaysThisMonth = users
+    .filter((user) => {
+      const birthDate = user.birthday || user.birth_date;
+      if (!birthDate) return false;
+      return getMonth(new Date(birthDate)) === currentMonth;
+    })
+    .map((user) => {
+      const birthDate = new Date(user.birthday || user.birth_date!);
+      return {
+        name: user.name,
+        day: getDate(birthDate),
+        date: format(birthDate, 'MMM d'),
+      };
+    })
+    .sort((a, b) => a.day - b.day);
 
   return (
     <Card>
@@ -18,19 +44,19 @@ export function BirthdaysCard() {
         </CardTitle>
       </CardHeader>
       <CardContent>
-        {birthdays.length === 0 ? (
+        {birthdaysThisMonth.length === 0 ? (
           <Alert>
             <Info className="h-4 w-4" />
             <AlertDescription className="text-sm">
               {t(
                 'dashboard.noBirthdaysSetup',
-                'No birthdays available. Add birthday information to user profiles to see celebrations here.'
+                'Add birthdays in Admin → Users & Roles to display them here.'
               )}
             </AlertDescription>
           </Alert>
         ) : (
           <div className="space-y-2">
-            {birthdays.map((birthday, index) => (
+            {birthdaysThisMonth.map((birthday, index) => (
               <div
                 key={index}
                 className="p-3 rounded-lg border border-primary/20 bg-primary/5 flex items-center gap-3"
@@ -48,3 +74,4 @@ export function BirthdaysCard() {
     </Card>
   );
 }
+
