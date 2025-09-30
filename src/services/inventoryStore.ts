@@ -16,6 +16,7 @@ interface InventoryStore {
   updatePhoto: (unitId: string, photoId: string, data: Partial<UnitPhoto>) => void;
   deletePhoto: (unitId: string, photoId: string) => void;
   setMainPhoto: (unitId: string, photoId: string) => void;
+  updatePhotoOrder: (unitId: string, photos: UnitPhoto[]) => void;
   
   // Publishing workflow
   publishUnit: (id: string, userId: string) => boolean;
@@ -92,6 +93,12 @@ export const useInventoryStore = create<InventoryStore>((set, get) => ({
           : u
       ),
     }));
+    get().logEvent({
+      unit_id: unitId,
+      event_type: 'photo_updated',
+      data: { photoId, changes: data },
+      actor_user_id: '1',
+    });
   },
 
   deletePhoto: (unitId, photoId) => {
@@ -132,6 +139,16 @@ export const useInventoryStore = create<InventoryStore>((set, get) => ({
     }));
   },
 
+  updatePhotoOrder: (unitId, photos) => {
+    set((state) => ({
+      units: state.units.map((u) =>
+        u.id === unitId
+          ? { ...u, photos, updated_at: new Date().toISOString() }
+          : u
+      ),
+    }));
+  },
+
   publishUnit: (id, userId) => {
     const validation = get().canPublish(id);
     if (!validation.valid) {
@@ -167,7 +184,7 @@ export const useInventoryStore = create<InventoryStore>((set, get) => ({
         u.id === id
           ? {
               ...u,
-              status: 'draft',
+              status: 'ready',
               updated_at: new Date().toISOString(),
             }
           : u
@@ -186,8 +203,27 @@ export const useInventoryStore = create<InventoryStore>((set, get) => ({
     const unit = get().units.find((u) => u.id === id);
     if (!unit) return;
 
+    // Status workflow validation
+    const validTransitions: Record<Unit['status'], Unit['status'][]> = {
+      draft: ['ready', 'archived'],
+      ready: ['published', 'draft', 'archived'],
+      published: ['reserved', 'ready', 'archived'],
+      reserved: ['sold', 'published', 'archived'],
+      sold: ['archived'],
+      archived: [],
+    };
+
+    if (!validTransitions[unit.status].includes(status)) {
+      console.warn(`Invalid status transition from ${unit.status} to ${status}`);
+      return;
+    }
+
     const updates: Partial<Unit> = { status, updated_at: new Date().toISOString() };
 
+    // Auto-stamp timestamps
+    if (status === 'published' && !unit.listed_at) {
+      updates.listed_at = new Date().toISOString().split('T')[0];
+    }
     if (status === 'sold' && !unit.sold_at) {
       updates.sold_at = new Date().toISOString().split('T')[0];
     }

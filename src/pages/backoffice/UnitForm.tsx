@@ -41,7 +41,7 @@ export default function UnitForm() {
   const { id } = useParams();
   const navigate = useNavigate();
   const { toast } = useToast();
-  const { units, addUnit, updateUnit, publishUnit, canPublish, getUnitEvents, addPhoto, deletePhoto, setMainPhoto } = useInventoryStore();
+  const { units, addUnit, updateUnit, publishUnit, canPublish, getUnitEvents, addPhoto, deletePhoto, setMainPhoto, updatePhotoOrder } = useInventoryStore();
 
   const existingUnit = id ? units.find((u) => u.id === id) : null;
   const isNew = !id;
@@ -62,11 +62,64 @@ export default function UnitForm() {
   const [displayPrice, setDisplayPrice] = useState(existingUnit?.display_price?.toString() || '');
   const [status, setStatus] = useState<UnitStatus>(existingUnit?.status || 'draft');
   const [photos, setPhotos] = useState<UnitPhoto[]>(existingUnit?.photos || []);
+  const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
 
+  const currentYear = new Date().getFullYear();
   const sensors = useSensors(
     useSensor(PointerSensor),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
   );
+
+  // Validate form
+  const validateForm = (): boolean => {
+    const errors: Record<string, string> = {};
+    
+    // Year validation
+    const yearNum = parseInt(year);
+    if (!year || yearNum < 1980 || yearNum > currentYear + 1) {
+      errors.year = `Year must be between 1980 and ${currentYear + 1}`;
+    }
+
+    // VIN validation for trucks
+    if (category === 'truck' && vinOrSerial && vinOrSerial.length !== 17) {
+      errors.vin = 'Truck VIN must be exactly 17 characters';
+    }
+
+    // Axles validation
+    if (axles) {
+      const axlesNum = parseInt(axles);
+      if (axlesNum < 1 || axlesNum > 5) {
+        errors.axles = 'Axles must be between 1 and 5';
+      }
+    }
+
+    // Price validation
+    const priceNum = parseFloat(displayPrice);
+    if (!displayPrice || priceNum <= 0) {
+      errors.price = 'Price must be greater than 0';
+    }
+
+    // Required fields
+    if (!make) errors.make = 'Make is required';
+    if (!model) errors.model = 'Model is required';
+    if (!type) errors.type = 'Type is required';
+    if (!vinOrSerial) errors.vin = 'VIN/Serial is required';
+
+    // Category-specific validation
+    if (category === 'truck' || category === 'equipment') {
+      if (!mileage) errors.mileage = 'Mileage is required';
+      if (!engine) errors.engine = 'Engine is required';
+      if (!transmission) errors.transmission = 'Transmission is required';
+      if (!axles) errors.axles = 'Axles is required';
+    }
+
+    if (category === 'trailer' && !color) {
+      errors.color = 'Color is required for trailers';
+    }
+
+    setValidationErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     accept: { 'image/*': ['.jpg', '.jpeg', '.png', '.webp'] },
@@ -95,6 +148,15 @@ export default function UnitForm() {
   });
 
   const handleSave = () => {
+    if (!validateForm()) {
+      toast({
+        title: 'Validation errors',
+        description: 'Please fix the errors before saving',
+        variant: 'destructive',
+      });
+      return;
+    }
+
     const unitData: Partial<Unit> = {
       category,
       make,
@@ -127,7 +189,7 @@ export default function UnitForm() {
       toast({ title: 'Unit created', description: 'Unit has been created successfully' });
       navigate('/backoffice/inventory');
     } else if (id) {
-      updateUnit(id, unitData);
+      updateUnit(id, { ...unitData, photos });
       toast({ title: 'Unit updated', description: 'Changes saved successfully' });
     }
   };
@@ -181,10 +243,14 @@ export default function UnitForm() {
       setPhotos((items) => {
         const oldIndex = items.findIndex((item) => item.id === active.id);
         const newIndex = items.findIndex((item) => item.id === over.id);
-        return arrayMove(items, oldIndex, newIndex).map((item, idx) => ({
+        const reorderedPhotos = arrayMove(items, oldIndex, newIndex).map((item, idx) => ({
           ...item,
           sort: idx,
         }));
+        if (id) {
+          updatePhotoOrder(id, reorderedPhotos);
+        }
+        return reorderedPhotos;
       });
     }
   };
@@ -288,14 +354,18 @@ export default function UnitForm() {
                 {/* Basic Info */}
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div className="space-y-2">
-                    <Label htmlFor="year">Year *</Label>
+                    <Label htmlFor="year">Year * (1980-{currentYear + 1})</Label>
                     <Input
                       id="year"
                       type="number"
                       value={year}
                       onChange={(e) => setYear(e.target.value)}
                       placeholder="2020"
+                      className={validationErrors.year ? 'border-destructive' : ''}
                     />
+                    {validationErrors.year && (
+                      <p className="text-xs text-destructive">{validationErrors.year}</p>
+                    )}
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="make">Make *</Label>
@@ -304,7 +374,11 @@ export default function UnitForm() {
                       value={make}
                       onChange={(e) => setMake(e.target.value)}
                       placeholder="Freightliner"
+                      className={validationErrors.make ? 'border-destructive' : ''}
                     />
+                    {validationErrors.make && (
+                      <p className="text-xs text-destructive">{validationErrors.make}</p>
+                    )}
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="model">Model *</Label>
@@ -313,7 +387,11 @@ export default function UnitForm() {
                       value={model}
                       onChange={(e) => setModel(e.target.value)}
                       placeholder="Cascadia"
+                      className={validationErrors.model ? 'border-destructive' : ''}
                     />
+                    {validationErrors.model && (
+                      <p className="text-xs text-destructive">{validationErrors.model}</p>
+                    )}
                   </div>
                 </div>
 
@@ -323,7 +401,7 @@ export default function UnitForm() {
                     <Label htmlFor="type">Type *</Label>
                     {category === 'truck' ? (
                       <Select value={type} onValueChange={setType}>
-                        <SelectTrigger>
+                        <SelectTrigger className={validationErrors.type ? 'border-destructive' : ''}>
                           <SelectValue placeholder="Select type" />
                         </SelectTrigger>
                         <SelectContent>
@@ -336,7 +414,7 @@ export default function UnitForm() {
                       </Select>
                     ) : category === 'trailer' ? (
                       <Select value={type} onValueChange={setType}>
-                        <SelectTrigger>
+                        <SelectTrigger className={validationErrors.type ? 'border-destructive' : ''}>
                           <SelectValue placeholder="Select type" />
                         </SelectTrigger>
                         <SelectContent>
@@ -353,7 +431,11 @@ export default function UnitForm() {
                         value={type}
                         onChange={(e) => setType(e.target.value)}
                         placeholder="Telehandler, Forklift, etc."
+                        className={validationErrors.type ? 'border-destructive' : ''}
                       />
+                    )}
+                    {validationErrors.type && (
+                      <p className="text-xs text-destructive">{validationErrors.type}</p>
                     )}
                   </div>
                   <div className="space-y-2">
@@ -363,7 +445,11 @@ export default function UnitForm() {
                       value={color}
                       onChange={(e) => setColor(e.target.value)}
                       placeholder="White"
+                      className={validationErrors.color ? 'border-destructive' : ''}
                     />
+                    {validationErrors.color && (
+                      <p className="text-xs text-destructive">{validationErrors.color}</p>
+                    )}
                   </div>
                 </div>
 
@@ -378,7 +464,11 @@ export default function UnitForm() {
                           value={engine}
                           onChange={(e) => setEngine(e.target.value)}
                           placeholder="Detroit DD15"
+                          className={validationErrors.engine ? 'border-destructive' : ''}
                         />
+                        {validationErrors.engine && (
+                          <p className="text-xs text-destructive">{validationErrors.engine}</p>
+                        )}
                       </div>
                       <div className="space-y-2">
                         <Label htmlFor="transmission">Transmission *</Label>
@@ -387,7 +477,11 @@ export default function UnitForm() {
                           value={transmission}
                           onChange={(e) => setTransmission(e.target.value)}
                           placeholder="Automated Manual"
+                          className={validationErrors.transmission ? 'border-destructive' : ''}
                         />
+                        {validationErrors.transmission && (
+                          <p className="text-xs text-destructive">{validationErrors.transmission}</p>
+                        )}
                       </div>
                     </div>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -399,17 +493,28 @@ export default function UnitForm() {
                           value={mileage}
                           onChange={(e) => setMileage(e.target.value)}
                           placeholder="285000"
+                          min="0"
+                          className={validationErrors.mileage ? 'border-destructive' : ''}
                         />
+                        {validationErrors.mileage && (
+                          <p className="text-xs text-destructive">{validationErrors.mileage}</p>
+                        )}
                       </div>
                       <div className="space-y-2">
-                        <Label htmlFor="axles">Number of Axles *</Label>
+                        <Label htmlFor="axles">Number of Axles * (1-5)</Label>
                         <Input
                           id="axles"
                           type="number"
                           value={axles}
                           onChange={(e) => setAxles(e.target.value)}
                           placeholder="3"
+                          min="1"
+                          max="5"
+                          className={validationErrors.axles ? 'border-destructive' : ''}
                         />
+                        {validationErrors.axles && (
+                          <p className="text-xs text-destructive">{validationErrors.axles}</p>
+                        )}
                       </div>
                     </div>
                   </>
@@ -418,14 +523,20 @@ export default function UnitForm() {
                 {/* VIN, Hours, Price */}
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div className="space-y-2">
-                    <Label htmlFor="vin">VIN/Serial *</Label>
+                    <Label htmlFor="vin">
+                      VIN/Serial * {category === 'truck' && '(17 chars)'}
+                    </Label>
                     <Input
                       id="vin"
                       value={vinOrSerial}
                       onChange={(e) => setVinOrSerial(e.target.value)}
                       placeholder="1FUJGEDV8LLBX1234"
-                      className="font-mono"
+                      className={`font-mono ${validationErrors.vin ? 'border-destructive' : ''}`}
+                      maxLength={category === 'truck' ? 17 : undefined}
                     />
+                    {validationErrors.vin && (
+                      <p className="text-xs text-destructive">{validationErrors.vin}</p>
+                    )}
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="hours">
@@ -440,14 +551,20 @@ export default function UnitForm() {
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="price">Display Price *</Label>
+                    <Label htmlFor="price">Display Price * (USD)</Label>
                     <Input
                       id="price"
                       type="number"
                       value={displayPrice}
+                      className={validationErrors.price ? 'border-destructive' : ''}
                       onChange={(e) => setDisplayPrice(e.target.value)}
                       placeholder="89500"
+                      min="0"
+                      step="0.01"
                     />
+                    {validationErrors.price && (
+                      <p className="text-xs text-destructive">{validationErrors.price}</p>
+                    )}
                   </div>
                 </div>
               </CardContent>
