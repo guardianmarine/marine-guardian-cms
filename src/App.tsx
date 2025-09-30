@@ -54,6 +54,18 @@ const App = () => (
               }
             />
             <Route
+              path="/inventory/:category/:slug"
+              element={
+                <div className="flex flex-col min-h-screen">
+                  <Header />
+                  <main className="flex-1">
+                    <UnitDetail />
+                  </main>
+                  <Footer />
+                </div>
+              }
+            />
+            <Route
               path="/inventory/:id"
               element={
                 <div className="flex flex-col min-h-screen">

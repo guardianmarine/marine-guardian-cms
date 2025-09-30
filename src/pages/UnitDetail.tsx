@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
+import { Helmet } from 'react-helmet-async';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -9,20 +10,24 @@ import { InventoryService } from '@/services/inventoryService';
 import { Unit } from '@/types';
 import { Phone, MessageCircle, ChevronLeft, ChevronRight } from 'lucide-react';
 import { TransformWrapper, TransformComponent } from 'react-zoom-pan-pinch';
+import { generateVehicleSchema, shortenVin } from '@/lib/seo';
 
 export default function UnitDetail() {
-  const { id } = useParams<{ id: string }>();
+  const { id, slug } = useParams<{ id?: string; slug?: string }>();
   const { t } = useTranslation();
   const [unit, setUnit] = useState<Unit | null>(null);
   const [similarUnits, setSimilarUnits] = useState<Unit[]>([]);
   const [loading, setLoading] = useState(true);
   const [currentPhotoIndex, setCurrentPhotoIndex] = useState(0);
 
+  // Extract ID from slug if using slug-based route
+  const unitId = id || (slug ? slug.split('-').pop() : null);
+
   useEffect(() => {
     const loadUnit = async () => {
-      if (!id) return;
+      if (!unitId) return;
       setLoading(true);
-      const data = await InventoryService.getPublicUnit(id);
+      const data = await InventoryService.getPublicUnit(unitId);
       if (data) {
         setUnit(data);
         const similar = await InventoryService.getSimilarUnits(data);
@@ -31,7 +36,7 @@ export default function UnitDetail() {
       setLoading(false);
     };
     loadUnit();
-  }, [id]);
+  }, [unitId]);
 
   if (loading) {
     return (
@@ -66,15 +71,29 @@ export default function UnitDetail() {
     setCurrentPhotoIndex((prev) => (prev - 1 + unit.photos.length) % unit.photos.length);
   };
 
+  const schema = generateVehicleSchema(unit);
+
   return (
-    <div className="min-h-screen bg-gradient-subtle">
-      <div className="container px-4 py-8">
-        {/* Breadcrumb */}
-        <div className="mb-6">
-          <Link to="/inventory" className="text-primary hover:underline">
-            ← Back to Inventory
-          </Link>
-        </div>
+    <>
+      <Helmet>
+        <title>{`${unit.year} ${unit.make} ${unit.model} - Guardian Marine & Truck`}</title>
+        <meta 
+          name="description" 
+          content={`${unit.year} ${unit.make} ${unit.model} ${unit.type}. ${unit.engine ? `Engine: ${unit.engine}. ` : ''}${unit.transmission ? `Transmission: ${unit.transmission}. ` : ''}$${unit.display_price.toLocaleString()} USD`}
+        />
+        <script type="application/ld+json">
+          {JSON.stringify(schema)}
+        </script>
+      </Helmet>
+      
+      <div className="min-h-screen bg-gradient-subtle">
+        <div className="container px-4 py-8">
+          {/* Breadcrumb */}
+          <div className="mb-6">
+            <Link to="/inventory" className="text-primary hover:underline">
+              ← Back to Inventory
+            </Link>
+          </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-12">
           {/* Gallery */}
@@ -193,8 +212,8 @@ export default function UnitDetail() {
                     </div>
                   )}
                   <div>
-                    <dt className="text-sm text-muted-foreground">VIN/Serial</dt>
-                    <dd className="font-medium font-mono text-sm">{unit.vin_or_serial}</dd>
+                    <dt className="text-sm text-muted-foreground">VIN/Serial (Last 6)</dt>
+                    <dd className="font-medium font-mono text-sm">{shortenVin(unit.vin_or_serial)}</dd>
                   </div>
                   {unit.location && (
                     <div className="col-span-2">
@@ -244,5 +263,6 @@ export default function UnitDetail() {
         )}
       </div>
     </div>
+    </>
   );
 }
