@@ -2,3 +2,18 @@ project_id = "your-project-id"
 
 [functions.create-invoice]
 verify_jwt = true
+
+[functions.create-deal-from-opportunity]
+verify_jwt = true
+
+[functions.apply-deal-fees]
+verify_jwt = true
+
+[functions.record-deal-payment]
+verify_jwt = true
+
+[functions.generate-deal-invoice]
+verify_jwt = true
+
+[functions.get-commissions]
+verify_jwt = true
