@@ -22,6 +22,9 @@ import BuyerRequests from "./pages/backoffice/BuyerRequests";
 import Suppliers from "./pages/backoffice/purchasing/Suppliers";
 import PurchaseIntakes from "./pages/backoffice/purchasing/PurchaseIntakes";
 import AcquisitionBatches from "./pages/backoffice/purchasing/AcquisitionBatches";
+import Accounts from "./pages/backoffice/crm/Accounts";
+import Leads from "./pages/backoffice/crm/Leads";
+import Opportunities from "./pages/backoffice/crm/Opportunities";
 import NotFound from "./pages/NotFound";
 import "@/i18n/config";
 
@@ -178,6 +181,32 @@ const App = () => (
               element={
                 <ProtectedRoute>
                   <AcquisitionBatches />
+                </ProtectedRoute>
+              }
+            />
+
+            {/* CRM Routes */}
+            <Route
+              path="/backoffice/crm/accounts"
+              element={
+                <ProtectedRoute>
+                  <Accounts />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/backoffice/crm/leads"
+              element={
+                <ProtectedRoute>
+                  <Leads />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/backoffice/crm/opportunities"
+              element={
+                <ProtectedRoute>
+                  <Opportunities />
                 </ProtectedRoute>
               }
             />

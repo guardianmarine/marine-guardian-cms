@@ -99,5 +99,72 @@
     "inventory": "Gestión de Inventario",
     "content": "Gestión de Contenido",
     "users": "Usuarios"
+  },
+  "crm": {
+    "accounts": "Cuentas",
+    "contacts": "Contactos",
+    "leads": "Prospectos",
+    "opportunities": "Oportunidades",
+    "activities": "Actividades",
+    "tasks": "Mis Tareas",
+    "newAccount": "Nueva Cuenta",
+    "newContact": "Nuevo Contacto",
+    "newLead": "Nuevo Prospecto",
+    "newOpportunity": "Nueva Oportunidad",
+    "accountKind": {
+      "company": "Empresa",
+      "individual": "Individual"
+    },
+    "leadSource": {
+      "web_form": "Formulario Web",
+      "phone": "Teléfono",
+      "whatsapp": "WhatsApp",
+      "email": "Correo",
+      "referral": "Referencia",
+      "campaign": "Campaña",
+      "other": "Otro"
+    },
+    "leadStatus": {
+      "new": "Nuevo",
+      "qualified": "Calificado",
+      "disqualified": "Descalificado",
+      "converted": "Convertido"
+    },
+    "opportunityStage": {
+      "new": "Nueva",
+      "qualified": "Calificada",
+      "visit": "Visita",
+      "quote": "Cotización",
+      "negotiation": "Negociación",
+      "won": "Ganada",
+      "lost": "Perdida"
+    },
+    "reasonLost": {
+      "price": "Precio",
+      "timing": "Tiempo",
+      "specs": "Especificaciones",
+      "financing": "Financiamiento",
+      "inventory": "Inventario",
+      "other": "Otro"
+    },
+    "activityKind": {
+      "note": "Nota",
+      "call": "Llamada",
+      "meeting": "Reunión",
+      "email": "Correo",
+      "whatsapp": "WhatsApp",
+      "task": "Tarea"
+    },
+    "createLead": "Crear Prospecto",
+    "convertToOpportunity": "Convertir a Oportunidad",
+    "logActivity": "Registrar Actividad",
+    "addUnit": "Agregar Unidad",
+    "closeAsWon": "Cerrar como Ganada",
+    "closeAsLost": "Cerrar como Perdida",
+    "sla": "SLA",
+    "firstTouch": "Primer Contacto",
+    "contacted": "Contactado",
+    "overdue": "Vencido",
+    "repeatBuyer": "Comprador Recurrente"
   }
 }
