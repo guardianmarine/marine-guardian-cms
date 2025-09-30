@@ -2,7 +2,8 @@ import { BackofficeLayout } from '@/components/backoffice/Layout';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useCRMStore } from '@/services/crmStore';
-import { Plus, UserCircle, Mail, Phone } from 'lucide-react';
+import { getEmailLink, getPhoneLink, getWhatsAppLink } from '@/lib/crm-integrations';
+import { Plus, UserCircle, Mail, Phone, MessageSquare } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 
@@ -44,15 +45,28 @@ export default function Contacts() {
                   </div>
                   <div className="text-right text-sm space-y-1">
                     {contact.email && (
-                      <div className="flex items-center space-x-2">
-                        <Mail className="h-4 w-4" />
+                      <div className="flex items-center justify-end space-x-2">
                         <span>{contact.email}</span>
+                        <Button variant="ghost" size="sm" asChild>
+                          <a href={getEmailLink(contact.email)}>
+                            <Mail className="h-3 w-3" />
+                          </a>
+                        </Button>
                       </div>
                     )}
                     {contact.phone && (
-                      <div className="flex items-center space-x-2">
-                        <Phone className="h-4 w-4" />
+                      <div className="flex items-center justify-end space-x-2">
                         <span>{contact.phone}</span>
+                        <Button variant="ghost" size="sm" asChild>
+                          <a href={getPhoneLink(contact.phone)}>
+                            <Phone className="h-3 w-3" />
+                          </a>
+                        </Button>
+                        <Button variant="ghost" size="sm" asChild>
+                          <a href={getWhatsAppLink(contact.phone)} target="_blank" rel="noopener noreferrer">
+                            <MessageSquare className="h-3 w-3" />
+                          </a>
+                        </Button>
                       </div>
                     )}
                   </div>

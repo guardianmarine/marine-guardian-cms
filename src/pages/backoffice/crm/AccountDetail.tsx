@@ -12,7 +12,8 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useCRMStore } from '@/services/crmStore';
-import { Building, UserPlus, Upload, TrendingUp, Users, FileText, Activity } from 'lucide-react';
+import { getEmailLink, getPhoneLink, getWhatsAppLink } from '@/lib/crm-integrations';
+import { Building, UserPlus, Upload, TrendingUp, Users, FileText, Activity, Mail, Phone, MessageSquare } from 'lucide-react';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
 
@@ -269,13 +270,32 @@ export default function AccountDetail() {
                   {account.phone && (
                     <div>
                       <label className="text-sm font-medium text-muted-foreground">Phone</label>
-                      <p>{account.phone}</p>
+                      <div className="flex items-center gap-2">
+                        <p>{account.phone}</p>
+                        <Button variant="ghost" size="sm" asChild>
+                          <a href={getPhoneLink(account.phone)} className="flex items-center gap-1">
+                            <Phone className="h-3 w-3" />
+                          </a>
+                        </Button>
+                        <Button variant="ghost" size="sm" asChild>
+                          <a href={getWhatsAppLink(account.phone)} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1">
+                            <MessageSquare className="h-3 w-3" />
+                          </a>
+                        </Button>
+                      </div>
                     </div>
                   )}
                   {account.email && (
                     <div>
                       <label className="text-sm font-medium text-muted-foreground">Email</label>
-                      <p>{account.email}</p>
+                      <div className="flex items-center gap-2">
+                        <p>{account.email}</p>
+                        <Button variant="ghost" size="sm" asChild>
+                          <a href={getEmailLink(account.email)} className="flex items-center gap-1">
+                            <Mail className="h-3 w-3" />
+                          </a>
+                        </Button>
+                      </div>
                     </div>
                   )}
                   {account.website && (

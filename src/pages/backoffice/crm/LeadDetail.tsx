@@ -13,6 +13,7 @@ import { Label } from '@/components/ui/label';
 import { useCRMStore } from '@/services/crmStore';
 import { useAuth } from '@/contexts/AuthContext';
 import { getCRMPermissions } from '@/lib/permissions';
+import { getEmailLink, getPhoneLink, getWhatsAppLink, getLeadSourceLabel, getLeadStatusLabel } from '@/lib/crm-integrations';
 import { Phone, Mail, MessageSquare, ClipboardList, CheckCircle, XCircle, TrendingUp, AlertCircle, Clock } from 'lucide-react';
 import { format, differenceInHours } from 'date-fns';
 import { toast } from 'sonner';
@@ -235,7 +236,7 @@ export default function LeadDetail() {
 
             {contact?.email && (
               <Button variant="outline" asChild>
-                <a href={`mailto:${contact.email}`}>
+                <a href={getEmailLink(contact.email, `Follow up: ${lead.category_interest || 'Lead'}`)}>
                   <Mail className="h-4 w-4 mr-2" />
                   Send Email
                 </a>
@@ -243,12 +244,20 @@ export default function LeadDetail() {
             )}
 
             {contact?.phone && (
-              <Button variant="outline" asChild>
-                <a href={`https://wa.me/${contact.phone.replace(/\D/g, '')}`} target="_blank" rel="noopener noreferrer">
-                  <MessageSquare className="h-4 w-4 mr-2" />
-                  WhatsApp
-                </a>
-              </Button>
+              <>
+                <Button variant="outline" asChild>
+                  <a href={getPhoneLink(contact.phone)}>
+                    <Phone className="h-4 w-4 mr-2" />
+                    Call
+                  </a>
+                </Button>
+                <Button variant="outline" asChild>
+                  <a href={getWhatsAppLink(contact.phone, `Hi, this is regarding your interest in ${lead.category_interest || 'our inventory'}`)} target="_blank" rel="noopener noreferrer">
+                    <MessageSquare className="h-4 w-4 mr-2" />
+                    WhatsApp
+                  </a>
+                </Button>
+              </>
             )}
 
             <Dialog open={taskDialog} onOpenChange={setTaskDialog}>
