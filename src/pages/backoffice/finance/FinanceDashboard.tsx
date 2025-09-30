@@ -1,3 +1,4 @@
+import React from 'react';
 import { BackofficeLayout } from '@/components/backoffice/Layout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useDealsStore } from '@/services/dealsStore';
