@@ -12,8 +12,9 @@ import { Textarea } from '@/components/ui/textarea';
 import { useDealsStore } from '@/services/dealsStore';
 import { useCRMStore } from '@/services/crmStore';
 import { useInventoryStore } from '@/services/inventoryStore';
+import { useAuth } from '@/contexts/AuthContext';
 import { mockUsers } from '@/services/mockData';
-import { ArrowLeft, Plus, DollarSign, FileText, Download } from 'lucide-react';
+import { ArrowLeft, Plus, FileText, Download, Pencil, Trash2 } from 'lucide-react';
 import { format } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
 import { Deal, Payment, DealStatus, PaymentMethod } from '@/types';
@@ -40,11 +41,22 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 
 export default function DealDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { user } = useAuth();
   const isNew = id === 'new';
 
   const {
@@ -60,6 +72,8 @@ export default function DealDetail() {
     getDealFees,
     getPaymentsByDeal,
     addPayment,
+    updatePayment,
+    deletePayment,
     issueDeal,
     markDelivered,
     closeDeal,
@@ -74,10 +88,16 @@ export default function DealDetail() {
   
   // Payment dialog state
   const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
+  const [editingPayment, setEditingPayment] = useState<Payment | null>(null);
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('wire');
   const [paymentAmount, setPaymentAmount] = useState('');
   const [paymentReference, setPaymentReference] = useState('');
   const [paymentNotes, setPaymentNotes] = useState('');
+  
+  // Delete confirmation
+  const [deletePaymentId, setDeletePaymentId] = useState<string | null>(null);
+
+  const isAdmin = user?.role === 'admin';
 
   useEffect(() => {
     if (!isNew && id) {
@@ -129,8 +149,25 @@ export default function DealDetail() {
     navigate(`/backoffice/deals/${newDeal.id}`);
   };
 
+  const handleOpenPaymentDialog = (payment?: Payment) => {
+    if (payment) {
+      setEditingPayment(payment);
+      setPaymentMethod(payment.method);
+      setPaymentAmount(payment.amount.toString());
+      setPaymentReference(payment.reference || '');
+      setPaymentNotes(payment.notes || '');
+    } else {
+      setEditingPayment(null);
+      setPaymentMethod('wire');
+      setPaymentAmount('');
+      setPaymentReference('');
+      setPaymentNotes('');
+    }
+    setPaymentDialogOpen(true);
+  };
+
   const handleRecordPayment = () => {
-    if (!deal) return;
+    if (!deal || !user) return;
 
     const amount = parseFloat(paymentAmount);
     if (isNaN(amount) || amount <= 0) {
@@ -142,32 +179,66 @@ export default function DealDetail() {
       return;
     }
 
-    const payment: Payment = {
-      id: `payment-${Date.now()}`,
-      deal_id: deal.id,
-      method: paymentMethod,
-      amount,
-      received_at: new Date().toISOString(),
-      reference: paymentReference || undefined,
-      notes: paymentNotes || undefined,
-      recorded_by: 'user-1', // Current user
-      created_at: new Date().toISOString(),
-    };
+    if (editingPayment) {
+      // Update existing payment
+      updatePayment(editingPayment.id, {
+        method: paymentMethod,
+        amount,
+        reference: paymentReference || undefined,
+        notes: paymentNotes || undefined,
+      });
+      
+      toast({
+        title: 'Success',
+        description: 'Payment updated successfully',
+      });
+    } else {
+      // Create new payment
+      const payment: Payment = {
+        id: `payment-${Date.now()}`,
+        deal_id: deal.id,
+        method: paymentMethod,
+        amount,
+        received_at: new Date().toISOString(),
+        reference: paymentReference || undefined,
+        notes: paymentNotes || undefined,
+        recorded_by: user.id,
+        created_at: new Date().toISOString(),
+      };
 
-    addPayment(payment);
+      addPayment(payment);
+      
+      toast({
+        title: 'Success',
+        description: 'Payment recorded successfully',
+      });
+    }
     
     // Refresh deal
     const updatedDeal = deals.find((d) => d.id === deal.id);
     if (updatedDeal) setDeal(updatedDeal);
 
     setPaymentDialogOpen(false);
+    setEditingPayment(null);
     setPaymentAmount('');
     setPaymentReference('');
     setPaymentNotes('');
+  };
+
+  const handleDeletePayment = () => {
+    if (!deletePaymentId) return;
+
+    deletePayment(deletePaymentId);
+    
+    // Refresh deal
+    const updatedDeal = deals.find((d) => d.id === deal.id);
+    if (updatedDeal) setDeal(updatedDeal);
+
+    setDeletePaymentId(null);
     
     toast({
       title: 'Success',
-      description: 'Payment recorded successfully',
+      description: 'Payment deleted successfully',
     });
   };
 
@@ -558,14 +629,16 @@ export default function DealDetail() {
               <CardTitle>Payments</CardTitle>
               <Dialog open={paymentDialogOpen} onOpenChange={setPaymentDialogOpen}>
                 <DialogTrigger asChild>
-                  <Button>
+                  <Button onClick={() => handleOpenPaymentDialog()}>
                     <Plus className="h-4 w-4 mr-2" />
                     Record Payment
                   </Button>
                 </DialogTrigger>
                 <DialogContent>
                   <DialogHeader>
-                    <DialogTitle>Record New Payment</DialogTitle>
+                    <DialogTitle>
+                      {editingPayment ? 'Edit Payment' : 'Record New Payment'}
+                    </DialogTitle>
                   </DialogHeader>
                   <div className="space-y-4 py-4">
                     <div>
@@ -614,11 +687,14 @@ export default function DealDetail() {
                     </div>
                   </div>
                   <DialogFooter>
-                    <Button variant="outline" onClick={() => setPaymentDialogOpen(false)}>
+                    <Button variant="outline" onClick={() => {
+                      setPaymentDialogOpen(false);
+                      setEditingPayment(null);
+                    }}>
                       Cancel
                     </Button>
                     <Button onClick={handleRecordPayment}>
-                      Record Payment
+                      {editingPayment ? 'Update Payment' : 'Record Payment'}
                     </Button>
                   </DialogFooter>
                 </DialogContent>
@@ -637,25 +713,82 @@ export default function DealDetail() {
                     <TableHead>Date</TableHead>
                     <TableHead>Method</TableHead>
                     <TableHead>Reference</TableHead>
+                    <TableHead>Notes</TableHead>
                     <TableHead>Amount</TableHead>
+                    {isAdmin && <TableHead className="text-right">Actions</TableHead>}
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {dealPayments.map((payment) => (
-                    <TableRow key={payment.id}>
-                      <TableCell>{format(new Date(payment.received_at), 'PPP')}</TableCell>
-                      <TableCell className="capitalize">{payment.method}</TableCell>
-                      <TableCell>{payment.reference || '-'}</TableCell>
-                      <TableCell className="font-semibold">
-                        ${payment.amount.toLocaleString('en-US', { minimumFractionDigits: 2 })}
-                      </TableCell>
-                    </TableRow>
-                  ))}
+                  {dealPayments.map((payment) => {
+                    const recorder = mockUsers.find((u) => u.id === payment.recorded_by);
+                    return (
+                      <TableRow key={payment.id}>
+                        <TableCell>
+                          <div>{format(new Date(payment.received_at), 'PPP')}</div>
+                          {recorder && (
+                            <div className="text-xs text-muted-foreground mt-1">
+                              By {recorder.name}
+                            </div>
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant="outline" className="capitalize">
+                            {payment.method.replace('_', ' ')}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>{payment.reference || '-'}</TableCell>
+                        <TableCell className="max-w-[200px] truncate">
+                          {payment.notes || '-'}
+                        </TableCell>
+                        <TableCell className="font-semibold">
+                          ${payment.amount.toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                        </TableCell>
+                        {isAdmin && (
+                          <TableCell className="text-right">
+                            <div className="flex items-center justify-end gap-2">
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => handleOpenPaymentDialog(payment)}
+                              >
+                                <Pencil className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => setDeletePaymentId(payment.id)}
+                              >
+                                <Trash2 className="h-4 w-4 text-destructive" />
+                              </Button>
+                            </div>
+                          </TableCell>
+                        )}
+                      </TableRow>
+                    );
+                  })}
                 </TableBody>
               </Table>
             )}
           </CardContent>
         </Card>
+
+        {/* Delete Payment Confirmation Dialog */}
+        <AlertDialog open={!!deletePaymentId} onOpenChange={(open) => !open && setDeletePaymentId(null)}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Delete Payment</AlertDialogTitle>
+              <AlertDialogDescription>
+                Are you sure you want to delete this payment? This action cannot be undone and will recalculate the deal totals.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancel</AlertDialogCancel>
+              <AlertDialogAction onClick={handleDeletePayment} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                Delete
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
     </BackofficeLayout>
   );

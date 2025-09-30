@@ -290,12 +290,46 @@ export const useDealsStore = create<DealsStore>((set, get) => ({
 
     get().updateDeal(dealId, { amount_paid: totalPaid });
     get().recalculateDealTotals(dealId);
+
+    // Auto-update commission status to payable if balance is paid
+    const deal = get().getDealById(dealId);
+    if (deal && deal.balance_due <= 0) {
+      const commissions = get().getCommissionsByDeal(dealId);
+      commissions.forEach((c) => {
+        if (c.status === 'accrued') {
+          get().markCommissionPayable(c.id);
+        }
+      });
+    }
   },
 
-  updatePayment: (id, data) =>
+  updatePayment: (id, data) => {
     set((state) => ({
       payments: state.payments.map((p) => (p.id === id ? { ...p, ...data } : p)),
-    })),
+    }));
+
+    // Recalculate after update
+    const payment = get().payments.find((p) => p.id === id);
+    if (payment) {
+      const dealId = payment.deal_id;
+      const payments = get().payments.filter((p) => p.deal_id === dealId);
+      const totalPaid = payments.reduce((sum, p) => sum + p.amount, 0);
+
+      get().updateDeal(dealId, { amount_paid: totalPaid });
+      get().recalculateDealTotals(dealId);
+
+      // Check if commissions should be updated
+      const deal = get().getDealById(dealId);
+      if (deal && deal.balance_due <= 0) {
+        const commissions = get().getCommissionsByDeal(dealId);
+        commissions.forEach((c) => {
+          if (c.status === 'accrued') {
+            get().markCommissionPayable(c.id);
+          }
+        });
+      }
+    }
+  },
 
   deletePayment: (id) => {
     const payment = get().payments.find((p) => p.id === id);
