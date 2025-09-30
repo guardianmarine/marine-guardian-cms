@@ -1,0 +1,77 @@
+{
+  "common": {
+    "loading": "Cargando...",
+    "error": "Ocurrió un error",
+    "save": "Guardar",
+    "cancel": "Cancelar",
+    "delete": "Eliminar",
+    "edit": "Editar",
+    "search": "Buscar",
+    "filter": "Filtrar",
+    "sort": "Ordenar",
+    "phone": "214-613-8521",
+    "viewAll": "Ver Todo",
+    "loadMore": "Cargar Más"
+  },
+  "nav": {
+    "home": "Inicio",
+    "inventory": "Inventario",
+    "sellTrade": "Vender/Intercambiar",
+    "contact": "Contacto",
+    "backoffice": "Administración"
+  },
+  "hero": {
+    "title": "Soluciones de Trabajo Pesado para Su Negocio",
+    "subtitle": "Camiones, remolques y equipo de calidad a precios competitivos",
+    "searchInventory": "Buscar Inventario",
+    "browseAll": "Ver Todas las Unidades"
+  },
+  "search": {
+    "trucks": "Camiones",
+    "trailers": "Remolques",
+    "equipment": "Equipo",
+    "type": "Tipo",
+    "make": "Marca",
+    "yearRange": "Rango de Año",
+    "mileageRange": "Rango de Millaje",
+    "any": "Cualquiera",
+    "search": "Buscar"
+  },
+  "inventory": {
+    "title": "Nuestro Inventario",
+    "results": "{{count}} unidades encontradas",
+    "newArrival": "Recién Llegado",
+    "reduced": "Rebajado",
+    "requestInfo": "Solicitar Información",
+    "viewDetails": "Ver Detalles",
+    "similarUnits": "Unidades Similares",
+    "specifications": "Especificaciones",
+    "emptyTitle": "No se encontraron unidades",
+    "emptyDescription": "Intenta ajustar tus filtros o navega nuestras selecciones destacadas a continuación"
+  },
+  "categories": {
+    "inStock": "Categorías en Stock",
+    "trucks": "Camiones",
+    "trailers": "Remolques",
+    "equipment": "Equipo"
+  },
+  "featured": {
+    "title": "Unidades Destacadas",
+    "description": "Unidades seleccionadas de nuestro inventario"
+  },
+  "requestUnit": {
+    "title": "¿Buscas algo específico?",
+    "description": "¿No encuentras lo que necesitas? Háznos saber y te ayudaremos a encontrarlo.",
+    "cta": "Solicitar una Unidad"
+  },
+  "backoffice": {
+    "login": "Iniciar Sesión",
+    "logout": "Cerrar Sesión",
+    "email": "Correo Electrónico",
+    "password": "Contraseña",
+    "dashboard": "Panel de Control",
+    "inventory": "Gestión de Inventario",
+    "content": "Gestión de Contenido",
+    "users": "Usuarios"
+  }
+}

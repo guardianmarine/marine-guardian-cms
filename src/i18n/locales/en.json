@@ -1,0 +1,77 @@
+{
+  "common": {
+    "loading": "Loading...",
+    "error": "An error occurred",
+    "save": "Save",
+    "cancel": "Cancel",
+    "delete": "Delete",
+    "edit": "Edit",
+    "search": "Search",
+    "filter": "Filter",
+    "sort": "Sort",
+    "phone": "214-613-8521",
+    "viewAll": "View All",
+    "loadMore": "Load More"
+  },
+  "nav": {
+    "home": "Home",
+    "inventory": "Inventory",
+    "sellTrade": "Sell/Trade-In",
+    "contact": "Contact",
+    "backoffice": "Backoffice"
+  },
+  "hero": {
+    "title": "Heavy-Duty Solutions for Your Business",
+    "subtitle": "Quality trucks, trailers, and equipment at competitive prices",
+    "searchInventory": "Search Inventory",
+    "browseAll": "Browse All Units"
+  },
+  "search": {
+    "trucks": "Trucks",
+    "trailers": "Trailers",
+    "equipment": "Equipment",
+    "type": "Type",
+    "make": "Make",
+    "yearRange": "Year Range",
+    "mileageRange": "Mileage Range",
+    "any": "Any",
+    "search": "Search"
+  },
+  "inventory": {
+    "title": "Our Inventory",
+    "results": "{{count}} units found",
+    "newArrival": "New Arrival",
+    "reduced": "Reduced",
+    "requestInfo": "Request Info",
+    "viewDetails": "View Details",
+    "similarUnits": "Similar Units",
+    "specifications": "Specifications",
+    "emptyTitle": "No units found",
+    "emptyDescription": "Try adjusting your filters or browse our featured picks below"
+  },
+  "categories": {
+    "inStock": "Categories In Stock",
+    "trucks": "Trucks",
+    "trailers": "Trailers",
+    "equipment": "Equipment"
+  },
+  "featured": {
+    "title": "Featured Units",
+    "description": "Hand-picked units from our inventory"
+  },
+  "requestUnit": {
+    "title": "Looking for something specific?",
+    "description": "Can't find what you need? Let us know and we'll help you find it.",
+    "cta": "Request a Unit"
+  },
+  "backoffice": {
+    "login": "Login",
+    "logout": "Logout",
+    "email": "Email",
+    "password": "Password",
+    "dashboard": "Dashboard",
+    "inventory": "Inventory Management",
+    "content": "Content Management",
+    "users": "Users"
+  }
+}
