@@ -342,8 +342,8 @@ export default function Inventory() {
                             Clear Filters
                           </Button>
                         )}
-                        <Button onClick={() => window.location.href = '/sell-trade'}>
-                          Request a Unit
+                        <Button asChild>
+                          <a href="/request-unit">Request a Unit</a>
                         </Button>
                       </div>
                     </CardContent>

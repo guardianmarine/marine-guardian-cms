@@ -37,6 +37,7 @@ export default function BuyerRequests() {
   const { buyerRequests, updateBuyerRequest } = usePurchasingStore();
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<BuyerRequestStatus | 'all'>('all');
+  const [categoryFilter, setCategoryFilter] = useState<'all' | 'truck' | 'trailer' | 'equipment'>('all');
   const [selectedRequest, setSelectedRequest] = useState<BuyerRequest | null>(null);
 
   const filteredRequests = buyerRequests.filter((req) => {
@@ -45,7 +46,8 @@ export default function BuyerRequests() {
       req.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
       req.phone.includes(searchTerm);
     const matchesStatus = statusFilter === 'all' || req.status === statusFilter;
-    return matchesSearch && matchesStatus;
+    const matchesCategory = categoryFilter === 'all' || req.category === categoryFilter;
+    return matchesSearch && matchesStatus && matchesCategory;
   });
 
   const getStatusColor = (status: BuyerRequestStatus) => {
@@ -89,6 +91,20 @@ export default function BuyerRequests() {
               className="pl-10"
             />
           </div>
+          <Select
+            value={categoryFilter}
+            onValueChange={(v) => setCategoryFilter(v as any)}
+          >
+            <SelectTrigger className="w-40">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Categories</SelectItem>
+              <SelectItem value="truck">{t('search.trucks')}</SelectItem>
+              <SelectItem value="trailer">{t('search.trailers')}</SelectItem>
+              <SelectItem value="equipment">{t('search.equipment')}</SelectItem>
+            </SelectContent>
+          </Select>
           <Select
             value={statusFilter}
             onValueChange={(v) => setStatusFilter(v as BuyerRequestStatus | 'all')}

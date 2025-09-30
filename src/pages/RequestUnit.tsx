@@ -274,27 +274,30 @@ export default function RequestUnit() {
                         />
                       </div>
                     </div>
-                    <div className="space-y-2">
-                      <Label>Mileage Range</Label>
-                      <div className="grid grid-cols-2 gap-2">
-                        <Input
-                          type="number"
-                          placeholder="Min"
-                          value={formData.mileage_min}
-                          onChange={(e) =>
-                            setFormData({ ...formData, mileage_min: e.target.value })
-                          }
-                        />
-                        <Input
-                          type="number"
-                          placeholder="Max"
-                          value={formData.mileage_max}
-                          onChange={(e) =>
-                            setFormData({ ...formData, mileage_max: e.target.value })
-                          }
-                        />
+                    {/* Hide mileage for trailers */}
+                    {formData.category !== 'trailer' && (
+                      <div className="space-y-2">
+                        <Label>Mileage Range</Label>
+                        <div className="grid grid-cols-2 gap-2">
+                          <Input
+                            type="number"
+                            placeholder="Min"
+                            value={formData.mileage_min}
+                            onChange={(e) =>
+                              setFormData({ ...formData, mileage_min: e.target.value })
+                            }
+                          />
+                          <Input
+                            type="number"
+                            placeholder="Max"
+                            value={formData.mileage_max}
+                            onChange={(e) =>
+                              setFormData({ ...formData, mileage_max: e.target.value })
+                            }
+                          />
+                        </div>
                       </div>
-                    </div>
+                    )}
                   </div>
 
                   <div className="space-y-2">

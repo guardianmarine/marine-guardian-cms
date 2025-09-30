@@ -148,8 +148,8 @@ export default function Home() {
         <div className="container px-4 text-center">
           <h2 className="text-3xl font-bold mb-4">{t('requestUnit.title')}</h2>
           <p className="text-xl mb-8 opacity-90 max-w-2xl mx-auto">{t('requestUnit.description')}</p>
-          <Button size="lg" variant="secondary">
-            {t('requestUnit.cta')}
+          <Button asChild size="lg" variant="secondary">
+            <Link to="/request-unit">{t('requestUnit.cta')}</Link>
           </Button>
         </div>
       </section>
