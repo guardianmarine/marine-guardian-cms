@@ -25,7 +25,7 @@ export function Breadcrumbs({ items }: BreadcrumbsProps) {
   if (breadcrumbs.length === 0) return null;
 
   return (
-    <div className="bg-card border-b px-6 py-3">
+    <div className="bg-card/50 backdrop-blur-sm border-b px-6 py-3 animate-fade-in">
       <Breadcrumb>
         <BreadcrumbList>
           {breadcrumbs.map((item, index) => {
@@ -35,16 +35,19 @@ export function Breadcrumbs({ items }: BreadcrumbsProps) {
               <div key={item.id} className="flex items-center">
                 <BreadcrumbItem>
                   {isLast ? (
-                    <BreadcrumbPage>{item.label[locale]}</BreadcrumbPage>
+                    <BreadcrumbPage className="font-medium">{item.label[locale]}</BreadcrumbPage>
                   ) : (
-                    <BreadcrumbLink href={item.route}>
+                    <BreadcrumbLink 
+                      href={item.route}
+                      className="transition-all duration-200 hover:text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:rounded-sm"
+                    >
                       {item.label[locale]}
                     </BreadcrumbLink>
                   )}
                 </BreadcrumbItem>
                 {!isLast && (
                   <BreadcrumbSeparator>
-                    <ChevronRight className="h-4 w-4" />
+                    <ChevronRight className="h-4 w-4 text-muted-foreground" />
                   </BreadcrumbSeparator>
                 )}
               </div>

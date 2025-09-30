@@ -90,29 +90,35 @@ export function Sidebar({ items, userRole, onItemClick }: SidebarProps) {
 
     if (hasChildren) {
       return (
-        <div key={item.id} className={level === 0 ? 'pt-2' : ''}>
+        <div key={item.id} className={level === 0 ? 'pt-1' : ''}>
           <button
             onClick={() => toggleGroup(item.id)}
             className={cn(
-              'flex items-center justify-between w-full px-3 py-2 rounded-lg transition-colors',
+              'group flex items-center justify-between w-full px-3 py-2.5 rounded-lg transition-all duration-200',
+              'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
               active
-                ? 'bg-primary text-primary-foreground'
-                : 'hover:bg-accent hover:text-accent-foreground'
+                ? 'bg-primary/10 text-primary shadow-sm border-l-4 border-primary'
+                : 'hover:bg-accent/50 hover:text-accent-foreground hover:shadow-sm'
             )}
           >
             <div className="flex items-center space-x-3">
-              {getIcon(item.icon)}
+              <div className={cn(
+                'transition-transform duration-200',
+                'group-hover:scale-110'
+              )}>
+                {getIcon(item.icon)}
+              </div>
               <span className="font-medium">{item.label[locale]}</span>
             </div>
             <ChevronDown
               className={cn(
-                'h-4 w-4 transition-transform',
+                'h-4 w-4 transition-transform duration-200',
                 isExpanded && 'rotate-180'
               )}
             />
           </button>
           {isExpanded && (
-            <div className="ml-8 mt-1 space-y-1">
+            <div className="ml-8 mt-1 space-y-0.5 animate-fade-in">
               {item.children?.map(child => renderNavItem(child, level + 1))}
             </div>
           )}
@@ -126,17 +132,26 @@ export function Sidebar({ items, userRole, onItemClick }: SidebarProps) {
         to={item.route}
         onClick={onItemClick}
         className={cn(
+          'group transition-all duration-200 rounded-lg',
+          'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
           level === 0 
-            ? 'flex items-center space-x-3 px-3 py-2 rounded-lg transition-colors'
-            : 'block px-3 py-2 rounded-lg text-sm transition-colors',
+            ? 'flex items-center space-x-3 px-3 py-2.5'
+            : 'block px-3 py-2 text-sm',
           active
             ? level === 0 
-              ? 'bg-primary text-primary-foreground'
-              : 'bg-primary/10 text-primary font-medium'
-            : 'hover:bg-accent hover:text-accent-foreground'
+              ? 'bg-primary/10 text-primary font-medium shadow-sm border-l-4 border-primary'
+              : 'bg-primary/10 text-primary font-medium border-l-2 border-primary'
+            : 'hover:bg-accent/50 hover:text-accent-foreground hover:shadow-sm hover:translate-x-0.5'
         )}
       >
-        {level === 0 && getIcon(item.icon)}
+        {level === 0 && (
+          <div className={cn(
+            'transition-transform duration-200',
+            'group-hover:scale-110'
+          )}>
+            {getIcon(item.icon)}
+          </div>
+        )}
         <span className={level === 0 ? 'font-medium' : ''}>{item.label[locale]}</span>
       </Link>
     );

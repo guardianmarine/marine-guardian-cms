@@ -41,11 +41,11 @@ export function Topbar({ onMenuClick }: TopbarProps) {
   ];
 
   return (
-    <header className="h-16 bg-card border-b flex items-center px-6 gap-4">
+    <header className="h-16 bg-card/95 backdrop-blur-sm border-b shadow-sm flex items-center px-6 gap-4 sticky top-0 z-40">
       <Button
         variant="ghost"
         size="icon"
-        className="lg:hidden"
+        className="lg:hidden transition-all duration-200 hover:bg-accent hover:rotate-90 focus-visible:ring-2 focus-visible:ring-ring"
         onClick={onMenuClick}
       >
         <Menu className="h-5 w-5" />
@@ -56,18 +56,23 @@ export function Topbar({ onMenuClick }: TopbarProps) {
       {/* Quick Actions */}
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <Button variant="outline" size="sm">
+          <Button 
+            variant="outline" 
+            size="sm"
+            className="transition-all duration-200 hover:shadow-md hover:scale-105 focus-visible:ring-2 focus-visible:ring-ring"
+          >
             <Zap className="h-4 w-4 mr-2" />
             Quick Actions
           </Button>
         </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" className="w-48 bg-card">
+        <DropdownMenuContent align="end" className="w-48 bg-card shadow-lg animate-scale-in">
           <DropdownMenuLabel>Quick Actions</DropdownMenuLabel>
           <DropdownMenuSeparator />
           {quickActions.map((action) => (
             <DropdownMenuItem
               key={action.route}
               onClick={() => navigate(action.route)}
+              className="cursor-pointer transition-colors duration-150 focus:bg-accent"
             >
               {action.label}
             </DropdownMenuItem>
@@ -80,7 +85,7 @@ export function Topbar({ onMenuClick }: TopbarProps) {
         variant="outline"
         size="sm"
         onClick={toggleLanguage}
-        className="gap-2"
+        className="gap-2 transition-all duration-200 hover:shadow-md hover:scale-105 focus-visible:ring-2 focus-visible:ring-ring"
       >
         <Globe className="h-4 w-4" />
         {currentLang.toUpperCase()}
@@ -89,12 +94,16 @@ export function Topbar({ onMenuClick }: TopbarProps) {
       {/* User Menu */}
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <Button variant="outline" size="sm">
+          <Button 
+            variant="outline" 
+            size="sm"
+            className="transition-all duration-200 hover:shadow-md hover:scale-105 focus-visible:ring-2 focus-visible:ring-ring"
+          >
             <User className="h-4 w-4 mr-2" />
             {user?.name}
           </Button>
         </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" className="w-56 bg-card">
+        <DropdownMenuContent align="end" className="w-56 bg-card shadow-lg animate-scale-in">
           <DropdownMenuLabel>
             <div className="flex flex-col space-y-1">
               <p className="text-sm font-medium">{user?.name}</p>
@@ -103,7 +112,10 @@ export function Topbar({ onMenuClick }: TopbarProps) {
             </div>
           </DropdownMenuLabel>
           <DropdownMenuSeparator />
-          <DropdownMenuItem onClick={handleLogout}>
+          <DropdownMenuItem 
+            onClick={handleLogout}
+            className="cursor-pointer transition-colors duration-150 focus:bg-accent"
+          >
             <LogOut className="h-4 w-4 mr-2" />
             Logout
           </DropdownMenuItem>
