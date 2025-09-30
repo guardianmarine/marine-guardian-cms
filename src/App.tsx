@@ -24,9 +24,13 @@ import PurchaseIntakes from "./pages/backoffice/purchasing/PurchaseIntakes";
 import AcquisitionBatches from "./pages/backoffice/purchasing/AcquisitionBatches";
 import Accounts from "./pages/backoffice/crm/Accounts";
 import AccountForm from "./pages/backoffice/crm/AccountForm";
+import AccountDetail from "./pages/backoffice/crm/AccountDetail";
 import Contacts from "./pages/backoffice/crm/Contacts";
 import Leads from "./pages/backoffice/crm/Leads";
+import LeadDetail from "./pages/backoffice/crm/LeadDetail";
 import Opportunities from "./pages/backoffice/crm/Opportunities";
+import OpportunityDetail from "./pages/backoffice/crm/OpportunityDetail";
+import OpportunityKanban from "./pages/backoffice/crm/OpportunityKanban";
 import MyTasks from "./pages/backoffice/crm/MyTasks";
 import NotFound from "./pages/NotFound";
 import "@/i18n/config";
@@ -189,62 +193,17 @@ const App = () => (
             />
             
             {/* CRM Routes */}
-            <Route
-              path="/backoffice/crm/accounts"
-              element={
-                <ProtectedRoute>
-                  <Accounts />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/backoffice/crm/accounts/new"
-              element={
-                <ProtectedRoute>
-                  <AccountForm />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/backoffice/crm/accounts/:id"
-              element={
-                <ProtectedRoute>
-                  <AccountForm />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/backoffice/crm/contacts"
-              element={
-                <ProtectedRoute>
-                  <Contacts />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/backoffice/crm/leads"
-              element={
-                <ProtectedRoute>
-                  <Leads />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/backoffice/crm/opportunities"
-              element={
-                <ProtectedRoute>
-                  <Opportunities />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/backoffice/crm/tasks"
-              element={
-                <ProtectedRoute>
-                  <MyTasks />
-                </ProtectedRoute>
-              }
-            />
+            <Route path="/backoffice/crm/accounts" element={<ProtectedRoute><Accounts /></ProtectedRoute>} />
+            <Route path="/backoffice/crm/accounts/new" element={<ProtectedRoute><AccountForm /></ProtectedRoute>} />
+            <Route path="/backoffice/crm/accounts/:id/edit" element={<ProtectedRoute><AccountForm /></ProtectedRoute>} />
+            <Route path="/backoffice/crm/accounts/:id" element={<ProtectedRoute><AccountDetail /></ProtectedRoute>} />
+            <Route path="/backoffice/crm/contacts" element={<ProtectedRoute><Contacts /></ProtectedRoute>} />
+            <Route path="/backoffice/crm/leads" element={<ProtectedRoute><Leads /></ProtectedRoute>} />
+            <Route path="/backoffice/crm/leads/:id" element={<ProtectedRoute><LeadDetail /></ProtectedRoute>} />
+            <Route path="/backoffice/crm/opportunities" element={<ProtectedRoute><Opportunities /></ProtectedRoute>} />
+            <Route path="/backoffice/crm/opportunities/kanban" element={<ProtectedRoute><OpportunityKanban /></ProtectedRoute>} />
+            <Route path="/backoffice/crm/opportunities/:id" element={<ProtectedRoute><OpportunityDetail /></ProtectedRoute>} />
+            <Route path="/backoffice/crm/tasks" element={<ProtectedRoute><MyTasks /></ProtectedRoute>} />
 
             {/* 404 */}
             <Route path="*" element={<NotFound />} />
