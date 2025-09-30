@@ -334,13 +334,23 @@ export default function UnitForm() {
       setAxles(vinResult.axles);
       updates.push('axles');
     }
+    if (selectedFields.typeHint && vinResult.typeHint) {
+      // Type hint is applied as suggestion, user still needs to set it
+      updates.push('type');
+    }
 
-    // Log event
+    // Log detailed event for audit trail
     if (id) {
       logEvent({
         unit_id: id,
         event_type: 'updated',
-        data: { message: `VIN decoded via NHTSA. Applied: ${updates.join(', ')}` },
+        data: {
+          action: 'vin_decoded',
+          provider: 'nhtsa',
+          vin: vinOrSerial,
+          model_year: year || null,
+          fields_applied: updates,
+        },
         actor_user_id: user?.id || '1',
       });
     }
