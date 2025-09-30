@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { BackofficeLayout } from '@/components/backoffice/Layout';
 import { TaxFeesPanel } from '@/components/deals/TaxFeesPanel';
+import { DealUnitsGrid } from '@/components/deals/DealUnitsGrid';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -69,6 +70,7 @@ export default function DealDetail() {
 
   const [deal, setDeal] = useState<Deal | null>(null);
   const [selectedOpportunityId, setSelectedOpportunityId] = useState('');
+  const [discountAmount, setDiscountAmount] = useState('');
   
   // Payment dialog state
   const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
@@ -83,6 +85,7 @@ export default function DealDetail() {
       if (foundDeal) {
         setDeal(foundDeal);
         setSelectedOpportunityId(foundDeal.opportunity_id);
+        setDiscountAmount(foundDeal.discounts_total > 0 ? foundDeal.discounts_total.toString() : '');
       }
     }
   }, [id, isNew, deals]);
@@ -208,6 +211,42 @@ export default function DealDetail() {
     });
   };
 
+  const handleApplyDiscount = () => {
+    if (!deal) return;
+    const discount = parseFloat(discountAmount);
+    if (isNaN(discount) || discount < 0) {
+      toast({
+        title: 'Error',
+        description: 'Please enter a valid discount amount',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    updateDeal(deal.id, { discounts_total: discount });
+    const updatedDeal = deals.find((d) => d.id === deal.id);
+    if (updatedDeal) setDeal(updatedDeal);
+    toast({
+      title: 'Success',
+      description: 'Discount applied',
+    });
+  };
+
+  const handleRecalculateSubtotal = () => {
+    if (!deal) return;
+    const dealUnitsList = getDealUnits(deal.id);
+    const newSubtotal = dealUnitsList.reduce((sum, du) => sum + du.agreed_unit_price, 0);
+    updateDeal(deal.id, { vehicle_subtotal: newSubtotal });
+    const updatedDeal = deals.find((d) => d.id === deal.id);
+    if (updatedDeal) {
+      setDeal(updatedDeal);
+      toast({
+        title: 'Success',
+        description: 'Subtotal recalculated',
+      });
+    }
+  };
+
   if (isNew) {
     return (
       <BackofficeLayout>
@@ -272,6 +311,7 @@ export default function DealDetail() {
 
   const opportunity = opportunities.find((o) => o.id === deal.opportunity_id);
   const account = accounts.find((a) => a.id === deal.account_id);
+  const contact = opportunity?.contact_id ? useCRMStore.getState().getContact(opportunity.contact_id) : null;
   const salesRep = mockUsers.find((u) => u.id === deal.sales_rep_id);
   const dealUnitsList = getDealUnits(deal.id);
   const fees = getDealFees(deal.id);
@@ -280,8 +320,8 @@ export default function DealDetail() {
   return (
     <BackofficeLayout>
       <div className="p-6 space-y-6">
-        {/* Header */}
-        <div className="flex items-center justify-between">
+        {/* Enhanced Header */}
+        <div className="flex items-start justify-between">
           <div className="flex items-center gap-4">
             <Link to="/backoffice/deals">
               <Button variant="ghost" size="icon">
@@ -290,36 +330,66 @@ export default function DealDetail() {
             </Link>
             <div>
               <h1 className="text-3xl font-bold">{account?.name || 'Deal'}</h1>
-              <p className="text-muted-foreground">{opportunity?.name}</p>
+              <div className="flex items-center gap-3 mt-1 text-sm text-muted-foreground">
+                <span>{opportunity?.name}</span>
+                {contact && (
+                  <>
+                    <span>•</span>
+                    <span>Contact: {contact.first_name} {contact.last_name}</span>
+                  </>
+                )}
+                <span>•</span>
+                <span>Sales Rep: {salesRep?.name}</span>
+              </div>
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <Badge className={deal.status === 'paid' ? 'bg-green-100 text-green-800' : ''}>
+            <Badge className={
+              deal.status === 'paid' ? 'bg-green-100 text-green-800' :
+              deal.status === 'issued' ? 'bg-blue-100 text-blue-800' :
+              deal.status === 'partially_paid' ? 'bg-yellow-100 text-yellow-800' :
+              deal.status === 'canceled' ? 'bg-red-100 text-red-800' :
+              'bg-slate-100 text-slate-800'
+            }>
               {deal.status.replace('_', ' ').toUpperCase()}
             </Badge>
-            {deal.status === 'draft' && (
-              <Button onClick={handleIssueDeal}>
-                <FileText className="h-4 w-4 mr-2" />
-                Issue Deal
-              </Button>
+            {deal.delivered_at && (
+              <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
+                Delivered
+              </Badge>
             )}
-            {deal.status === 'paid' && !deal.delivered_at && (
-              <Button onClick={handleMarkDelivered} variant="outline">
-                Mark Delivered
-              </Button>
-            )}
-            {deal.status === 'paid' && deal.delivered_at && !deal.closed_at && (
-              <Button onClick={handleCloseDeal}>
-                Close Deal
-              </Button>
-            )}
-            {(deal.status === 'issued' || deal.status === 'paid') && (
-              <Button onClick={handleGenerateInvoice} variant="outline">
-                <Download className="h-4 w-4 mr-2" />
-                Generate Invoice
-              </Button>
+            {deal.closed_at && (
+              <Badge variant="outline" className="bg-purple-50 text-purple-700 border-purple-200">
+                Closed
+              </Badge>
             )}
           </div>
+        </div>
+
+        {/* Action Buttons Row */}
+        <div className="flex items-center gap-2 flex-wrap">
+          {deal.status === 'draft' && (
+            <Button onClick={handleIssueDeal}>
+              <FileText className="h-4 w-4 mr-2" />
+              Issue Deal
+            </Button>
+          )}
+          {deal.status === 'paid' && !deal.delivered_at && (
+            <Button onClick={handleMarkDelivered} variant="outline">
+              Mark Delivered
+            </Button>
+          )}
+          {deal.status === 'paid' && deal.delivered_at && !deal.closed_at && (
+            <Button onClick={handleCloseDeal}>
+              Close Deal
+            </Button>
+          )}
+          {(deal.status === 'issued' || deal.status === 'paid') && (
+            <Button onClick={handleGenerateInvoice} variant="outline">
+              <Download className="h-4 w-4 mr-2" />
+              Generate Invoice
+            </Button>
+          )}
         </div>
 
         {/* Financial Summary */}
@@ -367,11 +437,109 @@ export default function DealDetail() {
         </div>
 
 
-        {/* Tax & Fees Panel */}
+        {/* Main Content Grid */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Left Column - Units, Discounts, Totals */}
           <div className="lg:col-span-2 space-y-6">
-            {/* Deal Units would go here */}
+            {/* Units */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Units</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <DealUnitsGrid 
+                  dealId={deal.id} 
+                  onPriceChange={handleRecalculateSubtotal}
+                />
+              </CardContent>
+            </Card>
+
+            {/* Discounts */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Discounts (Optional)</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="flex items-end gap-3">
+                  <div className="flex-1">
+                    <Label>Discount Amount ($)</Label>
+                    <Input
+                      type="number"
+                      step="0.01"
+                      value={discountAmount || deal.discounts_total}
+                      onChange={(e) => setDiscountAmount(e.target.value)}
+                      placeholder="0.00"
+                    />
+                  </div>
+                  <Button onClick={handleApplyDiscount}>
+                    Apply Discount
+                  </Button>
+                </div>
+                {deal.discounts_total > 0 && (
+                  <p className="text-sm text-muted-foreground mt-2">
+                    Current discount: ${deal.discounts_total.toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                  </p>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Totals Breakdown Card */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Deal Totals Breakdown</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-3">
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">Vehicle Subtotal:</span>
+                    <span className="font-semibold">
+                      ${deal.vehicle_subtotal.toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                    </span>
+                  </div>
+                  {deal.discounts_total > 0 && (
+                    <div className="flex justify-between text-sm">
+                      <span className="text-muted-foreground">Discounts:</span>
+                      <span className="font-semibold text-red-600">
+                        -${deal.discounts_total.toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                      </span>
+                    </div>
+                  )}
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">Taxes Total:</span>
+                    <span className="font-semibold">
+                      ${deal.taxes_total.toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                    </span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">Fees Total:</span>
+                    <span className="font-semibold">
+                      ${deal.fees_total.toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                    </span>
+                  </div>
+                  <div className="border-t pt-3 flex justify-between">
+                    <span className="font-bold">Total Due:</span>
+                    <span className="text-2xl font-bold">
+                      ${deal.total_due.toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                    </span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">Amount Paid:</span>
+                    <span className="font-semibold text-green-600">
+                      ${deal.amount_paid.toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                    </span>
+                  </div>
+                  <div className="flex justify-between border-t pt-3">
+                    <span className="font-bold">Balance Due:</span>
+                    <span className="text-xl font-bold text-orange-600">
+                      ${deal.balance_due.toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                    </span>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
           </div>
+
+          {/* Right Column - Tax & Fees Panel */}
           <div>
             <TaxFeesPanel 
               deal={deal} 
