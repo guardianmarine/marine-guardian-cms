@@ -9,8 +9,7 @@ import { supabase } from '@/integrations/supabase/client';
 interface UserWithBirthday {
   id: string;
   name: string;
-  birthday?: string;
-  birth_date?: string;
+  birth_date: string;
 }
 
 export function BirthdaysCard() {
@@ -101,11 +100,11 @@ export function BirthdaysCard() {
                 className="p-3 rounded-lg border border-primary/20 bg-primary/5 flex items-center gap-3"
               >
                 <Cake className="h-5 w-5 text-primary" />
-                <div>
-                  <p className="font-semibold text-sm">
-                    {birthday.date} — {birthday.name}
-                  </p>
-                </div>
+              <div>
+                <p className="font-semibold text-sm">
+                  {birthday.day} — {birthday.name}
+                </p>
+              </div>
               </div>
             ))}
           </div>
