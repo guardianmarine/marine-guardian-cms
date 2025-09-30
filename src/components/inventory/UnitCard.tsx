@@ -5,6 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { MapPin, Gauge, Cog, Settings } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { generateUnitSlug, getUnitBadges, shortenVin } from '@/lib/seo';
+import { getUnitTypeLabel } from '@/lib/i18n-helpers';
 
 interface UnitCardProps {
   unit: Unit;
@@ -15,6 +16,7 @@ export function UnitCard({ unit }: UnitCardProps) {
   const mainPhoto = unit.photos.find((p) => p.is_main) || unit.photos[0];
   const badges = getUnitBadges(unit);
   const slug = generateUnitSlug(unit);
+  const typeLabel = getUnitTypeLabel(unit.type, unit.category, t);
 
   return (
     <Link to={slug}>
@@ -58,7 +60,7 @@ export function UnitCard({ unit }: UnitCardProps) {
             <h3 className="font-bold text-lg group-hover:text-primary transition-colors">
               {unit.year} {unit.make} {unit.model}
             </h3>
-            <p className="text-sm text-muted-foreground">{unit.type}</p>
+            <p className="text-sm text-muted-foreground">{typeLabel}</p>
           </div>
 
           {/* Specs */}

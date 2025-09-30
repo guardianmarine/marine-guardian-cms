@@ -64,6 +64,19 @@
     "description": "Can't find what you need? Let us know and we'll help you find it.",
     "cta": "Request a Unit"
   },
+  "truckTypes": {
+    "Sleeper": "Sleeper",
+    "Daycab": "Daycab",
+    "Yard Mule": "Yard Mule",
+    "Box Truck": "Box Truck"
+  },
+  "trailerTypes": {
+    "Dry Van": "Dry Van",
+    "Reefer": "Reefer",
+    "Low Boy": "Low Boy",
+    "Flat Bed": "Flat Bed",
+    "Pneumatic": "Pneumatic"
+  },
   "backoffice": {
     "login": "Login",
     "logout": "Logout",

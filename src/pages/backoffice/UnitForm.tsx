@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useDropzone } from 'react-dropzone';
+import { useTranslation } from 'react-i18next';
 import { BackofficeLayout } from '@/components/backoffice/Layout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -20,6 +21,7 @@ import { useInventoryStore } from '@/services/inventoryStore';
 import { Unit, UnitCategory, UnitStatus, TruckType, TrailerType, UnitPhoto } from '@/types';
 import { mockLocation } from '@/services/mockData';
 import { useToast } from '@/hooks/use-toast';
+import { getTruckTypes, getTrailerTypes } from '@/lib/i18n-helpers';
 import {
   Save,
   Upload,
@@ -34,17 +36,19 @@ import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, us
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy, useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 
-const truckTypes: TruckType[] = ['Sleeper', 'Daycab', 'Yard Mule', 'Box Truck'];
-const trailerTypes: TrailerType[] = ['Dry Van', 'Reefer', 'Low Boy', 'Flat Bed', 'Pneumatic'];
-
 export default function UnitForm() {
   const { id } = useParams();
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { t } = useTranslation();
   const { units, addUnit, updateUnit, publishUnit, canPublish, getUnitEvents, addPhoto, deletePhoto, setMainPhoto, updatePhotoOrder } = useInventoryStore();
 
   const existingUnit = id ? units.find((u) => u.id === id) : null;
   const isNew = !id;
+
+  // Get translated type options
+  const truckTypes = getTruckTypes(t);
+  const trailerTypes = getTrailerTypes(t);
 
   // Form state
   const [category, setCategory] = useState<UnitCategory>(existingUnit?.category || 'truck');
@@ -406,8 +410,8 @@ export default function UnitForm() {
                         </SelectTrigger>
                         <SelectContent>
                           {truckTypes.map((t) => (
-                            <SelectItem key={t} value={t}>
-                              {t}
+                            <SelectItem key={t.value} value={t.value}>
+                              {t.label}
                             </SelectItem>
                           ))}
                         </SelectContent>
@@ -419,8 +423,8 @@ export default function UnitForm() {
                         </SelectTrigger>
                         <SelectContent>
                           {trailerTypes.map((t) => (
-                            <SelectItem key={t} value={t}>
-                              {t}
+                            <SelectItem key={t.value} value={t.value}>
+                              {t.label}
                             </SelectItem>
                           ))}
                         </SelectContent>

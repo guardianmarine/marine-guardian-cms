@@ -14,6 +14,7 @@ import { InventoryService } from '@/services/inventoryService';
 import { ContentService } from '@/services/contentService';
 import { Unit, InventoryFilters } from '@/types';
 import { Filter, SlidersHorizontal, Truck } from 'lucide-react';
+import { getUnitTypeLabel } from '@/lib/i18n-helpers';
 
 const ITEMS_PER_PAGE = 12;
 
@@ -160,7 +161,7 @@ export default function Inventory() {
           <SelectContent>
             {types.map((type) => (
               <SelectItem key={type} value={type}>
-                {type}
+                {filters.category ? getUnitTypeLabel(type, filters.category, t) : type}
               </SelectItem>
             ))}
           </SelectContent>

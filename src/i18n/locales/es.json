@@ -64,6 +64,19 @@
     "description": "¿No encuentras lo que necesitas? Háznos saber y te ayudaremos a encontrarlo.",
     "cta": "Solicitar una Unidad"
   },
+  "truckTypes": {
+    "Sleeper": "Sleeper",
+    "Daycab": "Daycab",
+    "Yard Mule": "Yard Mule",
+    "Box Truck": "Box Truck"
+  },
+  "trailerTypes": {
+    "Dry Van": "Caja Seca",
+    "Reefer": "Refrigerado",
+    "Low Boy": "Low Boy",
+    "Flat Bed": "Plataforma",
+    "Pneumatic": "Neumático"
+  },
   "backoffice": {
     "login": "Iniciar Sesión",
     "logout": "Cerrar Sesión",

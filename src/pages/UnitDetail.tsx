@@ -11,6 +11,7 @@ import { Unit } from '@/types';
 import { Phone, MessageCircle, ChevronLeft, ChevronRight, Truck, Cog, Settings, MapPin } from 'lucide-react';
 import { TransformWrapper, TransformComponent } from 'react-zoom-pan-pinch';
 import { generateVehicleSchema, shortenVin } from '@/lib/seo';
+import { getUnitTypeLabel } from '@/lib/i18n-helpers';
 
 export default function UnitDetail() {
   const { id, slug } = useParams<{ id?: string; slug?: string }>();
@@ -72,6 +73,7 @@ export default function UnitDetail() {
   };
 
   const schema = generateVehicleSchema(unit);
+  const typeLabel = getUnitTypeLabel(unit.type, unit.category, t);
 
   return (
     <>
@@ -188,7 +190,7 @@ export default function UnitDetail() {
                     </div>
                     <div>
                       <dt className="text-sm text-muted-foreground">Type</dt>
-                      <dd className="font-medium">{unit.type}</dd>
+                      <dd className="font-medium">{typeLabel}</dd>
                     </div>
                     {unit.color && (
                       <div>

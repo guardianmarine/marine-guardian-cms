@@ -5,6 +5,8 @@ import { Badge } from '@/components/ui/badge';
 import { MapPin, ArrowRight } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
+import { generateUnitSlug } from '@/lib/seo';
+import { getUnitTypeLabel } from '@/lib/i18n-helpers';
 
 interface UnitCardXLProps {
   unit: Unit;
@@ -13,6 +15,8 @@ interface UnitCardXLProps {
 export function UnitCardXL({ unit }: UnitCardXLProps) {
   const { t } = useTranslation();
   const mainPhoto = unit.photos.find((p) => p.is_main) || unit.photos[0];
+  const slug = generateUnitSlug(unit);
+  const typeLabel = getUnitTypeLabel(unit.type, unit.category, t);
 
   const isNewArrival = () => {
     if (!unit.listed_at) return false;
@@ -23,7 +27,7 @@ export function UnitCardXL({ unit }: UnitCardXLProps) {
   };
 
   return (
-    <Link to={`/inventory/${unit.id}`}>
+    <Link to={slug}>
       <Card className="overflow-hidden hover:shadow-strong transition-all h-full group">
         {/* Image with Gradient Overlay */}
         <div className="relative aspect-[16/10] overflow-hidden">
@@ -46,9 +50,12 @@ export function UnitCardXL({ unit }: UnitCardXLProps) {
 
           {/* Content Overlay */}
           <div className="absolute bottom-0 left-0 right-0 p-6 text-white">
-            <h3 className="font-bold text-2xl mb-2">
-              {unit.year} {unit.make} {unit.model}
-            </h3>
+            <div className="mb-2">
+              <p className="text-sm opacity-80">{typeLabel}</p>
+              <h3 className="font-bold text-2xl">
+                {unit.year} {unit.make} {unit.model}
+              </h3>
+            </div>
             {unit.display_price && (
               <p className="text-3xl font-bold mb-3">${unit.display_price.toLocaleString()}</p>
             )}
