@@ -11,12 +11,14 @@ import Home from "./pages/Home";
 import Inventory from "./pages/Inventory";
 import UnitDetail from "./pages/UnitDetail";
 import SellTrade from "./pages/SellTrade";
+import RequestUnit from "./pages/RequestUnit";
 import Login from "./pages/backoffice/Login";
 import Dashboard from "./pages/backoffice/Dashboard";
 import MediaLibrary from "./pages/backoffice/MediaLibrary";
 import HomeEditor from "./pages/backoffice/HomeEditor";
 import InventoryAdmin from "./pages/backoffice/InventoryAdmin";
 import UnitForm from "./pages/backoffice/UnitForm";
+import BuyerRequests from "./pages/backoffice/BuyerRequests";
 import NotFound from "./pages/NotFound";
 import "@/i18n/config";
 
@@ -81,6 +83,18 @@ const App = () => (
               path="/sell-trade"
               element={<SellTrade />}
             />
+            <Route
+              path="/request-unit"
+              element={
+                <div className="flex flex-col min-h-screen">
+                  <Header />
+                  <main className="flex-1">
+                    <RequestUnit />
+                  </main>
+                  <Footer />
+                </div>
+              }
+            />
 
             {/* Backoffice Routes */}
             <Route path="/backoffice/login" element={<Login />} />
@@ -129,6 +143,14 @@ const App = () => (
               element={
                 <ProtectedRoute>
                   <UnitForm />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/backoffice/buyer-requests"
+              element={
+                <ProtectedRoute>
+                  <BuyerRequests />
                 </ProtectedRoute>
               }
             />

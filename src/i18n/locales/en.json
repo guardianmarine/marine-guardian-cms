@@ -64,6 +64,15 @@
     "description": "Can't find what you need? Let us know and we'll help you find it.",
     "cta": "Request a Unit"
   },
+  "purchasing": {
+    "suppliers": "Suppliers",
+    "intakes": "Purchase Intakes",
+    "appraisals": "Appraisals",
+    "batches": "Acquisition Batches",
+    "receiving": "Receiving",
+    "buyerRequests": "Buyer Requests",
+    "csvImport": "CSV Import"
+  },
   "truckTypes": {
     "Sleeper": "Sleeper",
     "Daycab": "Daycab",

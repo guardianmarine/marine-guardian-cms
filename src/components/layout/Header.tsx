@@ -20,6 +20,7 @@ export function Header() {
     { href: '/', label: t('nav.home') },
     { href: '/inventory', label: t('nav.inventory') },
     { href: '/sell-trade', label: t('nav.sellTrade') },
+    { href: '/request-unit', label: t('requestUnit.cta') },
   ];
 
   return (

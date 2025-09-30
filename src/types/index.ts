@@ -10,6 +10,16 @@ export type TrailerType = 'Dry Van' | 'Reefer' | 'Low Boy' | 'Flat Bed' | 'Pneum
 
 export type Locale = 'en' | 'es';
 
+// Purchasing module types
+export type SupplierType = 'individual' | 'company';
+export type AcquisitionBatchStatus = 'planned' | 'receiving' | 'received' | 'closed';
+export type IntakeSource = 'web_form' | 'phone' | 'email' | 'import' | 'walk_in';
+export type PipelineStage = 'new' | 'review' | 'appraised' | 'offer_made' | 'accepted' | 'rejected';
+export type ConditionGrade = 'A' | 'B' | 'C' | 'D';
+export type PurchaseOrderStatus = 'draft' | 'issued' | 'received' | 'closed' | 'void';
+export type ReceivingItemStatus = 'pending' | 'validated' | 'converted';
+export type BuyerRequestStatus = 'new' | 'in_review' | 'matched' | 'closed';
+
 export interface User {
   id: string;
   name: string;
@@ -169,4 +179,150 @@ export interface InventoryFilters {
   mileage_max?: number;
   type?: string;
   status?: UnitStatus;
+}
+
+// Purchasing Module Interfaces
+
+export interface Supplier {
+  id: string;
+  name: string;
+  type: SupplierType;
+  contact_name?: string;
+  email?: string;
+  phone?: string;
+  address?: string;
+  notes?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface AcquisitionBatch {
+  id: string;
+  supplier_id: string;
+  supplier?: Supplier;
+  name_or_po: string;
+  received_at?: string;
+  status: AcquisitionBatchStatus;
+  notes?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface PurchaseIntake {
+  id: string;
+  source: IntakeSource;
+  supplier_id?: string;
+  supplier?: Supplier;
+  seller_name: string;
+  seller_company?: string;
+  email?: string;
+  phone?: string;
+  category: UnitCategory;
+  make: string;
+  year: number;
+  model: string;
+  color?: string;
+  mileage?: number;
+  engine?: string;
+  transmission?: string;
+  vin_or_serial: string;
+  axles?: number;
+  type: string;
+  hours?: number;
+  photos: string[];
+  documents: string[];
+  pipeline_stage: PipelineStage;
+  reason_rejected?: string;
+  created_by?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface Appraisal {
+  id: string;
+  purchase_intake_id: string;
+  purchase_intake?: PurchaseIntake;
+  condition_grade?: ConditionGrade;
+  valuation_inputs: Record<string, any>;
+  est_reconditioning_parts: number;
+  est_reconditioning_labor: number;
+  est_transport_in: number;
+  target_buy_price: number;
+  comments?: string;
+  created_by: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface PurchaseOrder {
+  id: string;
+  supplier_id: string;
+  supplier?: Supplier;
+  acquisition_batch_id?: string;
+  acquisition_batch?: AcquisitionBatch;
+  po_number: string;
+  status: PurchaseOrderStatus;
+  subtotal: number;
+  fees: number;
+  total: number;
+  documents: string[];
+  issued_at?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ReceivingItem {
+  id: string;
+  acquisition_batch_id: string;
+  acquisition_batch?: AcquisitionBatch;
+  purchase_intake_id?: string;
+  purchase_intake?: PurchaseIntake;
+  po_id?: string;
+  purchase_order?: PurchaseOrder;
+  category: UnitCategory;
+  make: string;
+  year: number;
+  model: string;
+  color?: string;
+  mileage?: number;
+  engine?: string;
+  transmission?: string;
+  vin_or_serial: string;
+  axles?: number;
+  type: string;
+  hours?: number;
+  condition_report: {
+    tire_depths?: Record<string, number>;
+    damages?: string[];
+    photos?: string[];
+    notes?: string;
+  };
+  cost_purchase: number;
+  cost_transport_in: number;
+  status: ReceivingItemStatus;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface BuyerRequest {
+  id: string;
+  locale: Locale;
+  requester_name: string;
+  email: string;
+  phone: string;
+  category: UnitCategory;
+  desired_make?: string;
+  desired_model?: string;
+  desired_type?: string;
+  year_min?: number;
+  year_max?: number;
+  mileage_min?: number;
+  mileage_max?: number;
+  budget_min?: number;
+  budget_max?: number;
+  location_pref?: string;
+  notes?: string;
+  status: BuyerRequestStatus;
+  created_at: string;
+  updated_at: string;
 }

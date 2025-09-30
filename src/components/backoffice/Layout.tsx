@@ -9,7 +9,8 @@ import {
   Package, 
   LogOut,
   Menu,
-  X
+  X,
+  Users
 } from 'lucide-react';
 import { useState } from 'react';
 import logo from '@/assets/logo.png';
@@ -34,6 +35,7 @@ export function BackofficeLayout({ children }: BackofficeLayoutProps) {
     { path: '/backoffice/content', label: 'Content', icon: Home },
     { path: '/backoffice/media', label: 'Media Library', icon: Image },
     { path: '/backoffice/inventory', label: 'Inventory', icon: Package },
+    { path: '/backoffice/buyer-requests', label: 'Buyer Requests', icon: Users },
   ];
 
   const isActive = (path: string, exact?: boolean) => {

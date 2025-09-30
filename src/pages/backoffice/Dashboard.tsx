@@ -2,11 +2,14 @@ import { BackofficeLayout } from '@/components/backoffice/Layout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useAuth } from '@/contexts/AuthContext';
 import { InventoryService } from '@/services/inventoryService';
-import { Package, Truck, Container, Wrench } from 'lucide-react';
+import { usePurchasingStore } from '@/services/purchasingStore';
+import { Package, Truck, Container, Wrench, Users } from 'lucide-react';
 
 export default function Dashboard() {
   const { user } = useAuth();
   const counts = InventoryService.getCategoryCounts();
+  const { buyerRequests } = usePurchasingStore();
+  const newBuyerRequests = buyerRequests.filter((r) => r.status === 'new').length;
 
   const stats = [
     {
@@ -33,6 +36,12 @@ export default function Dashboard() {
       icon: Wrench,
       color: 'text-orange-600',
     },
+    {
+      title: 'New Buyer Requests',
+      value: newBuyerRequests,
+      icon: Users,
+      color: 'text-purple-600',
+    },
   ];
 
   return (
@@ -45,7 +54,7 @@ export default function Dashboard() {
           </p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
           {stats.map((stat) => {
             const Icon = stat.icon;
             return (
@@ -81,6 +90,9 @@ export default function Dashboard() {
               </li>
               <li>
                 <strong>Inventory:</strong> Manage units, photos, and publishing workflow
+              </li>
+              <li>
+                <strong>Buyer Requests:</strong> Review and manage incoming unit requests from customers
               </li>
             </ul>
           </CardContent>
