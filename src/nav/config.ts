@@ -234,7 +234,7 @@ export const NAV_ITEMS: NavItem[] = [
     id: 'admin-settings', 
     route: '/admin/settings', 
     icon: 'Settings', 
-    label: { en: 'Admin Settings', es: 'Configuración Admin' }, 
+    label: { en: 'Admin Settings', es: 'Ajustes' }, 
     roles: ['admin'],
     children: [
       { 
