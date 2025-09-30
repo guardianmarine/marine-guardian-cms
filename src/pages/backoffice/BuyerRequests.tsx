@@ -1,5 +1,4 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { BackofficeLayout } from '@/components/backoffice/Layout';
 import { Button } from '@/components/ui/button';
@@ -29,25 +28,13 @@ import {
 } from '@/components/ui/dialog';
 import { Card, CardContent } from '@/components/ui/card';
 import { usePurchasingStore } from '@/services/purchasingStore';
-import { useCRMStore } from '@/services/crmStore';
-import { BuyerRequest, BuyerRequestStatus, Lead, Account, Contact } from '@/types';
-import { useToast } from '@/hooks/use-toast';
-import { Search, Eye, CheckCircle, XCircle, UserPlus, ExternalLink } from 'lucide-react';
+import { BuyerRequest, BuyerRequestStatus } from '@/types';
+import { Search, Eye, CheckCircle, XCircle } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 
 export default function BuyerRequests() {
   const { t } = useTranslation();
-  const navigate = useNavigate();
-  const { toast } = useToast();
   const { buyerRequests, updateBuyerRequest } = usePurchasingStore();
-  const { 
-    addAccount, 
-    addContact, 
-    addLead, 
-    addLeadIntakeLink, 
-    getLeadByBuyerRequest,
-    contacts 
-  } = useCRMStore();
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<BuyerRequestStatus | 'all'>('all');
   const [categoryFilter, setCategoryFilter] = useState<'all' | 'truck' | 'trailer' | 'equipment'>('all');
@@ -80,100 +67,6 @@ export default function BuyerRequests() {
 
   const handleStatusChange = (id: string, status: BuyerRequestStatus) => {
     updateBuyerRequest(id, { status });
-  };
-
-  const handleCreateLead = (request: BuyerRequest) => {
-    // Check if lead already exists
-    const existingLead = getLeadByBuyerRequest(request.id);
-    if (existingLead) {
-      toast({
-        title: 'Lead already exists',
-        description: 'This buyer request already has a lead',
-        variant: 'destructive',
-      });
-      navigate(`/backoffice/crm/leads/${existingLead.id}`);
-      return;
-    }
-
-    // Deduplication: check for existing contact by email
-    const existingContact = contacts.find(c => c.email.toLowerCase() === request.email.toLowerCase());
-    
-    let accountId: string;
-    let contactId: string;
-    const now = new Date().toISOString();
-
-    if (existingContact) {
-      // Use existing account and contact
-      accountId = existingContact.account_id;
-      contactId = existingContact.id;
-    } else {
-      // Create new account (individual)
-      const newAccount: Account = {
-        id: Math.random().toString(36).substr(2, 9),
-        name: request.requester_name,
-        kind: 'individual',
-        email: request.email,
-        phone: request.phone,
-        is_tax_exempt: false,
-        resale_cert: false,
-        created_at: now,
-        updated_at: now,
-      };
-      addAccount(newAccount);
-      accountId = newAccount.id;
-
-      // Create new contact
-      const nameParts = request.requester_name.split(' ');
-      const firstName = nameParts[0] || request.requester_name;
-      const lastName = nameParts.slice(1).join(' ') || '';
-      
-      const newContact: Contact = {
-        id: Math.random().toString(36).substr(2, 9),
-        account_id: accountId,
-        first_name: firstName,
-        last_name: lastName,
-        email: request.email,
-        phone: request.phone,
-        preferred_lang: request.locale,
-        created_at: now,
-        updated_at: now,
-      };
-      addContact(newContact);
-      contactId = newContact.id;
-    }
-
-    // Create lead
-    const newLead: Lead = {
-      id: Math.random().toString(36).substr(2, 9),
-      source: 'web_form',
-      account_id: accountId,
-      contact_id: contactId,
-      category_interest: request.category,
-      status: 'new',
-      lead_score: 0,
-      sla_first_touch_hours: 24,
-      owner_user_id: undefined, // TODO: Assign via round-robin or rules
-      created_at: now,
-      updated_at: now,
-    };
-    addLead(newLead);
-
-    // Link buyer request to lead
-    addLeadIntakeLink({
-      id: Math.random().toString(36).substr(2, 9),
-      buyer_request_id: request.id,
-      lead_id: newLead.id,
-      created_at: now,
-    });
-
-    updateBuyerRequest(request.id, { status: 'in_review' });
-
-    toast({
-      title: 'Lead created',
-      description: 'Lead has been created and linked to this request',
-    });
-
-    navigate(`/backoffice/crm/leads/${newLead.id}`);
   };
 
   return (
@@ -304,14 +197,6 @@ export default function BuyerRequests() {
                           >
                             <Eye className="h-4 w-4" />
                           </Button>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => handleCreateLead(request)}
-                            title="Create Lead from this request"
-                          >
-                            <UserPlus className="h-4 w-4" />
-                          </Button>
                           {request.status === 'new' && (
                             <Button
                               size="sm"
@@ -319,18 +204,6 @@ export default function BuyerRequests() {
                               onClick={() => handleStatusChange(request.id, 'in_review')}
                             >
                               <CheckCircle className="h-4 w-4" />
-                            </Button>
-                          )}
-                          {getLeadByBuyerRequest(request.id) && (
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              asChild
-                              title="View linked lead"
-                            >
-                              <a href={`/backoffice/crm/leads/${getLeadByBuyerRequest(request.id)?.id}`}>
-                                <ExternalLink className="h-4 w-4" />
-                              </a>
                             </Button>
                           )}
                         </div>
