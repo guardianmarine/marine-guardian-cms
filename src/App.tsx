@@ -121,6 +121,14 @@ const App = () => (
             {/* Backoffice Routes */}
             <Route path="/backoffice/login" element={<Login />} />
             <Route
+              path="/admin"
+              element={
+                <ProtectedRoute>
+                  <Dashboard />
+                </ProtectedRoute>
+              }
+            />
+            <Route
               path="/backoffice"
               element={
                 <ProtectedRoute>

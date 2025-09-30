@@ -72,6 +72,9 @@ export function Sidebar({ items, userRole, onItemClick }: SidebarProps) {
   };
 
   const isActive = (route: string) => {
+    if (route === '/admin') {
+      return location.pathname === '/admin';
+    }
     if (route === '/backoffice') {
       return location.pathname === '/backoffice';
     }

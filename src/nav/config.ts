@@ -12,7 +12,7 @@ export type NavItem = {
 export const NAV_ITEMS: NavItem[] = [
   { 
     id: 'dashboard', 
-    route: '/backoffice', 
+    route: '/admin', 
     icon: 'Home', 
     label: { en: 'Dashboard', es: 'Panel' }, 
     roles: ['admin', 'inventory', 'sales', 'finance', 'viewer'] 
