@@ -1,309 +1,113 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { format, subDays } from 'date-fns';
 import { BackofficeLayout } from '@/components/backoffice/Layout';
 import { useAuth } from '@/contexts/AuthContext';
 import { PermissionGuard } from '@/components/PermissionGuard';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { supabase } from '@/integrations/supabase/client';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
-import { TrendingUp, Users, DollarSign, Clock, AlertCircle, Loader2, CalendarIcon, Download, Info, ArrowUpDown } from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
+import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import { TrendingUp, AlertCircle, Loader2, CalendarIcon, Download, Info, ArrowUpDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { insightTemplates, InsightResult } from '@/modules/insights/templates';
 
-interface InsightData {
-  title: string;
-  description: string;
-  explanation: string;
-  table: Array<Record<string, any>>;
-  chart?: Array<Record<string, any>>;
-}
-
-type QuickChipType = 'topCombos' | 'slowMovers' | 'leadsLost' | 'repeatBuyers' | 'repPerformance';
+type TemplateKey = keyof typeof insightTemplates;
 
 export default function Insights() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { user } = useAuth();
+  const { toast } = useToast();
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [insights, setInsights] = useState<Record<string, InsightData>>({});
+  const [selectedTemplate, setSelectedTemplate] = useState<TemplateKey>('top_combos');
+  const [result, setResult] = useState<InsightResult | null>(null);
   const [dateRange, setDateRange] = useState({
     from: subDays(new Date(), 90),
     to: new Date(),
   });
   const [limit, setLimit] = useState(25);
-  const [activeChip, setActiveChip] = useState<QuickChipType | null>(null);
-  const [showExplanation, setShowExplanation] = useState<Record<string, boolean>>({});
+  const [showExplanation, setShowExplanation] = useState(false);
   const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'asc' | 'desc' } | null>(null);
 
-  const canViewProfitability = user?.role === 'finance' || user?.role === 'admin';
+  const locale = (i18n.language === 'es' ? 'es' : 'en') as 'en' | 'es';
+  const userRole = user?.role || 'sales';
 
-  useEffect(() => {
-    loadInsights();
-  }, [dateRange, limit]);
+  // Filter templates by user role
+  const availableTemplates = Object.entries(insightTemplates).filter(([_, template]) =>
+    template.roles.includes(userRole as any)
+  );
 
-  const loadInsights = async () => {
+  const runTemplate = async (templateKey: TemplateKey) => {
     setLoading(true);
-    setError(null);
+    setResult(null);
+    setSortConfig(null);
 
     try {
-      const startDate = format(dateRange.from, 'yyyy-MM-dd');
-      const endDate = format(dateRange.to, 'yyyy-MM-dd');
-
-      // Fetch all data we need in parallel (no SQL, just client queries)
-      const [
-        { data: deals, error: dealsError },
-        { data: opportunities, error: oppsError },
-        { data: units, error: unitsError },
-        { data: accounts, error: accountsError },
-        { data: leads, error: leadsError },
-      ] = await Promise.all([
-        supabase.from('deals').select('*').gte('created_at', startDate).lte('created_at', endDate),
-        supabase.from('opportunities').select('*').gte('created_at', startDate).lte('created_at', endDate),
-        supabase.from('units').select('*'),
-        supabase.from('accounts').select('*'),
-        supabase.from('leads').select('*').gte('created_at', startDate).lte('created_at', endDate),
-      ]);
-
-      if (dealsError || oppsError || unitsError || accountsError || leadsError) {
-        console.error('Data fetch errors:', { dealsError, oppsError, unitsError, accountsError, leadsError });
-        throw new Error('Failed to load data');
+      const template = insightTemplates[templateKey];
+      if (!template) {
+        throw new Error('Template not found');
       }
 
-      // Client-side aggregations
-      const insightsData: Record<string, InsightData> = {};
+      const params = {
+        dateFrom: format(dateRange.from, 'yyyy-MM-dd'),
+        dateTo: format(dateRange.to, 'yyyy-MM-dd'),
+        limit,
+        locale,
+      };
 
-      // 1. Top Performers (Sales)
-      if (deals && deals.length > 0) {
-        const salesByRep = deals.reduce((acc: any, deal: any) => {
-          const rep = deal.sales_rep || 'Unassigned';
-          if (!acc[rep]) {
-            acc[rep] = { rep, count: 0, total: 0 };
-          }
-          acc[rep].count += 1;
-          acc[rep].total += deal.total_due || 0;
-          return acc;
-        }, {});
+      const data = await template.run(params);
+      setResult(data);
 
-        const topReps = Object.values(salesByRep)
-          .sort((a: any, b: any) => b.total - a.total)
-          .slice(0, limit);
-
-        insightsData.topPerformers = {
-          title: t('insights.topPerformers.title'),
-          description: t('insights.topPerformers.description'),
-          explanation: t('insights.topPerformers.explanation'),
-          table: topReps.map((r: any) => ({
-            'Sales Rep': r.rep,
-            'Deals': r.count,
-            'Total Value': `$${r.total.toLocaleString()}`,
-            _sortValue: r.total,
-          })),
-          chart: topReps.slice(0, 5).map((r: any) => ({
-            name: r.rep,
-            value: r.total,
-          })),
-        };
-      }
-
-      // 2. Opportunity Pipeline
-      if (opportunities && opportunities.length > 0) {
-        const oppsByStage = opportunities.reduce((acc: any, opp: any) => {
-          const stage = opp.stage || 'Unknown';
-          if (!acc[stage]) {
-            acc[stage] = { stage, count: 0, value: 0 };
-          }
-          acc[stage].count += 1;
-          acc[stage].value += opp.estimated_value || 0;
-          return acc;
-        }, {});
-
-        const pipeline = Object.values(oppsByStage);
-
-        insightsData.pipeline = {
-          title: t('insights.pipeline.title'),
-          description: t('insights.pipeline.description'),
-          explanation: t('insights.pipeline.explanation'),
-          table: pipeline.map((p: any) => ({
-            'Stage': p.stage,
-            'Count': p.count,
-            'Est. Value': `$${p.value.toLocaleString()}`,
-            _sortValue: p.value,
-          })),
-          chart: pipeline.map((p: any) => ({
-            name: p.stage,
-            value: p.value,
-          })),
-        };
-      }
-
-      // 3. Slow Moving Inventory
-      if (units && units.length > 0) {
-        const now = new Date();
-        const daysOnLot = units.map((unit: any) => {
-          const received = new Date(unit.received_at || unit.created_at);
-          const days = Math.floor((now.getTime() - received.getTime()) / (1000 * 60 * 60 * 24));
-          return {
-            unit: `${unit.year} ${unit.make} ${unit.model}`,
-            days,
-            status: unit.status,
-          };
+      if (data.rows.length === 0) {
+        toast({
+          title: t('insights.noData'),
+          description: t('insights.noDataDescription'),
         });
-
-        const slowMovers = daysOnLot
-          .filter((u: any) => u.status === 'published' && u.days > 90)
-          .sort((a: any, b: any) => b.days - a.days)
-          .slice(0, limit);
-
-        insightsData.slowMovers = {
-          title: t('insights.slowMovers.title'),
-          description: t('insights.slowMovers.description'),
-          explanation: t('insights.slowMovers.explanation'),
-          table: slowMovers.map((u: any) => ({
-            'Unit': u.unit,
-            'Days on Lot': u.days,
-            'Status': u.status,
-            _sortValue: u.days,
-          })),
-        };
-
-        // Average days by category
-        const categoryTurnover = units.reduce((acc: any, unit: any) => {
-          const cat = unit.category || 'Unknown';
-          const received = new Date(unit.received_at || unit.created_at);
-          const days = Math.floor((now.getTime() - received.getTime()) / (1000 * 60 * 60 * 24));
-          
-          if (!acc[cat]) {
-            acc[cat] = { category: cat, totalDays: 0, count: 0 };
-          }
-          acc[cat].totalDays += days;
-          acc[cat].count += 1;
-          return acc;
-        }, {});
-
-        const avgTurnover = Object.values(categoryTurnover).map((c: any) => ({
-          name: c.category,
-          value: Math.round(c.totalDays / c.count),
-        }));
-
-        insightsData.turnover = {
-          title: t('insights.turnover.title'),
-          description: t('insights.turnover.description'),
-          explanation: t('insights.turnover.explanation'),
-          table: avgTurnover.map((t: any) => ({
-            'Category': t.name,
-            'Avg Days': t.value,
-            _sortValue: t.value,
-          })),
-          chart: avgTurnover,
-        };
       }
-
-      // 4. Repeat Customers
-      if (accounts && accounts.length > 0 && deals && deals.length > 0) {
-        const dealsByAccount = deals.reduce((acc: any, deal: any) => {
-          const accId = deal.account_id;
-          if (!accId) return acc;
-          if (!acc[accId]) {
-            acc[accId] = { count: 0, total: 0 };
-          }
-          acc[accId].count += 1;
-          acc[accId].total += deal.total_due || 0;
-          return acc;
-        }, {});
-
-        const repeatCustomers = Object.entries(dealsByAccount)
-          .filter(([_, data]: any) => data.count > 1)
-          .map(([accId, data]: any) => {
-            const account = accounts.find((a: any) => a.id === accId);
-            return {
-              'Customer': account?.name || 'Unknown',
-              'Purchases': data.count,
-              'Total Spent': `$${data.total.toLocaleString()}`,
-              _sortValue: data.total,
-            };
-          })
-          .sort((a, b) => b.Purchases - a.Purchases)
-          .slice(0, limit);
-
-        insightsData.repeatCustomers = {
-          title: t('insights.repeatCustomers.title'),
-          description: t('insights.repeatCustomers.description'),
-          explanation: t('insights.repeatCustomers.explanation'),
-          table: repeatCustomers,
-        };
-      }
-
-      // 5. Leads Lost Reasons
-      if (leads && leads.length > 0) {
-        const lostLeads = leads.filter((l: any) => l.status === 'disqualified' && l.lost_reason);
-        const reasonCounts = lostLeads.reduce((acc: any, lead: any) => {
-          const reason = lead.lost_reason || 'Unknown';
-          acc[reason] = (acc[reason] || 0) + 1;
-          return acc;
-        }, {});
-
-        const leadsLostReasons = Object.entries(reasonCounts)
-          .map(([reason, count]) => ({
-            'Reason': reason,
-            'Count': count,
-            _sortValue: count,
-          }))
-          .sort((a, b) => (b.Count as number) - (a.Count as number))
-          .slice(0, limit);
-
-        insightsData.leadsLost = {
-          title: 'Leads Lost Reasons',
-          description: 'Why we\'re losing leads',
-          explanation: 'Understand the main reasons leads are lost to improve your sales process and address common objections.',
-          table: leadsLostReasons,
-          chart: leadsLostReasons.slice(0, 5).map((r: any) => ({
-            name: r.Reason,
-            value: r.Count,
-          })),
-        };
-      }
-
-      setInsights(insightsData);
-    } catch (err) {
-      console.error('Error loading insights:', err);
-      setError(t('insights.errorLoading'));
+    } catch (error) {
+      console.error('Error running template:', error);
+      toast({
+        title: t('insights.errorLoading'),
+        description: error instanceof Error ? error.message : 'Unknown error',
+        variant: 'destructive',
+      });
+      setResult({ rows: [], chart: { type: 'bar', x: '', y: '' }, explanation: '' });
     } finally {
       setLoading(false);
     }
   };
 
-  const handleQuickChip = (chip: QuickChipType) => {
-    setActiveChip(chip);
+  const handleQuickChip = (templateKey: TemplateKey) => {
+    setSelectedTemplate(templateKey);
     
-    switch (chip) {
-      case 'topCombos':
-      case 'repPerformance':
+    // Adjust date range based on template
+    switch (templateKey) {
+      case 'top_combos':
+      case 'rep_performance':
         setDateRange({ from: subDays(new Date(), 90), to: new Date() });
         break;
-      case 'slowMovers':
-        // Show all slow movers regardless of date
+      case 'slow_movers':
         setDateRange({ from: subDays(new Date(), 365), to: new Date() });
         break;
-      case 'leadsLost':
-      case 'repeatBuyers':
+      case 'lost_reasons':
+      case 'repeat_buyers':
         setDateRange({ from: subDays(new Date(), 180), to: new Date() });
         break;
     }
+    
+    runTemplate(templateKey);
   };
 
-  const exportToCSV = (insightKey: string) => {
-    const insight = insights[insightKey];
-    if (!insight || !insight.table.length) return;
+  const exportToCSV = () => {
+    if (!result || !result.rows.length) return;
 
-    const headers = Object.keys(insight.table[0]).filter(k => !k.startsWith('_'));
-    const rows = insight.table.map(row => 
+    const headers = Object.keys(result.rows[0]).filter(k => !k.startsWith('_'));
+    const rows = result.rows.map(row => 
       headers.map(h => {
         const val = row[h];
         return typeof val === 'string' && val.includes(',') ? `"${val}"` : val;
@@ -319,19 +123,18 @@ export default function Insights() {
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `${insightKey}_${format(new Date(), 'yyyy-MM-dd')}.csv`;
+    a.download = `${selectedTemplate}_${format(new Date(), 'yyyy-MM-dd')}.csv`;
     a.click();
     window.URL.revokeObjectURL(url);
   };
 
-  const handleSort = (insightKey: string, columnKey: string) => {
-    const insight = insights[insightKey];
-    if (!insight) return;
+  const handleSort = (columnKey: string) => {
+    if (!result) return;
 
     const newDirection = sortConfig?.key === columnKey && sortConfig.direction === 'asc' ? 'desc' : 'asc';
     setSortConfig({ key: columnKey, direction: newDirection });
 
-    const sortedTable = [...insight.table].sort((a, b) => {
+    const sortedRows = [...result.rows].sort((a, b) => {
       const aVal = a._sortValue !== undefined ? a._sortValue : a[columnKey];
       const bVal = b._sortValue !== undefined ? b._sortValue : b[columnKey];
       
@@ -344,118 +147,19 @@ export default function Insights() {
         : String(bVal).localeCompare(String(aVal));
     });
 
-    setInsights(prev => ({
-      ...prev,
-      [insightKey]: { ...insight, table: sortedTable }
-    }));
+    setResult({ ...result, rows: sortedRows });
   };
 
-  const renderInsightCard = (insightKey: string) => {
-    const insight = insights[insightKey];
-    if (!insight) return null;
-
-    return (
-      <Card key={insightKey}>
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <div>
-              <CardTitle className="flex items-center gap-2">
-                {insightKey === 'topPerformers' && <TrendingUp className="h-5 w-5" />}
-                {insightKey === 'pipeline' && <Users className="h-5 w-5" />}
-                {insightKey === 'slowMovers' && <Clock className="h-5 w-5" />}
-                {insightKey === 'turnover' && <TrendingUp className="h-5 w-5" />}
-                {insightKey === 'repeatCustomers' && <Users className="h-5 w-5" />}
-                {insightKey === 'leadsLost' && <AlertCircle className="h-5 w-5" />}
-                {insight.title}
-              </CardTitle>
-              <CardDescription>{insight.description}</CardDescription>
-            </div>
-            <div className="flex gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setShowExplanation(prev => ({ ...prev, [insightKey]: !prev[insightKey] }))}
-              >
-                <Info className="h-4 w-4 mr-2" />
-                {showExplanation[insightKey] ? t('insights.hideExplanation') : t('insights.showExplanation')}
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => exportToCSV(insightKey)}
-              >
-                <Download className="h-4 w-4 mr-2" />
-                {t('insights.exportCSV')}
-              </Button>
-            </div>
-          </div>
-          {showExplanation[insightKey] && (
-            <Alert className="mt-4">
-              <Info className="h-4 w-4" />
-              <AlertDescription>{insight.explanation}</AlertDescription>
-            </Alert>
-          )}
-        </CardHeader>
-        <CardContent className="space-y-6">
-          {/* Chart */}
-          {insight.chart && insight.chart.length > 0 && (
-            <div className="h-64">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={insight.chart}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="name" />
-                  <YAxis />
-                  <Tooltip formatter={(value) => typeof value === 'number' ? value.toLocaleString() : value} />
-                  <Bar dataKey="value" fill="hsl(var(--primary))" />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-          )}
-
-          {/* Table */}
-          {insight.table.length > 0 ? (
-            <div className="border rounded-lg overflow-hidden">
-              <table className="w-full">
-                <thead className="bg-muted">
-                  <tr>
-                    {Object.keys(insight.table[0]).filter(k => !k.startsWith('_')).map((key) => (
-                      <th 
-                        key={key} 
-                        className="px-4 py-2 text-left text-sm font-medium cursor-pointer hover:bg-muted/80"
-                        onClick={() => handleSort(insightKey, key)}
-                      >
-                        <div className="flex items-center gap-2">
-                          {key}
-                          <ArrowUpDown className="h-3 w-3" />
-                        </div>
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {insight.table.map((row, idx) => (
-                    <tr key={idx} className="border-t hover:bg-muted/50">
-                      {Object.entries(row).filter(([k]) => !k.startsWith('_')).map(([key, val], i) => (
-                        <td key={i} className="px-4 py-2 text-sm">
-                          {val}
-                        </td>
-                      ))}
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          ) : (
-            <Alert>
-              <AlertCircle className="h-4 w-4" />
-              <AlertDescription>
-                {t('insights.noData')} - {t('insights.noDataDescription')}
-              </AlertDescription>
-            </Alert>
-          )}
-        </CardContent>
-      </Card>
-    );
+  // Map template keys to i18n keys
+  const getChipLabel = (key: TemplateKey): string => {
+    const mapping: Record<TemplateKey, string> = {
+      top_combos: t('insights.quickChips.topCombos'),
+      slow_movers: t('insights.quickChips.slowMovers'),
+      lost_reasons: t('insights.quickChips.leadsLost'),
+      repeat_buyers: t('insights.quickChips.repeatBuyers'),
+      rep_performance: t('insights.quickChips.repPerformance'),
+    };
+    return mapping[key] || key;
   };
 
   return (
@@ -467,7 +171,7 @@ export default function Insights() {
               <h2 className="text-3xl font-bold">{t('insights.title')}</h2>
               <p className="text-muted-foreground">{t('insights.subtitle')}</p>
             </div>
-            <Button onClick={loadInsights} disabled={loading}>
+            <Button onClick={() => runTemplate(selectedTemplate)} disabled={loading}>
               {loading ? (
                 <>
                   <Loader2 className="h-4 w-4 mr-2 animate-spin" />
@@ -491,8 +195,8 @@ export default function Insights() {
                     {format(dateRange.from, 'PPP')} - {format(dateRange.to, 'PPP')}
                   </Button>
                 </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="start">
-                  <div className="p-3 space-y-2">
+                <PopoverContent className="w-auto p-0 bg-card z-50" align="start">
+                  <div className="p-3 space-y-2 bg-card">
                     <Button
                       variant="ghost"
                       size="sm"
@@ -523,7 +227,7 @@ export default function Insights() {
                     selected={{ from: dateRange.from, to: dateRange.to }}
                     onSelect={(range: any) => range?.from && range?.to && setDateRange({ from: range.from, to: range.to })}
                     numberOfMonths={2}
-                    className={cn('p-3 pointer-events-auto')}
+                    className={cn('p-3 pointer-events-auto bg-card')}
                   />
                 </PopoverContent>
               </Popover>
@@ -533,13 +237,30 @@ export default function Insights() {
             <div className="flex items-center gap-2">
               <span className="text-sm font-medium">{t('insights.limit')}:</span>
               <Select value={String(limit)} onValueChange={(v) => setLimit(Number(v))}>
-                <SelectTrigger className="w-[100px]">
+                <SelectTrigger className="w-[100px] bg-card z-50">
                   <SelectValue />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent className="bg-card z-50">
                   <SelectItem value="10">10</SelectItem>
                   <SelectItem value="25">25</SelectItem>
                   <SelectItem value="50">50</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Template Selector */}
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-medium">Template:</span>
+              <Select value={selectedTemplate} onValueChange={(v) => setSelectedTemplate(v as TemplateKey)}>
+                <SelectTrigger className="w-[200px] bg-card z-50">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent className="bg-card z-50">
+                  {availableTemplates.map(([key, template]) => (
+                    <SelectItem key={key} value={key}>
+                      {template.label}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
@@ -547,106 +268,165 @@ export default function Insights() {
 
           {/* Quick Chips */}
           <div className="flex flex-wrap gap-2">
-            <Button
-              variant={activeChip === 'topCombos' ? 'default' : 'outline'}
-              size="sm"
-              onClick={() => handleQuickChip('topCombos')}
-            >
-              {t('insights.quickChips.topCombos')}
-            </Button>
-            <Button
-              variant={activeChip === 'slowMovers' ? 'default' : 'outline'}
-              size="sm"
-              onClick={() => handleQuickChip('slowMovers')}
-            >
-              {t('insights.quickChips.slowMovers')}
-            </Button>
-            <Button
-              variant={activeChip === 'leadsLost' ? 'default' : 'outline'}
-              size="sm"
-              onClick={() => handleQuickChip('leadsLost')}
-            >
-              {t('insights.quickChips.leadsLost')}
-            </Button>
-            <Button
-              variant={activeChip === 'repeatBuyers' ? 'default' : 'outline'}
-              size="sm"
-              onClick={() => handleQuickChip('repeatBuyers')}
-            >
-              {t('insights.quickChips.repeatBuyers')}
-            </Button>
-            <Button
-              variant={activeChip === 'repPerformance' ? 'default' : 'outline'}
-              size="sm"
-              onClick={() => handleQuickChip('repPerformance')}
-            >
-              {t('insights.quickChips.repPerformance')}
-            </Button>
+            {availableTemplates.map(([key]) => {
+              const templateKey = key as TemplateKey;
+              return (
+                <Button
+                  key={key}
+                  variant={selectedTemplate === templateKey ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => handleQuickChip(templateKey)}
+                >
+                  {getChipLabel(templateKey)}
+                </Button>
+              );
+            })}
           </div>
 
-          {error && (
-            <Alert variant="destructive">
-              <AlertCircle className="h-4 w-4" />
-              <AlertDescription>{error}</AlertDescription>
-            </Alert>
+          {/* Results Card */}
+          {result && (
+            <Card>
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <CardTitle className="flex items-center gap-2">
+                      <TrendingUp className="h-5 w-5" />
+                      {insightTemplates[selectedTemplate].label}
+                    </CardTitle>
+                    {result.explanation && (
+                      <CardDescription className="mt-2">{result.explanation}</CardDescription>
+                    )}
+                  </div>
+                  <div className="flex gap-2">
+                    {result.explanation && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setShowExplanation(!showExplanation)}
+                      >
+                        <Info className="h-4 w-4 mr-2" />
+                        {showExplanation ? t('insights.hideExplanation') : t('insights.showExplanation')}
+                      </Button>
+                    )}
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={exportToCSV}
+                      disabled={!result.rows.length}
+                    >
+                      <Download className="h-4 w-4 mr-2" />
+                      {t('insights.exportCSV')}
+                    </Button>
+                  </div>
+                </div>
+                {showExplanation && result.explanation && (
+                  <Alert className="mt-4">
+                    <Info className="h-4 w-4" />
+                    <AlertDescription>{result.explanation}</AlertDescription>
+                  </Alert>
+                )}
+              </CardHeader>
+              <CardContent className="space-y-6">
+                {/* Chart */}
+                {result.chart && result.rows.length > 0 && (
+                  <div className="h-64">
+                    <ResponsiveContainer width="100%" height="100%">
+                      {result.chart.type === 'bar' ? (
+                        <BarChart data={result.rows.slice(0, 10)}>
+                          <CartesianGrid strokeDasharray="3 3" />
+                          <XAxis dataKey={result.chart.x} />
+                          <YAxis />
+                          <Tooltip 
+                            formatter={(value) => typeof value === 'number' ? value.toLocaleString() : value}
+                          />
+                          <Bar dataKey={result.chart.y} fill="hsl(var(--primary))" />
+                        </BarChart>
+                      ) : (
+                        <LineChart data={result.rows.slice(0, 10)}>
+                          <CartesianGrid strokeDasharray="3 3" />
+                          <XAxis dataKey={result.chart.x} />
+                          <YAxis />
+                          <Tooltip 
+                            formatter={(value) => typeof value === 'number' ? value.toLocaleString() : value}
+                          />
+                          <Line type="monotone" dataKey={result.chart.y} stroke="hsl(var(--primary))" />
+                        </LineChart>
+                      )}
+                    </ResponsiveContainer>
+                  </div>
+                )}
+
+                {/* Table */}
+                {result.rows.length > 0 ? (
+                  <div className="border rounded-lg overflow-hidden">
+                    <div className="overflow-x-auto">
+                      <table className="w-full">
+                        <thead className="bg-muted">
+                          <tr>
+                            {Object.keys(result.rows[0]).filter(k => !k.startsWith('_')).map((key) => (
+                              <th 
+                                key={key} 
+                                className="px-4 py-2 text-left text-sm font-medium cursor-pointer hover:bg-muted/80"
+                                onClick={() => handleSort(key)}
+                              >
+                                <div className="flex items-center gap-2">
+                                  {key}
+                                  <ArrowUpDown className="h-3 w-3" />
+                                </div>
+                              </th>
+                            ))}
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {result.rows.map((row, idx) => (
+                            <tr key={idx} className="border-t hover:bg-muted/50">
+                              {Object.entries(row).filter(([k]) => !k.startsWith('_')).map(([key, val], i) => (
+                                <td key={i} className="px-4 py-2 text-sm">
+                                  {typeof val === 'number' && key.toLowerCase().includes('revenue') 
+                                    ? `$${val.toLocaleString()}`
+                                    : String(val ?? '')}
+                                </td>
+                              ))}
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                ) : (
+                  <Alert>
+                    <AlertCircle className="h-4 w-4" />
+                    <AlertDescription>
+                      {t('insights.noData')} - {t('insights.noDataDescription')}
+                    </AlertDescription>
+                  </Alert>
+                )}
+              </CardContent>
+            </Card>
           )}
 
-          <Tabs defaultValue="sales" className="space-y-4">
-            <TabsList>
-              <TabsTrigger value="sales">{t('insights.tabs.sales')}</TabsTrigger>
-              <TabsTrigger value="inventory">{t('insights.tabs.inventory')}</TabsTrigger>
-              <TabsTrigger value="customers">{t('insights.tabs.customers')}</TabsTrigger>
-              {canViewProfitability && (
-                <TabsTrigger value="profitability" disabled>
-                  {t('insights.tabs.profitability')}
-                  <Badge variant="outline" className="ml-2">{t('insights.tabs.comingSoon')}</Badge>
-                </TabsTrigger>
-              )}
-            </TabsList>
+          {/* Loading State */}
+          {loading && (
+            <Card>
+              <CardContent className="py-12 flex flex-col items-center justify-center">
+                <Loader2 className="h-8 w-8 animate-spin text-primary mb-4" />
+                <p className="text-muted-foreground">{t('insights.loading')}</p>
+              </CardContent>
+            </Card>
+          )}
 
-            {/* Sales Tab */}
-            <TabsContent value="sales" className="space-y-4">
-              {renderInsightCard('topPerformers')}
-              {renderInsightCard('pipeline')}
-              {renderInsightCard('leadsLost')}
-            </TabsContent>
-
-            {/* Inventory Tab */}
-            <TabsContent value="inventory" className="space-y-4">
-              {renderInsightCard('slowMovers')}
-              {renderInsightCard('turnover')}
-            </TabsContent>
-
-            {/* Customers Tab */}
-            <TabsContent value="customers" className="space-y-4">
-              {renderInsightCard('repeatCustomers')}
-            </TabsContent>
-
-            {/* Profitability Tab (Placeholder) */}
-            {canViewProfitability && (
-              <TabsContent value="profitability">
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                      <DollarSign className="h-5 w-5" />
-                      {t('insights.tabs.profitability')}
-                    </CardTitle>
-                    <CardDescription>
-                      Coming soon: Margin analysis, cost tracking, and profit reports
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <Alert>
-                      <AlertCircle className="h-4 w-4" />
-                      <AlertDescription>
-                        This feature is under development and will be available soon.
-                      </AlertDescription>
-                    </Alert>
-                  </CardContent>
-                </Card>
-              </TabsContent>
-            )}
-          </Tabs>
+          {/* Empty State */}
+          {!loading && !result && (
+            <Card>
+              <CardContent className="py-12 flex flex-col items-center justify-center">
+                <TrendingUp className="h-12 w-12 text-muted-foreground mb-4" />
+                <p className="text-lg font-medium mb-2">Select a template to get started</p>
+                <p className="text-sm text-muted-foreground">
+                  Choose a quick chip or select a template from the dropdown above
+                </p>
+              </CardContent>
+            </Card>
+          )}
         </div>
       </PermissionGuard>
     </BackofficeLayout>
