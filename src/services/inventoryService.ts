@@ -54,19 +54,48 @@ export class InventoryService {
   static async getSimilarUnits(unit: Unit, limit: number = 4): Promise<Unit[]> {
     await new Promise((resolve) => setTimeout(resolve, 200));
 
-    return mockUnits
+    // Filter: same category and type, exclude current unit, only published
+    const similar = mockUnits
       .filter(
         (u) =>
           u.id !== unit.id &&
           u.status === 'published' &&
           u.category === unit.category &&
-          (u.type === unit.type || u.make === unit.make)
+          u.type === unit.type
       )
+      // Sort by closest year (prioritize similar age)
+      .sort((a, b) => {
+        const aDiff = Math.abs(a.year - unit.year);
+        const bDiff = Math.abs(b.year - unit.year);
+        return aDiff - bDiff;
+      })
       .slice(0, limit)
       .map((u) => {
         const { hours, ...publicUnit } = u;
         return publicUnit as Unit;
       });
+
+    // Fallback: if not enough similar units, include same category only
+    if (similar.length < limit) {
+      const fallback = mockUnits
+        .filter(
+          (u) =>
+            u.id !== unit.id &&
+            u.status === 'published' &&
+            u.category === unit.category &&
+            !similar.find(s => s.id === u.id)
+        )
+        .sort((a, b) => b.year - a.year)
+        .slice(0, limit - similar.length)
+        .map((u) => {
+          const { hours, ...publicUnit } = u;
+          return publicUnit as Unit;
+        });
+      
+      return [...similar, ...fallback];
+    }
+
+    return similar;
   }
 
   static getCategoryCounts(): Record<string, number> {

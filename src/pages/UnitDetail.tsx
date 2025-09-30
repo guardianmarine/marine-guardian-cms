@@ -8,7 +8,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { UnitCard } from '@/components/inventory/UnitCard';
 import { InventoryService } from '@/services/inventoryService';
 import { Unit } from '@/types';
-import { Phone, MessageCircle, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Phone, MessageCircle, ChevronLeft, ChevronRight, Truck, Cog, Settings, MapPin } from 'lucide-react';
 import { TransformWrapper, TransformComponent } from 'react-zoom-pan-pinch';
 import { generateVehicleSchema, shortenVin } from '@/lib/seo';
 
@@ -161,92 +161,158 @@ export default function UnitDetail() {
             </div>
 
             {/* Specs */}
-            <Card>
-              <CardContent className="p-6">
-                <h2 className="text-xl font-semibold mb-4">{t('inventory.specifications')}</h2>
-                <dl className="grid grid-cols-2 gap-4">
-                  <div>
-                    <dt className="text-sm text-muted-foreground">Year</dt>
-                    <dd className="font-medium">{unit.year}</dd>
-                  </div>
-                  <div>
-                    <dt className="text-sm text-muted-foreground">Make</dt>
-                    <dd className="font-medium">{unit.make}</dd>
-                  </div>
-                  <div>
-                    <dt className="text-sm text-muted-foreground">Model</dt>
-                    <dd className="font-medium">{unit.model}</dd>
-                  </div>
-                  <div>
-                    <dt className="text-sm text-muted-foreground">Type</dt>
-                    <dd className="font-medium">{unit.type}</dd>
-                  </div>
-                  {unit.color && (
+            <div className="space-y-4">
+              {/* Overview */}
+              <Card>
+                <CardContent className="p-6">
+                  <h2 className="text-xl font-semibold mb-4 flex items-center">
+                    <Truck className="h-5 w-5 mr-2" />
+                    Overview
+                  </h2>
+                  <dl className="grid grid-cols-2 gap-4">
                     <div>
-                      <dt className="text-sm text-muted-foreground">Color</dt>
-                      <dd className="font-medium">{unit.color}</dd>
+                      <dt className="text-sm text-muted-foreground">Category</dt>
+                      <dd className="font-medium capitalize">{unit.category}</dd>
                     </div>
-                  )}
-                  {unit.mileage && (
                     <div>
-                      <dt className="text-sm text-muted-foreground">Mileage</dt>
-                      <dd className="font-medium">{unit.mileage.toLocaleString()} mi</dd>
+                      <dt className="text-sm text-muted-foreground">Year</dt>
+                      <dd className="font-medium">{unit.year}</dd>
                     </div>
-                  )}
-                  {unit.engine && (
                     <div>
-                      <dt className="text-sm text-muted-foreground">Engine</dt>
-                      <dd className="font-medium">{unit.engine}</dd>
+                      <dt className="text-sm text-muted-foreground">Make</dt>
+                      <dd className="font-medium">{unit.make}</dd>
                     </div>
-                  )}
-                  {unit.transmission && (
                     <div>
-                      <dt className="text-sm text-muted-foreground">Transmission</dt>
-                      <dd className="font-medium">{unit.transmission}</dd>
+                      <dt className="text-sm text-muted-foreground">Model</dt>
+                      <dd className="font-medium">{unit.model}</dd>
                     </div>
-                  )}
-                  {unit.axles && (
                     <div>
-                      <dt className="text-sm text-muted-foreground">Axles</dt>
-                      <dd className="font-medium">{unit.axles}</dd>
+                      <dt className="text-sm text-muted-foreground">Type</dt>
+                      <dd className="font-medium">{unit.type}</dd>
                     </div>
-                  )}
-                  <div>
-                    <dt className="text-sm text-muted-foreground">VIN/Serial (Last 6)</dt>
-                    <dd className="font-medium font-mono text-sm">{shortenVin(unit.vin_or_serial)}</dd>
-                  </div>
-                  {unit.location && (
-                    <div className="col-span-2">
-                      <dt className="text-sm text-muted-foreground">Location</dt>
-                      <dd className="font-medium">{unit.location.name}</dd>
-                    </div>
-                  )}
-                </dl>
-              </CardContent>
-            </Card>
+                    {unit.color && (
+                      <div>
+                        <dt className="text-sm text-muted-foreground">Color</dt>
+                        <dd className="font-medium">{unit.color}</dd>
+                      </div>
+                    )}
+                  </dl>
+                </CardContent>
+              </Card>
 
-            {/* Contact CTAs */}
-            <Card>
-              <CardContent className="p-6 space-y-3">
-                <h3 className="font-semibold mb-3">Interested in this unit?</h3>
-                <Button className="w-full" size="lg">
-                  <Phone className="h-5 w-5 mr-2" />
-                  {t('inventory.requestInfo')}
-                </Button>
-                <Button variant="outline" className="w-full" size="lg" asChild>
-                  <a href={`tel:${t('common.phone')}`}>
-                    <Phone className="h-5 w-5 mr-2" />
-                    Call {t('common.phone')}
-                  </a>
-                </Button>
-                <Button variant="outline" className="w-full" size="lg" asChild>
-                  <a href={`https://wa.me/12146138521`} target="_blank" rel="noopener noreferrer">
-                    <MessageCircle className="h-5 w-5 mr-2" />
-                    WhatsApp
-                  </a>
-                </Button>
-              </CardContent>
-            </Card>
+              {/* Powertrain */}
+              {(unit.engine || unit.transmission || unit.mileage) && (
+                <Card>
+                  <CardContent className="p-6">
+                    <h2 className="text-xl font-semibold mb-4 flex items-center">
+                      <Cog className="h-5 w-5 mr-2" />
+                      Powertrain
+                    </h2>
+                    <dl className="grid grid-cols-2 gap-4">
+                      {unit.engine && (
+                        <div>
+                          <dt className="text-sm text-muted-foreground">Engine</dt>
+                          <dd className="font-medium">{unit.engine}</dd>
+                        </div>
+                      )}
+                      {unit.transmission && (
+                        <div>
+                          <dt className="text-sm text-muted-foreground">Transmission</dt>
+                          <dd className="font-medium">{unit.transmission}</dd>
+                        </div>
+                      )}
+                      {unit.mileage && (
+                        <div>
+                          <dt className="text-sm text-muted-foreground">Mileage</dt>
+                          <dd className="font-medium">{unit.mileage.toLocaleString()} miles</dd>
+                        </div>
+                      )}
+                    </dl>
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Axles & Configuration */}
+              {unit.axles && (
+                <Card>
+                  <CardContent className="p-6">
+                    <h2 className="text-xl font-semibold mb-4 flex items-center">
+                      <Settings className="h-5 w-5 mr-2" />
+                      Configuration
+                    </h2>
+                    <dl className="grid grid-cols-2 gap-4">
+                      <div>
+                        <dt className="text-sm text-muted-foreground">Axles</dt>
+                        <dd className="font-medium">{unit.axles}</dd>
+                      </div>
+                    </dl>
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Identification & Location */}
+              <Card>
+                <CardContent className="p-6">
+                  <h2 className="text-xl font-semibold mb-4 flex items-center">
+                    <MapPin className="h-5 w-5 mr-2" />
+                    Identification & Location
+                  </h2>
+                  <dl className="grid grid-cols-2 gap-4">
+                    <div className="col-span-2">
+                      <dt className="text-sm text-muted-foreground">VIN/Serial (Last 6)</dt>
+                      <dd className="font-medium font-mono text-lg">{shortenVin(unit.vin_or_serial)}</dd>
+                    </div>
+                    {unit.location && (
+                      <div className="col-span-2">
+                        <dt className="text-sm text-muted-foreground">Location</dt>
+                        <dd className="font-medium flex items-center gap-2">
+                          <MapPin className="h-4 w-4 text-primary" />
+                          {unit.location.name}
+                        </dd>
+                      </div>
+                    )}
+                  </dl>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Sticky Contact CTAs */}
+            <div className="lg:sticky lg:top-24">
+              <Card className="border-2 border-primary">
+                <CardContent className="p-6 space-y-4">
+                  <div>
+                    <h3 className="font-bold text-xl mb-1">Interested in this unit?</h3>
+                    <p className="text-muted-foreground text-sm">Contact us for more information</p>
+                  </div>
+                  
+                  <div className="text-center py-3 border-y">
+                    <div className="text-3xl font-bold text-primary">
+                      ${unit.display_price.toLocaleString()}
+                    </div>
+                    <div className="text-xs text-muted-foreground mt-1">USD</div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Button className="w-full" size="lg">
+                      <Phone className="h-5 w-5 mr-2" />
+                      Request Info
+                    </Button>
+                    <Button variant="outline" className="w-full" size="lg" asChild>
+                      <a href={`tel:${t('common.phone')}`}>
+                        <Phone className="h-5 w-5 mr-2" />
+                        Call {t('common.phone')}
+                      </a>
+                    </Button>
+                    <Button variant="outline" className="w-full" size="lg" asChild>
+                      <a href={`https://wa.me/12146138521`} target="_blank" rel="noopener noreferrer">
+                        <MessageCircle className="h-5 w-5 mr-2" />
+                        WhatsApp
+                      </a>
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
           </div>
         </div>
 
