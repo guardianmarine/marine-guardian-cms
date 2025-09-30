@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { supabase } from '@/integrations/supabase/client';
 
 export interface VinDecodeResult {
   make?: string;
@@ -78,6 +79,28 @@ export function useVinDecode() {
         typeHint: typeHint || undefined,
         rawData: results,
       };
+
+      // Best-effort cache: try to insert but don't fail if table doesn't exist
+      try {
+        await supabase.from('vin_decode_cache').insert({
+          vin: vin.toUpperCase(),
+          model_year: modelYear || result.year || null,
+          provider: 'nhtsa',
+          raw: results,
+          normalized: {
+            make: result.make,
+            model: result.model,
+            year: result.year,
+            engine: result.engine,
+            transmission: result.transmission,
+            axles: result.axles,
+            typeHint: result.typeHint,
+          },
+        });
+      } catch (cacheError) {
+        // Silently ignore cache errors (table may not exist yet)
+        console.debug('VIN decode cache insert skipped:', cacheError);
+      }
 
       setState({ loading: false, error: null, result });
       return result;
