@@ -18,7 +18,7 @@ interface BreadcrumbsProps {
 export function Breadcrumbs({ items }: BreadcrumbsProps) {
   const location = useLocation();
   const { i18n } = useTranslation();
-  const locale = i18n.language as 'en' | 'es';
+  const locale = (i18n.language === 'es' ? 'es' : 'en') as 'en' | 'es'; // Fallback to 'en'
 
   const breadcrumbs = getBreadcrumbs(items, location.pathname);
 

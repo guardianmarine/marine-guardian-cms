@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
+import { RoleGuard } from "@/components/RoleGuard";
 import { Header } from "@/components/layout/Header";
 import { Footer } from "@/components/layout/Footer";
 import Home from "./pages/Home";
@@ -131,7 +132,9 @@ const App = () => (
               path="/backoffice/media"
               element={
                 <ProtectedRoute>
-                  <MediaLibrary />
+                  <RoleGuard allowedRoles={['admin', 'inventory']}>
+                    <MediaLibrary />
+                  </RoleGuard>
                 </ProtectedRoute>
               }
             />
@@ -139,7 +142,9 @@ const App = () => (
               path="/backoffice/content"
               element={
                 <ProtectedRoute>
-                  <HomeEditor />
+                  <RoleGuard allowedRoles={['admin', 'inventory']}>
+                    <HomeEditor />
+                  </RoleGuard>
                 </ProtectedRoute>
               }
             />
@@ -155,7 +160,9 @@ const App = () => (
               path="/backoffice/inventory/new"
               element={
                 <ProtectedRoute>
-                  <UnitForm />
+                  <RoleGuard allowedRoles={['admin', 'inventory']}>
+                    <UnitForm />
+                  </RoleGuard>
                 </ProtectedRoute>
               }
             />
@@ -163,7 +170,9 @@ const App = () => (
               path="/backoffice/inventory/:id"
               element={
                 <ProtectedRoute>
-                  <UnitForm />
+                  <RoleGuard allowedRoles={['admin', 'inventory']}>
+                    <UnitForm />
+                  </RoleGuard>
                 </ProtectedRoute>
               }
             />
@@ -179,7 +188,9 @@ const App = () => (
               path="/backoffice/purchasing/suppliers"
               element={
                 <ProtectedRoute>
-                  <Suppliers />
+                  <RoleGuard allowedRoles={['admin', 'inventory']}>
+                    <Suppliers />
+                  </RoleGuard>
                 </ProtectedRoute>
               }
             />
@@ -187,7 +198,9 @@ const App = () => (
               path="/backoffice/purchasing/intakes"
               element={
                 <ProtectedRoute>
-                  <PurchaseIntakes />
+                  <RoleGuard allowedRoles={['admin', 'inventory']}>
+                    <PurchaseIntakes />
+                  </RoleGuard>
                 </ProtectedRoute>
               }
             />
@@ -195,36 +208,38 @@ const App = () => (
               path="/backoffice/purchasing/batches"
               element={
                 <ProtectedRoute>
-                  <AcquisitionBatches />
+                  <RoleGuard allowedRoles={['admin', 'inventory']}>
+                    <AcquisitionBatches />
+                  </RoleGuard>
                 </ProtectedRoute>
               }
             />
             
             {/* CRM Routes */}
-            <Route path="/backoffice/crm/accounts" element={<ProtectedRoute><Accounts /></ProtectedRoute>} />
-            <Route path="/backoffice/crm/accounts/new" element={<ProtectedRoute><AccountForm /></ProtectedRoute>} />
-            <Route path="/backoffice/crm/accounts/:id/edit" element={<ProtectedRoute><AccountForm /></ProtectedRoute>} />
-            <Route path="/backoffice/crm/accounts/:id" element={<ProtectedRoute><AccountDetail /></ProtectedRoute>} />
-            <Route path="/backoffice/crm/contacts" element={<ProtectedRoute><Contacts /></ProtectedRoute>} />
-            <Route path="/backoffice/crm/leads" element={<ProtectedRoute><Leads /></ProtectedRoute>} />
-            <Route path="/backoffice/crm/leads/:id" element={<ProtectedRoute><LeadDetail /></ProtectedRoute>} />
-            <Route path="/backoffice/crm/opportunities" element={<ProtectedRoute><Opportunities /></ProtectedRoute>} />
-            <Route path="/backoffice/crm/opportunities/kanban" element={<ProtectedRoute><OpportunityKanban /></ProtectedRoute>} />
-            <Route path="/backoffice/crm/opportunities/:id" element={<ProtectedRoute><OpportunityDetail /></ProtectedRoute>} />
-            <Route path="/backoffice/crm/tasks" element={<ProtectedRoute><MyTasks /></ProtectedRoute>} />
+            <Route path="/backoffice/crm/accounts" element={<ProtectedRoute><RoleGuard allowedRoles={['admin','sales','finance','inventory','viewer']}><Accounts /></RoleGuard></ProtectedRoute>} />
+            <Route path="/backoffice/crm/accounts/new" element={<ProtectedRoute><RoleGuard allowedRoles={['admin','sales']}><AccountForm /></RoleGuard></ProtectedRoute>} />
+            <Route path="/backoffice/crm/accounts/:id/edit" element={<ProtectedRoute><RoleGuard allowedRoles={['admin','sales']}><AccountForm /></RoleGuard></ProtectedRoute>} />
+            <Route path="/backoffice/crm/accounts/:id" element={<ProtectedRoute><RoleGuard allowedRoles={['admin','sales','finance','inventory','viewer']}><AccountDetail /></RoleGuard></ProtectedRoute>} />
+            <Route path="/backoffice/crm/contacts" element={<ProtectedRoute><RoleGuard allowedRoles={['admin','sales','finance','inventory','viewer']}><Contacts /></RoleGuard></ProtectedRoute>} />
+            <Route path="/backoffice/crm/leads" element={<ProtectedRoute><RoleGuard allowedRoles={['admin','sales']}><Leads /></RoleGuard></ProtectedRoute>} />
+            <Route path="/backoffice/crm/leads/:id" element={<ProtectedRoute><RoleGuard allowedRoles={['admin','sales']}><LeadDetail /></RoleGuard></ProtectedRoute>} />
+            <Route path="/backoffice/crm/opportunities" element={<ProtectedRoute><RoleGuard allowedRoles={['admin','sales']}><Opportunities /></RoleGuard></ProtectedRoute>} />
+            <Route path="/backoffice/crm/opportunities/kanban" element={<ProtectedRoute><RoleGuard allowedRoles={['admin','sales']}><OpportunityKanban /></RoleGuard></ProtectedRoute>} />
+            <Route path="/backoffice/crm/opportunities/:id" element={<ProtectedRoute><RoleGuard allowedRoles={['admin','sales']}><OpportunityDetail /></RoleGuard></ProtectedRoute>} />
+            <Route path="/backoffice/crm/tasks" element={<ProtectedRoute><RoleGuard allowedRoles={['admin','sales']}><MyTasks /></RoleGuard></ProtectedRoute>} />
 
             {/* Deals & Finance Routes */}
-            <Route path="/backoffice/deals" element={<ProtectedRoute><Deals /></ProtectedRoute>} />
-            <Route path="/backoffice/deals/new" element={<ProtectedRoute><DealDetail /></ProtectedRoute>} />
-            <Route path="/backoffice/deals/:id" element={<ProtectedRoute><DealDetail /></ProtectedRoute>} />
-            <Route path="/backoffice/deals/tax-regimes" element={<ProtectedRoute><TaxRegimes /></ProtectedRoute>} />
-            <Route path="/backoffice/finance/dashboard" element={<ProtectedRoute><FinanceDashboard /></ProtectedRoute>} />
-            <Route path="/backoffice/finance/overview" element={<ProtectedRoute><FinanceOverview /></ProtectedRoute>} />
-            <Route path="/backoffice/finance/commissions" element={<ProtectedRoute><Commissions /></ProtectedRoute>} />
-            <Route path="/backoffice/finance/commissions-report" element={<ProtectedRoute><CommissionsReport /></ProtectedRoute>} />
+            <Route path="/backoffice/deals" element={<ProtectedRoute><RoleGuard allowedRoles={['admin','sales','finance']}><Deals /></RoleGuard></ProtectedRoute>} />
+            <Route path="/backoffice/deals/new" element={<ProtectedRoute><RoleGuard allowedRoles={['admin','sales']}><DealDetail /></RoleGuard></ProtectedRoute>} />
+            <Route path="/backoffice/deals/:id" element={<ProtectedRoute><RoleGuard allowedRoles={['admin','sales','finance']}><DealDetail /></RoleGuard></ProtectedRoute>} />
+            <Route path="/backoffice/deals/tax-regimes" element={<ProtectedRoute><RoleGuard allowedRoles={['admin','finance']}><TaxRegimes /></RoleGuard></ProtectedRoute>} />
+            <Route path="/backoffice/finance/dashboard" element={<ProtectedRoute><RoleGuard allowedRoles={['admin','finance']}><FinanceDashboard /></RoleGuard></ProtectedRoute>} />
+            <Route path="/backoffice/finance/overview" element={<ProtectedRoute><RoleGuard allowedRoles={['admin','finance']}><FinanceOverview /></RoleGuard></ProtectedRoute>} />
+            <Route path="/backoffice/finance/commissions" element={<ProtectedRoute><RoleGuard allowedRoles={['admin','finance','sales']}><Commissions /></RoleGuard></ProtectedRoute>} />
+            <Route path="/backoffice/finance/commissions-report" element={<ProtectedRoute><RoleGuard allowedRoles={['admin','finance','sales']}><CommissionsReport /></RoleGuard></ProtectedRoute>} />
             
             {/* Insights Route */}
-            <Route path="/backoffice/insights" element={<ProtectedRoute><Insights /></ProtectedRoute>} />
+            <Route path="/backoffice/insights" element={<ProtectedRoute><RoleGuard allowedRoles={['admin','finance','sales']}><Insights /></RoleGuard></ProtectedRoute>} />
 
             {/* 404 */}
             <Route path="*" element={<NotFound />} />

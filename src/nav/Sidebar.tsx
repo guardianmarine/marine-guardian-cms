@@ -16,7 +16,7 @@ interface SidebarProps {
 export function Sidebar({ items, userRole, onItemClick }: SidebarProps) {
   const { i18n } = useTranslation();
   const location = useLocation();
-  const locale = i18n.language as 'en' | 'es';
+  const locale = (i18n.language === 'es' ? 'es' : 'en') as 'en' | 'es'; // Fallback to 'en'
   
   // Filter items by role
   const visibleItems = filterNavByRole(items, userRole);
