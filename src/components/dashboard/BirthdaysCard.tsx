@@ -22,24 +22,13 @@ export function BirthdaysCard() {
   useEffect(() => {
     const fetchBirthdays = async () => {
       try {
-        // Try fetching with birthday column first
+        // Try fetching with birth_date column
         let { data, error } = await supabase
           .from('users')
-          .select('id,name,birthday')
-          .not('birthday', 'is', null);
+          .select('id,name,birth_date')
+          .not('birth_date', 'is', null);
 
-        // If birthday column doesn't exist, try birth_date
-        if (error && error.message.includes('birthday')) {
-          const result = await supabase
-            .from('users')
-            .select('id,name,birth_date')
-            .not('birth_date', 'is', null);
-          
-          data = result.data as any;
-          error = result.error;
-        }
-
-        if (error && (error.message.includes('birthday') || error.message.includes('birth_date'))) {
+        if (error && error.message.includes('birth_date')) {
           // Column doesn't exist, show setup message
           setHasBirthdayColumn(false);
           setLoading(false);
@@ -54,12 +43,12 @@ export function BirthdaysCard() {
         const currentMonth = getMonth(new Date());
         const birthdaysThisMonth = (data || [])
           .filter((user: any) => {
-            const birthDate = user.birthday || user.birth_date;
+            const birthDate = user.birth_date;
             if (!birthDate) return false;
             return getMonth(new Date(birthDate)) === currentMonth;
           })
           .map((user: any) => {
-            const birthDate = new Date(user.birthday || user.birth_date);
+            const birthDate = new Date(user.birth_date);
             return {
               name: user.name,
               day: getDate(birthDate),

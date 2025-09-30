@@ -41,7 +41,7 @@ import FinanceOverview from "./pages/backoffice/finance/FinanceOverview";
 import Commissions from "./pages/backoffice/finance/Commissions";
 import CommissionsReport from "./pages/backoffice/finance/CommissionsReport";
 import Insights from "./pages/backoffice/Insights";
-import UsersRoles from "./pages/admin/UsersRoles";
+import UsersRoles from "./pages/admin/settings/UsersRoles";
 import NotFound from "./pages/NotFound";
 import "@/i18n/config";
 
