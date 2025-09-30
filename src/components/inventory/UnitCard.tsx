@@ -48,9 +48,9 @@ export function UnitCard({ unit }: UnitCardProps) {
             <h3 className="font-semibold text-lg line-clamp-1">
               {unit.year} {unit.make} {unit.model}
             </h3>
-            {unit.price && (
+            {unit.display_price && (
               <p className="text-2xl font-bold text-primary mt-1">
-                ${unit.price.toLocaleString()}
+                ${unit.display_price.toLocaleString()}
               </p>
             )}
           </div>

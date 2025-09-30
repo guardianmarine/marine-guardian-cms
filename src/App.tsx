@@ -16,6 +16,7 @@ import Dashboard from "./pages/backoffice/Dashboard";
 import MediaLibrary from "./pages/backoffice/MediaLibrary";
 import HomeEditor from "./pages/backoffice/HomeEditor";
 import InventoryAdmin from "./pages/backoffice/InventoryAdmin";
+import UnitForm from "./pages/backoffice/UnitForm";
 import NotFound from "./pages/NotFound";
 import "@/i18n/config";
 
@@ -100,6 +101,22 @@ const App = () => (
               element={
                 <ProtectedRoute>
                   <InventoryAdmin />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/backoffice/inventory/new"
+              element={
+                <ProtectedRoute>
+                  <UnitForm />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/backoffice/inventory/:id"
+              element={
+                <ProtectedRoute>
+                  <UnitForm />
                 </ProtectedRoute>
               }
             />

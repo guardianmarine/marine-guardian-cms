@@ -136,8 +136,8 @@ export default function UnitDetail() {
               <h1 className="text-4xl font-bold mb-2">
                 {unit.year} {unit.make} {unit.model}
               </h1>
-              {unit.price && (
-                <p className="text-3xl font-bold text-primary">${unit.price.toLocaleString()}</p>
+              {unit.display_price && (
+                <p className="text-3xl font-bold text-primary">${unit.display_price.toLocaleString()}</p>
               )}
             </div>
 

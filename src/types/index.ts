@@ -39,9 +39,9 @@ export interface Unit {
   vin_or_serial: string;
   axles?: number;
   type: string;
-  hours?: number;
+  hours?: number; // Internal only, never exposed publicly
+  display_price: number; // Always shown publicly
   status: UnitStatus;
-  price?: number;
   received_at: string;
   listed_at?: string;
   sold_at?: string;
@@ -58,6 +58,17 @@ export interface UnitPhoto {
   url: string;
   is_main: boolean;
   sort: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface InventoryEvent {
+  id: string;
+  unit_id: string;
+  event_type: 'created' | 'updated' | 'published' | 'unpublished' | 'status_changed' | 'photo_added' | 'photo_removed';
+  data: Record<string, any>;
+  actor_user_id: string;
+  occurred_at: string;
 }
 
 export interface MediaAsset {

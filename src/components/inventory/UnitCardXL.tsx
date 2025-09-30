@@ -49,8 +49,8 @@ export function UnitCardXL({ unit }: UnitCardXLProps) {
             <h3 className="font-bold text-2xl mb-2">
               {unit.year} {unit.make} {unit.model}
             </h3>
-            {unit.price && (
-              <p className="text-3xl font-bold mb-3">${unit.price.toLocaleString()}</p>
+            {unit.display_price && (
+              <p className="text-3xl font-bold mb-3">${unit.display_price.toLocaleString()}</p>
             )}
             
             {/* Specs Grid */}
