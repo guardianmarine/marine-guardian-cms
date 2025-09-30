@@ -22,6 +22,9 @@ import { Unit, UnitCategory, UnitStatus, TruckType, TrailerType, UnitPhoto } fro
 import { mockLocation } from '@/services/mockData';
 import { useToast } from '@/hooks/use-toast';
 import { getTruckTypes, getTrailerTypes } from '@/lib/i18n-helpers';
+import { useVinDecode } from '@/hooks/useVinDecode';
+import { VinDecodePanel } from '@/components/inventory/VinDecodePanel';
+import { useAuth } from '@/contexts/AuthContext';
 import {
   Save,
   Upload,
@@ -31,6 +34,8 @@ import {
   GripVertical,
   Clock,
   AlertCircle,
+  Scan,
+  Loader2,
 } from 'lucide-react';
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy, useSortable } from '@dnd-kit/sortable';
@@ -41,7 +46,9 @@ export default function UnitForm() {
   const navigate = useNavigate();
   const { toast } = useToast();
   const { t } = useTranslation();
-  const { units, addUnit, updateUnit, publishUnit, canPublish, getUnitEvents, addPhoto, deletePhoto, setMainPhoto, updatePhotoOrder } = useInventoryStore();
+  const { user } = useAuth();
+  const { units, addUnit, updateUnit, publishUnit, canPublish, getUnitEvents, addPhoto, deletePhoto, setMainPhoto, updatePhotoOrder, logEvent } = useInventoryStore();
+  const { loading: vinLoading, error: vinError, result: vinResult, decodeVin, reset: resetVinDecode } = useVinDecode();
 
   const existingUnit = id ? units.find((u) => u.id === id) : null;
   const isNew = !id;
@@ -70,6 +77,7 @@ export default function UnitForm() {
   const [status, setStatus] = useState<UnitStatus>(existingUnit?.status || 'draft');
   const [photos, setPhotos] = useState<UnitPhoto[]>(existingUnit?.photos || []);
   const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
+  const [showVinPanel, setShowVinPanel] = useState(false);
 
   const currentYear = new Date().getFullYear();
   const sensors = useSensors(
@@ -265,8 +273,91 @@ export default function UnitForm() {
     }
   };
 
+  const handleDecodeVin = async () => {
+    // Validate VIN length
+    if (category === 'truck' && vinOrSerial.length !== 17) {
+      toast({
+        title: t('vinDecode.error'),
+        description: t('vinDecode.truckVinLength'),
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    if (!vinOrSerial) {
+      toast({
+        title: t('vinDecode.error'),
+        description: t('vinDecode.vinRequired'),
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    try {
+      await decodeVin(vinOrSerial, year || undefined);
+      setShowVinPanel(true);
+    } catch (error) {
+      toast({
+        title: t('vinDecode.error'),
+        description: vinError || t('vinDecode.decodeFailed'),
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const handleApplyVinFields = (selectedFields: any) => {
+    if (!vinResult) return;
+
+    const updates: string[] = [];
+
+    if (selectedFields.make && vinResult.make) {
+      setMake(vinResult.make);
+      updates.push('make');
+    }
+    if (selectedFields.model && vinResult.model) {
+      setModel(vinResult.model);
+      updates.push('model');
+    }
+    if (selectedFields.year && vinResult.year) {
+      setYear(vinResult.year);
+      updates.push('year');
+    }
+    if (selectedFields.engine && vinResult.engine) {
+      setEngine(vinResult.engine);
+      updates.push('engine');
+    }
+    if (selectedFields.transmission && vinResult.transmission) {
+      setTransmission(vinResult.transmission);
+      updates.push('transmission');
+    }
+    if (selectedFields.axles && vinResult.axles) {
+      setAxles(vinResult.axles);
+      updates.push('axles');
+    }
+
+    // Log event
+    if (id) {
+      logEvent({
+        unit_id: id,
+        event_type: 'updated',
+        data: { message: `VIN decoded via NHTSA. Applied: ${updates.join(', ')}` },
+        actor_user_id: user?.id || '1',
+      });
+    }
+
+    toast({
+      title: t('vinDecode.success'),
+      description: t('vinDecode.fieldsApplied', { count: updates.length }),
+    });
+
+    resetVinDecode();
+  };
+
   const validation = id ? canPublish(id) : { valid: false, errors: [] };
   const events = id ? getUnitEvents(id) : [];
+  
+  // Check if user has permission to see decode button
+  const canDecodeVin = user?.role === 'inventory' || user?.role === 'admin';
 
   return (
     <BackofficeLayout>
@@ -536,14 +627,32 @@ export default function UnitForm() {
                     <Label htmlFor="vin">
                       VIN/Serial * {category === 'truck' && '(17 chars)'}
                     </Label>
-                    <Input
-                      id="vin"
-                      value={vinOrSerial}
-                      onChange={(e) => setVinOrSerial(e.target.value)}
-                      placeholder="1FUJGEDV8LLBX1234"
-                      className={`font-mono ${validationErrors.vin ? 'border-destructive' : ''}`}
-                      maxLength={category === 'truck' ? 17 : undefined}
-                    />
+                    <div className="flex gap-2">
+                      <Input
+                        id="vin"
+                        value={vinOrSerial}
+                        onChange={(e) => setVinOrSerial(e.target.value)}
+                        placeholder="1FUJGEDV8LLBX1234"
+                        className={`font-mono ${validationErrors.vin ? 'border-destructive' : ''}`}
+                        maxLength={category === 'truck' ? 17 : undefined}
+                      />
+                      {canDecodeVin && (
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="icon"
+                          onClick={handleDecodeVin}
+                          disabled={vinLoading || !vinOrSerial}
+                          title={t('vinDecode.decodeButton')}
+                        >
+                          {vinLoading ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <Scan className="h-4 w-4" />
+                          )}
+                        </Button>
+                      )}
+                    </div>
                     {validationErrors.vin && (
                       <p className="text-xs text-destructive">{validationErrors.vin}</p>
                     )}
@@ -727,6 +836,14 @@ export default function UnitForm() {
           )}
         </Tabs>
       </div>
+
+      {/* VIN Decode Panel */}
+      <VinDecodePanel
+        open={showVinPanel}
+        onOpenChange={setShowVinPanel}
+        result={vinResult}
+        onApplySelected={handleApplyVinFields}
+      />
     </BackofficeLayout>
   );
 }

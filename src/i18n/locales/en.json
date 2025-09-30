@@ -266,5 +266,28 @@
     "applyThisFee": "Apply this fee",
     "overrideTracked": "This override will be tracked in the fee metadata.",
     "saveOverride": "Save Override"
+  },
+  "vinDecode": {
+    "decodeButton": "Decode VIN (NHTSA)",
+    "suggestions": "VIN Decode Suggestions",
+    "selectFieldsToApply": "Select the fields you want to apply to the form",
+    "suggestedFields": "Suggested Fields",
+    "selectAll": "Select All",
+    "make": "Make",
+    "model": "Model",
+    "year": "Year",
+    "engine": "Engine",
+    "transmission": "Transmission",
+    "axles": "Axles",
+    "typeHint": "Type (Hint)",
+    "typeHintNote": "This is a suggestion based on body class/vehicle type",
+    "rawData": "Raw NHTSA Data",
+    "applySelected": "Apply Selected",
+    "error": "Error",
+    "truckVinLength": "Truck VIN must be exactly 17 characters",
+    "vinRequired": "VIN is required",
+    "decodeFailed": "Failed to decode VIN",
+    "success": "Success",
+    "fieldsApplied": "{{count}} fields applied from VIN decode"
   }
 }

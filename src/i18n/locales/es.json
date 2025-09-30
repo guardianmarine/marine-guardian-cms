@@ -266,5 +266,28 @@
     "applyThisFee": "Aplicar esta tarifa",
     "overrideTracked": "Esta anulación se rastreará en los metadatos de la tarifa.",
     "saveOverride": "Guardar Anulación"
+  },
+  "vinDecode": {
+    "decodeButton": "Decodificar VIN (NHTSA)",
+    "suggestions": "Sugerencias de Decodificación VIN",
+    "selectFieldsToApply": "Seleccione los campos que desea aplicar al formulario",
+    "suggestedFields": "Campos Sugeridos",
+    "selectAll": "Seleccionar Todo",
+    "make": "Marca",
+    "model": "Modelo",
+    "year": "Año",
+    "engine": "Motor",
+    "transmission": "Transmisión",
+    "axles": "Ejes",
+    "typeHint": "Tipo (Sugerencia)",
+    "typeHintNote": "Esta es una sugerencia basada en la clase de carrocería/tipo de vehículo",
+    "rawData": "Datos NHTSA Sin Procesar",
+    "applySelected": "Aplicar Seleccionados",
+    "error": "Error",
+    "truckVinLength": "El VIN del camión debe tener exactamente 17 caracteres",
+    "vinRequired": "Se requiere VIN",
+    "decodeFailed": "Error al decodificar VIN",
+    "success": "Éxito",
+    "fieldsApplied": "{{count}} campos aplicados desde la decodificación VIN"
   }
 }
