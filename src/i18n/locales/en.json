@@ -392,5 +392,36 @@
       "description": "Customers with multiple purchases",
       "explanation": "These customers have purchased multiple times. Focus on maintaining these relationships and understanding what drives their loyalty."
     }
+  },
+  "admin": {
+    "users": {
+      "title": "Users & Roles",
+      "subtitle": "Manage staff members, roles, and access",
+      "inviteUser": "Invite User",
+      "allUsers": "All Users",
+      "noUsers": "No users found. Invite your first user to get started.",
+      "name": "Name",
+      "email": "Email",
+      "role": "Role",
+      "status": "Status",
+      "birthday": "Birthday",
+      "actions": "Actions",
+      "resetPassword": "Reset",
+      "inviteDescription": "Send an invitation email to a new team member",
+      "editUser": "Edit User",
+      "editDescription": "Update user information and permissions",
+      "sendInvite": "Send Invite",
+      "fillRequired": "Please fill all required fields",
+      "inviteSent": "Invitation email sent",
+      "inviteError": "Failed to send invitation",
+      "userCreated": "User record created. Please set up password manually.",
+      "userUpdated": "User updated successfully",
+      "updateError": "Failed to update user",
+      "resetSent": "Password reset email sent",
+      "resetError": "Failed to send reset email",
+      "fetchError": "Failed to load users",
+      "setupRequired": "The users table does not exist yet. Please create a users table in your database with columns: id, name, email, role, status, birthday (optional), created_at.",
+      "birthdayColumnMissing": "The birthday column is not available. To track birthdays, add a \"birthday\" column (type: date) to your users table."
+    }
   }
 }

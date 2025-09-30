@@ -229,6 +229,23 @@ export const NAV_ITEMS: NavItem[] = [
     label: { en: 'Buyer Requests', es: 'Solicitudes' }, 
     roles: ['admin', 'inventory', 'sales'] 
   },
+
+  { 
+    id: 'admin-settings', 
+    route: '/admin/settings', 
+    icon: 'Settings', 
+    label: { en: 'Admin Settings', es: 'Configuración Admin' }, 
+    roles: ['admin'],
+    children: [
+      { 
+        id: 'users', 
+        route: '/admin/settings/users', 
+        icon: 'UserCog', 
+        label: { en: 'Users & Roles', es: 'Usuarios & Roles' }, 
+        roles: ['admin'] 
+      },
+    ]
+  },
 ];
 
 // Helper function to filter nav items by user role

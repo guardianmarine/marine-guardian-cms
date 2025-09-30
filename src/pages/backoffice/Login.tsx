@@ -26,7 +26,7 @@ export default function Login() {
         title: 'Welcome back!',
         description: 'Successfully logged in.',
       });
-      navigate('/backoffice');
+      navigate('/admin');
     } catch (error) {
       toast({
         title: 'Login failed',

@@ -392,5 +392,36 @@
       "description": "Clientes con múltiples compras",
       "explanation": "Estos clientes han comprado múltiples veces. Enfócate en mantener estas relaciones y entender qué impulsa su lealtad."
     }
+  },
+  "admin": {
+    "users": {
+      "title": "Usuarios & Roles",
+      "subtitle": "Gestionar miembros del personal, roles y acceso",
+      "inviteUser": "Invitar Usuario",
+      "allUsers": "Todos los Usuarios",
+      "noUsers": "No se encontraron usuarios. Invita a tu primer usuario para comenzar.",
+      "name": "Nombre",
+      "email": "Email",
+      "role": "Rol",
+      "status": "Estado",
+      "birthday": "Cumpleaños",
+      "actions": "Acciones",
+      "resetPassword": "Resetear",
+      "inviteDescription": "Enviar un correo de invitación a un nuevo miembro del equipo",
+      "editUser": "Editar Usuario",
+      "editDescription": "Actualizar información y permisos del usuario",
+      "sendInvite": "Enviar Invitación",
+      "fillRequired": "Por favor completa todos los campos requeridos",
+      "inviteSent": "Correo de invitación enviado",
+      "inviteError": "Error al enviar invitación",
+      "userCreated": "Registro de usuario creado. Por favor configura la contraseña manualmente.",
+      "userUpdated": "Usuario actualizado exitosamente",
+      "updateError": "Error al actualizar usuario",
+      "resetSent": "Correo de reseteo de contraseña enviado",
+      "resetError": "Error al enviar correo de reseteo",
+      "fetchError": "Error al cargar usuarios",
+      "setupRequired": "La tabla de usuarios aún no existe. Por favor crea una tabla de usuarios en tu base de datos con columnas: id, name, email, role, status, birthday (opcional), created_at.",
+      "birthdayColumnMissing": "La columna de cumpleaños no está disponible. Para rastrear cumpleaños, agrega una columna \"birthday\" (tipo: date) a tu tabla de usuarios."
+    }
   }
 }
