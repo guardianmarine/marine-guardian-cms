@@ -19,6 +19,28 @@
     "pageNotFound": "Página No Encontrada",
     "pageNotFoundMessage": "La página que busca no existe o ha sido movida."
   },
+  "dashboard": {
+    "welcomeBack": "Bienvenido de nuevo",
+    "subtitle": "Mantente actualizado con las noticias de la empresa y tus tareas",
+    "announcements": "Anuncios",
+    "noAnnouncements": "No hay anuncios en este momento.",
+    "until": "Hasta",
+    "companyCalendar": "Calendario de la Empresa",
+    "noUpcomingEvents": "No hay eventos o tareas próximas.",
+    "today": "Hoy",
+    "tomorrow": "Mañana",
+    "overdue": "Atrasado",
+    "due": "Vence",
+    "quickActions": "Acciones Rápidas",
+    "newUnit": "Nueva Unidad",
+    "newLead": "Nuevo Prospecto",
+    "newDeal": "Nueva Venta",
+    "viewInventory": "Ver Inventario",
+    "birthdaysThisMonth": "Cumpleaños Este Mes",
+    "noBirthdaysSetup": "No hay cumpleaños disponibles. Agrega información de cumpleaños a los perfiles de usuario para ver celebraciones aquí.",
+    "notifications": "Notificaciones",
+    "noNotifications": "No hay notificaciones en este momento"
+  },
   "nav": {
     "home": "Inicio",
     "inventory": "Inventario",

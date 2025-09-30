@@ -19,6 +19,28 @@
     "pageNotFound": "Page Not Found",
     "pageNotFoundMessage": "The page you are looking for does not exist or has been moved."
   },
+  "dashboard": {
+    "welcomeBack": "Welcome back",
+    "subtitle": "Stay updated with company news and your tasks",
+    "announcements": "Announcements",
+    "noAnnouncements": "No announcements at this time.",
+    "until": "Until",
+    "companyCalendar": "Company Calendar",
+    "noUpcomingEvents": "No upcoming events or tasks.",
+    "today": "Today",
+    "tomorrow": "Tomorrow",
+    "overdue": "Overdue",
+    "due": "Due",
+    "quickActions": "Quick Actions",
+    "newUnit": "New Unit",
+    "newLead": "New Lead",
+    "newDeal": "New Deal",
+    "viewInventory": "View Inventory",
+    "birthdaysThisMonth": "Birthdays This Month",
+    "noBirthdaysSetup": "No birthdays available. Add birthday information to user profiles to see celebrations here.",
+    "notifications": "Notifications",
+    "noNotifications": "No notifications at this time"
+  },
   "nav": {
     "home": "Home",
     "inventory": "Inventory",

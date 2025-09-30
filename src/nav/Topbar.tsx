@@ -12,6 +12,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Menu, User, Globe, Zap, LogOut } from 'lucide-react';
+import { NotificationCenter } from '@/components/dashboard/NotificationCenter';
 
 interface TopbarProps {
   onMenuClick: () => void;
@@ -52,6 +53,9 @@ export function Topbar({ onMenuClick }: TopbarProps) {
       </Button>
 
       <div className="flex-1" />
+
+      {/* Notification Center */}
+      <NotificationCenter />
 
       {/* Quick Actions */}
       <DropdownMenu>
