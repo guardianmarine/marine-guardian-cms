@@ -85,14 +85,13 @@ export default function Inventory() {
                   <div>
                     <label className="text-sm font-medium mb-2 block">Category</label>
                     <Select
-                      value={filters.category || ''}
+                      value={filters.category || undefined}
                       onValueChange={(v) => updateFilter('category', v)}
                     >
                       <SelectTrigger>
                         <SelectValue placeholder="All categories" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="">All categories</SelectItem>
                         <SelectItem value="truck">{t('search.trucks')}</SelectItem>
                         <SelectItem value="trailer">{t('search.trailers')}</SelectItem>
                         <SelectItem value="equipment">{t('search.equipment')}</SelectItem>
@@ -103,14 +102,13 @@ export default function Inventory() {
                   <div>
                     <label className="text-sm font-medium mb-2 block">{t('search.make')}</label>
                     <Select
-                      value={filters.make || ''}
+                      value={filters.make || undefined}
                       onValueChange={(v) => updateFilter('make', v)}
                     >
                       <SelectTrigger>
                         <SelectValue placeholder={t('search.any')} />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="">All makes</SelectItem>
                         {makes.map((make) => (
                           <SelectItem key={make} value={make}>
                             {make}
@@ -123,14 +121,13 @@ export default function Inventory() {
                   <div>
                     <label className="text-sm font-medium mb-2 block">{t('search.type')}</label>
                     <Select
-                      value={filters.type || ''}
+                      value={filters.type || undefined}
                       onValueChange={(v) => updateFilter('type', v)}
                     >
                       <SelectTrigger>
                         <SelectValue placeholder={t('search.any')} />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="">All types</SelectItem>
                         {types.map((type) => (
                           <SelectItem key={type} value={type}>
                             {type}
@@ -143,14 +140,13 @@ export default function Inventory() {
                   <div>
                     <label className="text-sm font-medium mb-2 block">{t('search.yearRange')}</label>
                     <Select
-                      value={filters.year_min?.toString() || ''}
+                      value={filters.year_min?.toString() || undefined}
                       onValueChange={(v) => updateFilter('year_min', v)}
                     >
                       <SelectTrigger>
                         <SelectValue placeholder={t('search.any')} />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="">Any year</SelectItem>
                         {Array.from({ length: 15 }, (_, i) => new Date().getFullYear() - i).map((year) => (
                           <SelectItem key={year} value={year.toString()}>
                             {year}+
