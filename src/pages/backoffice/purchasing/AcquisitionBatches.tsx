@@ -32,7 +32,7 @@ import {
 import { Card, CardContent } from '@/components/ui/card';
 import { usePurchasingStore } from '@/services/purchasingStore';
 import { useInventoryStore } from '@/services/inventoryStore';
-import { AcquisitionBatch, AcquisitionBatchStatus, ReceivingItem, Unit, Supplier } from '@/types';
+import { AcquisitionBatch, AcquisitionBatchStatus, ReceivingItem, Unit, Supplier, UnitPhoto } from '@/types';
 import { useToast } from '@/hooks/use-toast';
 import {
   Plus,
@@ -40,6 +40,7 @@ import {
   Eye,
   CheckCircle,
   AlertTriangle,
+  Image as ImageIcon,
 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { mockLocation } from '@/services/mockData';
@@ -110,9 +111,28 @@ export default function AcquisitionBatches() {
       return;
     }
 
+    const unitId = Math.random().toString(36).substr(2, 9);
+    const now = new Date().toISOString();
+
+    // Copy photos from condition_report to unit_photos if any
+    const unitPhotos: UnitPhoto[] = [];
+    if (item.condition_report.photos && item.condition_report.photos.length > 0) {
+      item.condition_report.photos.forEach((photoUrl, idx) => {
+        unitPhotos.push({
+          id: Math.random().toString(36).substr(2, 9),
+          unit_id: unitId,
+          url: photoUrl,
+          is_main: false, // None marked as main yet - inventory team will set later
+          sort: idx,
+          created_at: now,
+          updated_at: now,
+        });
+      });
+    }
+
     // Create draft unit from receiving item
     const newUnit: Unit = {
-      id: Math.random().toString(36).substr(2, 9),
+      id: unitId,
       category: item.category,
       make: item.make,
       year: item.year,
@@ -124,15 +144,19 @@ export default function AcquisitionBatches() {
       vin_or_serial: item.vin_or_serial,
       axles: item.axles,
       type: item.type,
-      hours: item.hours,
-      display_price: 0,
+      hours: item.hours, // Keep hours internal
+      display_price: 0, // Will be set later by inventory team
       status: 'draft',
+      // Cost tracking from receiving
+      cost_purchase: item.cost_purchase,
+      cost_transport_in: item.cost_transport_in,
+      cost_reconditioning: undefined, // Will be filled later if needed
       location_id: mockLocation.id,
       location: mockLocation,
-      photos: [],
+      photos: unitPhotos,
       received_at: new Date().toISOString().split('T')[0],
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
+      created_at: now,
+      updated_at: now,
     };
 
     addUnit(newUnit);
@@ -140,7 +164,7 @@ export default function AcquisitionBatches() {
 
     toast({
       title: 'Unit created',
-      description: 'Receiving item converted to draft unit',
+      description: `Draft unit created with ${unitPhotos.length} photos. Add ${Math.max(0, 4 - unitPhotos.length)} more photos to publish.`,
     });
   };
 
@@ -264,6 +288,7 @@ export default function AcquisitionBatches() {
                           <TableRow>
                             <TableHead>Unit</TableHead>
                             <TableHead>VIN/Serial</TableHead>
+                            <TableHead>Photos</TableHead>
                             <TableHead>Costs</TableHead>
                             <TableHead>Status</TableHead>
                             <TableHead>Actions</TableHead>
@@ -272,6 +297,7 @@ export default function AcquisitionBatches() {
                         <TableBody>
                           {items.map((item) => {
                             const hasRequired = item.make && item.year && item.model && item.vin_or_serial && item.type;
+                            const photoCount = item.condition_report?.photos?.length || 0;
                             return (
                               <TableRow key={item.id}>
                                 <TableCell>
@@ -293,6 +319,16 @@ export default function AcquisitionBatches() {
                                       <AlertTriangle className="h-4 w-4 text-destructive" />
                                     )}
                                   </div>
+                                </TableCell>
+                                <TableCell>
+                                  {photoCount > 0 ? (
+                                    <Badge variant="outline" className="flex items-center gap-1 w-fit">
+                                      <ImageIcon className="h-3 w-3" />
+                                      {photoCount} {photoCount === 1 ? 'photo' : 'photos'}
+                                    </Badge>
+                                  ) : (
+                                    <span className="text-sm text-muted-foreground">No photos</span>
+                                  )}
                                 </TableCell>
                                 <TableCell>
                                   <div className="text-sm space-y-1">

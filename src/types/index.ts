@@ -58,6 +58,10 @@ export interface Unit {
   location_id: string;
   location?: Location;
   photos: UnitPhoto[];
+  // Cost tracking (internal)
+  cost_purchase?: number;
+  cost_transport_in?: number;
+  cost_reconditioning?: number;
   created_at: string;
   updated_at: string;
 }

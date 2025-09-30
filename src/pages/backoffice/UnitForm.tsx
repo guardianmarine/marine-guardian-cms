@@ -64,6 +64,9 @@ export default function UnitForm() {
   const [type, setType] = useState(existingUnit?.type || '');
   const [hours, setHours] = useState(existingUnit?.hours?.toString() || '');
   const [displayPrice, setDisplayPrice] = useState(existingUnit?.display_price?.toString() || '');
+  const [costPurchase, setCostPurchase] = useState(existingUnit?.cost_purchase?.toString() || '');
+  const [costTransportIn, setCostTransportIn] = useState(existingUnit?.cost_transport_in?.toString() || '');
+  const [costReconditioning, setCostReconditioning] = useState(existingUnit?.cost_reconditioning?.toString() || '');
   const [status, setStatus] = useState<UnitStatus>(existingUnit?.status || 'draft');
   const [photos, setPhotos] = useState<UnitPhoto[]>(existingUnit?.photos || []);
   const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
@@ -175,6 +178,9 @@ export default function UnitForm() {
       type,
       hours: hours ? parseInt(hours) : undefined,
       display_price: parseFloat(displayPrice) || 0,
+      cost_purchase: costPurchase ? parseFloat(costPurchase) : undefined,
+      cost_transport_in: costTransportIn ? parseFloat(costTransportIn) : undefined,
+      cost_reconditioning: costReconditioning ? parseFloat(costReconditioning) : undefined,
       status,
     };
 
@@ -570,6 +576,74 @@ export default function UnitForm() {
                       <p className="text-xs text-destructive">{validationErrors.price}</p>
                     )}
                   </div>
+                </div>
+
+                {/* Cost Tracking (Internal) */}
+                <div>
+                  <h3 className="text-sm font-semibold mb-3 flex items-center gap-2">
+                    Cost Tracking <Badge variant="secondary">Internal Only</Badge>
+                  </h3>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="cost_purchase">Purchase Cost (USD)</Label>
+                      <Input
+                        id="cost_purchase"
+                        type="number"
+                        value={costPurchase}
+                        onChange={(e) => setCostPurchase(e.target.value)}
+                        placeholder="75000"
+                        min="0"
+                        step="0.01"
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        Initial purchase/acquisition cost
+                      </p>
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="cost_transport_in">Transport In (USD)</Label>
+                      <Input
+                        id="cost_transport_in"
+                        type="number"
+                        value={costTransportIn}
+                        onChange={(e) => setCostTransportIn(e.target.value)}
+                        placeholder="2500"
+                        min="0"
+                        step="0.01"
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        Inbound shipping/transport cost
+                      </p>
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="cost_reconditioning">Reconditioning (USD)</Label>
+                      <Input
+                        id="cost_reconditioning"
+                        type="number"
+                        value={costReconditioning}
+                        onChange={(e) => setCostReconditioning(e.target.value)}
+                        placeholder="5000"
+                        min="0"
+                        step="0.01"
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        Parts, labor, and repairs
+                      </p>
+                    </div>
+                  </div>
+                  {(costPurchase || costTransportIn || costReconditioning) && (
+                    <div className="mt-4 p-4 bg-muted rounded-lg">
+                      <div className="flex justify-between items-center">
+                        <span className="font-semibold">Total Acquisition Cost:</span>
+                        <span className="text-xl font-bold">
+                          ${(
+                            (parseFloat(costPurchase) || 0) +
+                            (parseFloat(costTransportIn) || 0) +
+                            (parseFloat(costReconditioning) || 0)
+                          ).toLocaleString()}
+                        </span>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </CardContent>
             </Card>

@@ -32,6 +32,10 @@ export const mockUnits: Unit[] = [
     type: 'Sleeper',
     hours: 12500,
     display_price: 89500,
+    // Internal cost tracking
+    cost_purchase: 75000,
+    cost_transport_in: 2500,
+    cost_reconditioning: 4500,
     status: 'published',
     received_at: '2024-01-15',
     listed_at: '2024-01-20',

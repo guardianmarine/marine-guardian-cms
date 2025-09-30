@@ -3,7 +3,7 @@ import { mockUnits } from './mockData';
 
 // Public API serializer - strips internal-only fields
 function serializeForPublic(unit: Unit): Unit {
-  const { hours, ...publicFields } = unit;
+  const { hours, cost_purchase, cost_transport_in, cost_reconditioning, ...publicFields } = unit;
   return publicFields as Unit;
 }
 
