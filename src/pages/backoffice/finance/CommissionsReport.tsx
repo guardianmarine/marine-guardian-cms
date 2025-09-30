@@ -1,5 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { BackofficeLayout } from '@/components/backoffice/Layout';
+import { PermissionGuard } from '@/components/PermissionGuard';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -21,6 +22,8 @@ import {
 } from '@/components/ui/select';
 import { useDealsStore } from '@/services/dealsStore';
 import { useCRMStore } from '@/services/crmStore';
+import { useAuth } from '@/contexts/AuthContext';
+import { logCommissionStatusChange } from '@/lib/audit-logger';
 import { mockUsers } from '@/services/mockData';
 import { Commission, CommissionStatus } from '@/types';
 import { format, startOfMonth, endOfMonth, startOfWeek, endOfWeek, startOfDay, endOfDay, parseISO } from 'date-fns';
@@ -31,6 +34,7 @@ type PeriodType = 'today' | 'week' | 'month' | 'all';
 export default function CommissionsReport() {
   const { commissions, deals, updateCommission } = useDealsStore();
   const { accounts } = useCRMStore();
+  const { user } = useAuth();
   const [selectedRep, setSelectedRep] = useState<string>('all');
   const [periodType, setPeriodType] = useState<PeriodType>('month');
   const [statusFilter, setStatusFilter] = useState<CommissionStatus | 'all'>('all');
@@ -119,16 +123,30 @@ export default function CommissionsReport() {
     }
   };
 
-  const handleMarkPaid = (commissionId: string) => {
-    updateCommission(commissionId, {
-      status: 'paid',
-      paid_at: new Date().toISOString(),
-    });
+  const handleMarkPaid = async (commissionId: string) => {
+    const commission = commissions.find(c => c.id === commissionId);
+    if (commission && user) {
+      const oldStatus = commission.status;
+      updateCommission(commissionId, {
+        status: 'paid',
+        paid_at: new Date().toISOString(),
+      });
+      
+      // Log audit event
+      await logCommissionStatusChange(
+        commissionId,
+        user.id,
+        user.email,
+        oldStatus,
+        'paid'
+      );
+    }
   };
 
   return (
     <BackofficeLayout>
-      <div className="p-6 space-y-6">
+      <PermissionGuard allowedRoles={['finance', 'admin']}>
+        <div className="p-6 space-y-6">
         <div>
           <h1 className="text-3xl font-bold">Commissions Report</h1>
           <p className="text-muted-foreground mt-1">
@@ -361,6 +379,7 @@ export default function CommissionsReport() {
           )}
         </div>
       </div>
+      </PermissionGuard>
     </BackofficeLayout>
   );
 }

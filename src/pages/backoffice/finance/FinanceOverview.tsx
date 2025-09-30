@@ -1,5 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { BackofficeLayout } from '@/components/backoffice/Layout';
+import { PermissionGuard } from '@/components/PermissionGuard';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -39,28 +40,10 @@ import { format, parseISO, differenceInDays } from 'date-fns';
 import { useNavigate } from 'react-router-dom';
 
 export default function FinanceOverview() {
-  const { user } = useAuth();
   const navigate = useNavigate();
   const { deals, commissions } = useDealsStore();
   const { accounts } = useCRMStore();
   const { units } = useInventoryStore();
-
-  // Role guard - only finance and admin
-  if (user?.role !== 'finance' && user?.role !== 'admin') {
-    return (
-      <BackofficeLayout>
-        <div className="p-6">
-          <Card>
-            <CardContent className="py-8">
-              <p className="text-center text-muted-foreground">
-                You do not have permission to view this page. This module is restricted to Finance and Admin users.
-              </p>
-            </CardContent>
-          </Card>
-        </div>
-      </BackofficeLayout>
-    );
-  }
 
   // Filters
   const [dateRange, setDateRange] = useState('all');
@@ -250,7 +233,8 @@ export default function FinanceOverview() {
 
   return (
     <BackofficeLayout>
-      <div className="p-6 space-y-6">
+      <PermissionGuard allowedRoles={['finance', 'admin']}>
+        <div className="p-6 space-y-6">
         {/* Header */}
         <div>
           <h1 className="text-3xl font-bold">Finance Overview</h1>
@@ -609,6 +593,7 @@ export default function FinanceOverview() {
           </CardContent>
         </Card>
       </div>
+      </PermissionGuard>
     </BackofficeLayout>
   );
 }

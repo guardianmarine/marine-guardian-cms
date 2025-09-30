@@ -8,6 +8,28 @@ export interface CRMPermissions {
   canViewCosts: boolean; // Always false for CRM - costs only in Deals/Finance
 }
 
+export interface DealsPermissions {
+  canCreateDeal: boolean;
+  canEditDeal: boolean;
+  canEditPrices: boolean;
+  canPreviewFees: boolean;
+  canIssueDeal: boolean;
+  canEditFees: boolean;
+  canRecordPayment: boolean;
+  canMarkDelivered: boolean;
+  canCloseDeal: boolean;
+  canViewCosts: boolean;
+}
+
+export interface FinancePermissions {
+  canViewDashboards: boolean;
+  canEditFeeOverrides: boolean;
+  canRecordPayments: boolean;
+  canManageCommissions: boolean;
+  canMarkPaid: boolean;
+  canViewAllDeals: boolean;
+}
+
 /**
  * Get CRM permissions for a given user role
  * 
@@ -95,6 +117,125 @@ export const canUserAccessCRM = (role: UserRole, action: 'view' | 'edit' | 'crea
     default:
       return false;
   }
+};
+
+/**
+ * Get Deals permissions for a given user role
+ * 
+ * Sales: Can create/edit deals, prices, preview fees, issue deals
+ * Finance: Can edit fees, record payments, mark delivered/close, view costs
+ * Admin: Full access
+ */
+export const getDealsPermissions = (role: UserRole): DealsPermissions => {
+  switch (role) {
+    case 'admin':
+      return {
+        canCreateDeal: true,
+        canEditDeal: true,
+        canEditPrices: true,
+        canPreviewFees: true,
+        canIssueDeal: true,
+        canEditFees: true,
+        canRecordPayment: true,
+        canMarkDelivered: true,
+        canCloseDeal: true,
+        canViewCosts: true,
+      };
+    
+    case 'sales':
+      return {
+        canCreateDeal: true,
+        canEditDeal: true,
+        canEditPrices: true,
+        canPreviewFees: true,
+        canIssueDeal: true,
+        canEditFees: false,
+        canRecordPayment: false,
+        canMarkDelivered: false,
+        canCloseDeal: false,
+        canViewCosts: false,
+      };
+    
+    case 'finance':
+      return {
+        canCreateDeal: false,
+        canEditDeal: false,
+        canEditPrices: false,
+        canPreviewFees: true,
+        canIssueDeal: false,
+        canEditFees: true,
+        canRecordPayment: true,
+        canMarkDelivered: true,
+        canCloseDeal: true,
+        canViewCosts: true,
+      };
+    
+    default:
+      return {
+        canCreateDeal: false,
+        canEditDeal: false,
+        canEditPrices: false,
+        canPreviewFees: false,
+        canIssueDeal: false,
+        canEditFees: false,
+        canRecordPayment: false,
+        canMarkDelivered: false,
+        canCloseDeal: false,
+        canViewCosts: false,
+      };
+  }
+};
+
+/**
+ * Get Finance permissions for a given user role
+ * 
+ * Finance: Full access to dashboards, fee overrides, payments, commissions
+ * Admin: Full access
+ */
+export const getFinancePermissions = (role: UserRole): FinancePermissions => {
+  switch (role) {
+    case 'admin':
+    case 'finance':
+      return {
+        canViewDashboards: true,
+        canEditFeeOverrides: true,
+        canRecordPayments: true,
+        canManageCommissions: true,
+        canMarkPaid: true,
+        canViewAllDeals: true,
+      };
+    
+    default:
+      return {
+        canViewDashboards: false,
+        canEditFeeOverrides: false,
+        canRecordPayments: false,
+        canManageCommissions: false,
+        canMarkPaid: false,
+        canViewAllDeals: false,
+      };
+  }
+};
+
+/**
+ * Check if user has admin role
+ */
+export const isAdmin = (role: UserRole): boolean => {
+  return role === 'admin';
+};
+
+/**
+ * Check if user has finance or admin role
+ */
+export const isFinanceOrAdmin = (role: UserRole): boolean => {
+  return role === 'finance' || role === 'admin';
+};
+
+/**
+ * Check if user has sales role
+ */
+export const isSales = (role: UserRole): boolean => {
+  return role === 'sales';
 };
 
 /**
