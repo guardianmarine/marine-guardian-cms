@@ -1,39 +1,64 @@
+import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Megaphone, Calendar as CalendarIcon, ExternalLink } from 'lucide-react';
+import { Megaphone, Calendar as CalendarIcon, ExternalLink, Loader2 } from 'lucide-react';
 import { format, isWithinInterval } from 'date-fns';
-import { useAnnouncementsStore } from '@/services/announcementsStore';
 import { useAuth } from '@/contexts/AuthContext';
+import { supabase } from '@/integrations/supabase/client';
+import type { AnnouncementAudience } from '@/services/announcementsStore';
+
+interface Announcement {
+  id: string;
+  title: string;
+  body: string;
+  start_at?: string;
+  end_at?: string;
+  audience: AnnouncementAudience[];
+  status: string;
+  media_url?: string;
+}
 
 export function AnnouncementsCard() {
   const { t } = useTranslation();
   const { user } = useAuth();
-  const { announcements } = useAnnouncementsStore();
+  const [announcements, setAnnouncements] = useState<Announcement[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  // Filter announcements that are active and visible to the current user
-  const activeAnnouncements = announcements.filter((announcement) => {
-    if (announcement.status !== 'published') return false;
+  useEffect(() => {
+    const fetchAnnouncements = async () => {
+      try {
+        const nowIso = new Date().toISOString();
+        const { data, error } = await supabase
+          .from('announcements')
+          .select('id,title,body,start_at,end_at,audience,status,media_url')
+          .eq('status', 'published')
+          .lte('start_at', nowIso)
+          .gte('end_at', nowIso)
+          .order('start_at', { ascending: false })
+          .limit(10);
 
-    const now = new Date();
-    const startAt = announcement.start_at ? new Date(announcement.start_at) : null;
-    const endAt = announcement.end_at ? new Date(announcement.end_at) : null;
+        if (error) throw error;
+        setAnnouncements(data || []);
+      } catch (error) {
+        console.error('Error fetching announcements:', error);
+        // Gracefully handle error - show empty state
+        setAnnouncements([]);
+      } finally {
+        setLoading(false);
+      }
+    };
 
-    // Check if current date is within the announcement's date range
-    if (startAt && endAt) {
-      if (!isWithinInterval(now, { start: startAt, end: endAt })) return false;
-    } else if (startAt && now < startAt) {
-      return false;
-    } else if (endAt && now > endAt) {
-      return false;
-    }
+    fetchAnnouncements();
+  }, []);
 
-    // Check audience
+  // Filter announcements visible to the current user
+  const visibleAnnouncements = announcements.filter((announcement) => {
+    if (!Array.isArray(announcement.audience)) return false;
     if (announcement.audience.includes('all')) return true;
-    if (user?.role && announcement.audience.includes(user.role)) return true;
-
+    if (user?.role && announcement.audience.includes(user.role as any)) return true;
     return false;
   });
 
@@ -49,8 +74,9 @@ export function AnnouncementsCard() {
   };
 
   const getAudienceBadge = (audience: string[]) => {
+    if (!Array.isArray(audience)) return '';
     if (audience.includes('all')) return t('dashboard.audienceAll', 'All');
-    return audience.map(a => a.charAt(0).toUpperCase() + a.slice(1)).join(', ');
+    return audience.map((a) => a.charAt(0).toUpperCase() + a.slice(1)).join(', ');
   };
 
   return (
@@ -68,17 +94,19 @@ export function AnnouncementsCard() {
         </Link>
       </CardHeader>
       <CardContent className="space-y-3">
-        {activeAnnouncements.length === 0 ? (
+        {loading ? (
+          <div className="flex items-center justify-center py-8">
+            <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+          </div>
+        ) : visibleAnnouncements.length === 0 ? (
           <p className="text-sm text-muted-foreground">
             {t('dashboard.noAnnouncements', 'No announcements at this time.')}
           </p>
         ) : (
-          activeAnnouncements.slice(0, 3).map((announcement) => (
+          visibleAnnouncements.slice(0, 3).map((announcement) => (
             <div
               key={announcement.id}
-              className={`p-4 rounded-lg transition-all duration-200 ${getPriorityColor(
-                announcement.priority
-              )}`}
+              className="p-4 rounded-lg transition-all duration-200 border-l-4 border-primary bg-primary/5"
             >
               <div className="flex items-start justify-between gap-3 mb-2">
                 <h4 className="font-semibold text-sm">{announcement.title}</h4>
@@ -111,4 +139,5 @@ export function AnnouncementsCard() {
     </Card>
   );
 }
+
 

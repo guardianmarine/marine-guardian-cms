@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -13,37 +13,64 @@ import {
   Users,
   CheckSquare,
   StickyNote,
+  Loader2,
 } from 'lucide-react';
-import { format, isToday, isTomorrow, isPast, startOfDay, addDays, isBefore } from 'date-fns';
-import { useCRMStore } from '@/services/crmStore';
+import { format, isToday, isTomorrow, isPast, startOfDay, isBefore } from 'date-fns';
 import { useAuth } from '@/contexts/AuthContext';
-import { ActivityKind } from '@/types';
+import { supabase } from '@/integrations/supabase/client';
+import type { ActivityKind } from '@/types';
+
+interface Activity {
+  id: string;
+  kind: ActivityKind;
+  subject: string;
+  due_at: string;
+  completed_at: string | null;
+  parent_type: 'lead' | 'opportunity' | 'account' | 'contact';
+  parent_id: string;
+  owner_user_id: string;
+}
 
 export function CompanyCalendarCard() {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const { user } = useAuth();
-  const { activities, opportunities, leads, accounts } = useCRMStore();
   const [activeTab, setActiveTab] = useState<'all' | 'mine'>('all');
+  const [activities, setActivities] = useState<Activity[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  // Get activities for next 30 days (meetings and tasks only)
-  const thirtyDaysFromNow = addDays(new Date(), 30);
-  const upcomingActivities = activities
-    .filter((a) => {
-      if (!a.due_at || a.completed_at) return false;
-      if (a.kind !== 'meeting' && a.kind !== 'task') return false;
-      
-      const dueDate = new Date(a.due_at);
-      return isBefore(dueDate, thirtyDaysFromNow);
-    })
-    .filter((a) => {
-      if (activeTab === 'mine') {
-        return a.owner_user_id === user?.id;
+  useEffect(() => {
+    const fetchActivities = async () => {
+      try {
+        const in30 = new Date(Date.now() + 30 * 86400000).toISOString();
+        const { data, error } = await supabase
+          .from('activities')
+          .select('id,kind,subject,due_at,completed_at,parent_type,parent_id,owner_user_id')
+          .is('completed_at', null)
+          .gte('due_at', new Date().toISOString())
+          .lte('due_at', in30)
+          .in('kind', ['meeting', 'task'])
+          .order('due_at', { ascending: true });
+
+        if (error) throw error;
+        setActivities(data || []);
+      } catch (error) {
+        console.error('Error fetching activities:', error);
+        setActivities([]);
+      } finally {
+        setLoading(false);
       }
-      return true;
-    })
-    .sort((a, b) => new Date(a.due_at!).getTime() - new Date(b.due_at!).getTime())
-    .slice(0, 10);
+    };
+
+    fetchActivities();
+  }, []);
+
+  const filteredActivities =
+    activeTab === 'mine'
+      ? activities.filter((a) => a.owner_user_id === user?.id)
+      : activities;
+
+  const upcomingActivities = filteredActivities.slice(0, 10);
 
   const getDateLabel = (date: Date) => {
     if (isToday(date)) {
@@ -77,24 +104,7 @@ export function CompanyCalendarCard() {
     }
   };
 
-  const getParentLabel = (activity: typeof activities[0]) => {
-    if (activity.parent_type === 'opportunity') {
-      const opp = opportunities.find((o) => o.id === activity.parent_id);
-      return opp?.name || 'Opportunity';
-    }
-    if (activity.parent_type === 'lead') {
-      const lead = leads.find((l) => l.id === activity.parent_id);
-      const account = lead?.account_id ? accounts.find((a) => a.id === lead.account_id) : null;
-      return account?.name || 'Lead';
-    }
-    if (activity.parent_type === 'account') {
-      const account = accounts.find((a) => a.id === activity.parent_id);
-      return account?.name || 'Account';
-    }
-    return activity.parent_type;
-  };
-
-  const handleActivityClick = (activity: typeof activities[0]) => {
+  const handleActivityClick = (activity: Activity) => {
     if (activity.parent_type === 'opportunity') {
       window.open(`/backoffice/crm/opportunities/${activity.parent_id}`, '_blank');
     } else if (activity.parent_type === 'lead') {
@@ -120,7 +130,11 @@ export function CompanyCalendarCard() {
           </TabsList>
 
           <TabsContent value={activeTab} className="space-y-3">
-            {upcomingActivities.length === 0 ? (
+            {loading ? (
+              <div className="flex items-center justify-center py-8">
+                <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+              </div>
+            ) : upcomingActivities.length === 0 ? (
               <p className="text-sm text-muted-foreground text-center py-4">
                 {t('dashboard.noUpcomingEvents', 'No upcoming events or tasks.')}
               </p>
@@ -130,7 +144,7 @@ export function CompanyCalendarCard() {
                   {t('dashboard.upcoming', 'Upcoming')}
                 </h4>
                 {upcomingActivities.map((activity) => {
-                  const dueDate = new Date(activity.due_at!);
+                  const dueDate = new Date(activity.due_at);
                   const overdue = isOverdue(dueDate);
 
                   return (
@@ -160,7 +174,7 @@ export function CompanyCalendarCard() {
                           <Clock className="h-3 w-3" />
                           <span>{format(dueDate, 'h:mm a')}</span>
                         </div>
-                        <span className="truncate">{getParentLabel(activity)}</span>
+                        <span className="truncate capitalize">{activity.parent_type}</span>
                       </div>
                     </div>
                   );
@@ -173,4 +187,5 @@ export function CompanyCalendarCard() {
     </Card>
   );
 }
+
 
