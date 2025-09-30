@@ -36,6 +36,7 @@ import Deals from "./pages/backoffice/deals/Deals";
 import DealDetail from "./pages/backoffice/deals/DealDetail";
 import TaxRegimes from "./pages/backoffice/deals/TaxRegimes";
 import FinanceDashboard from "./pages/backoffice/finance/FinanceDashboard";
+import FinanceOverview from "./pages/backoffice/finance/FinanceOverview";
 import Commissions from "./pages/backoffice/finance/Commissions";
 import CommissionsReport from "./pages/backoffice/finance/CommissionsReport";
 import NotFound from "./pages/NotFound";
@@ -217,6 +218,7 @@ const App = () => (
             <Route path="/backoffice/deals/:id" element={<ProtectedRoute><DealDetail /></ProtectedRoute>} />
             <Route path="/backoffice/deals/tax-regimes" element={<ProtectedRoute><TaxRegimes /></ProtectedRoute>} />
             <Route path="/backoffice/finance/dashboard" element={<ProtectedRoute><FinanceDashboard /></ProtectedRoute>} />
+            <Route path="/backoffice/finance/overview" element={<ProtectedRoute><FinanceOverview /></ProtectedRoute>} />
             <Route path="/backoffice/finance/commissions" element={<ProtectedRoute><Commissions /></ProtectedRoute>} />
             <Route path="/backoffice/finance/commissions-report" element={<ProtectedRoute><CommissionsReport /></ProtectedRoute>} />
 

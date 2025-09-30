@@ -69,6 +69,7 @@ export function BackofficeLayout({ children }: BackofficeLayoutProps) {
   const dealsFinanceItems = [
     { path: '/backoffice/deals', label: 'Deals' },
     { path: '/backoffice/deals/tax-regimes', label: 'Tax Regimes' },
+    { path: '/backoffice/finance/overview', label: 'Finance Overview' },
     { path: '/backoffice/finance/dashboard', label: 'Finance Dashboard' },
     { path: '/backoffice/finance/commissions', label: 'Commissions' },
     { path: '/backoffice/finance/commissions-report', label: 'Commissions Report' },
