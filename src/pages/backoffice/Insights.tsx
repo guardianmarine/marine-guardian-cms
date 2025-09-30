@@ -16,6 +16,7 @@ import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, R
 import { TrendingUp, AlertCircle, Loader2, CalendarIcon, Download, Info, ArrowUpDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { insightTemplates, InsightResult } from '@/modules/insights/templates';
+import { exportToCSV, getDefaultDateRange, getDateRangeForDays } from '@/modules/insights/utils';
 
 type TemplateKey = keyof typeof insightTemplates;
 
@@ -26,9 +27,12 @@ export default function Insights() {
   const [loading, setLoading] = useState(false);
   const [selectedTemplate, setSelectedTemplate] = useState<TemplateKey>('top_combos');
   const [result, setResult] = useState<InsightResult | null>(null);
+  
+  // Use utility for default date range (last 90 days)
+  const defaultRange = getDefaultDateRange();
   const [dateRange, setDateRange] = useState({
-    from: subDays(new Date(), 90),
-    to: new Date(),
+    from: new Date(defaultRange.dateFrom),
+    to: new Date(defaultRange.dateTo),
   });
   const [limit, setLimit] = useState(25);
   const [showExplanation, setShowExplanation] = useState(false);
@@ -85,47 +89,35 @@ export default function Insights() {
   const handleQuickChip = (templateKey: TemplateKey) => {
     setSelectedTemplate(templateKey);
     
-    // Adjust date range based on template
+    // Adjust date range based on template using utility
+    let range;
     switch (templateKey) {
       case 'top_combos':
       case 'rep_performance':
-        setDateRange({ from: subDays(new Date(), 90), to: new Date() });
+        range = getDateRangeForDays(90);
         break;
       case 'slow_movers':
-        setDateRange({ from: subDays(new Date(), 365), to: new Date() });
+        range = getDateRangeForDays(365);
         break;
       case 'lost_reasons':
       case 'repeat_buyers':
-        setDateRange({ from: subDays(new Date(), 180), to: new Date() });
+        range = getDateRangeForDays(180);
         break;
+      default:
+        range = getDefaultDateRange();
     }
+    
+    setDateRange({
+      from: new Date(range.dateFrom),
+      to: new Date(range.dateTo),
+    });
     
     runTemplate(templateKey);
   };
 
-  const exportToCSV = () => {
+  const handleExportCSV = () => {
     if (!result || !result.rows.length) return;
-
-    const headers = Object.keys(result.rows[0]).filter(k => !k.startsWith('_'));
-    const rows = result.rows.map(row => 
-      headers.map(h => {
-        const val = row[h];
-        return typeof val === 'string' && val.includes(',') ? `"${val}"` : val;
-      })
-    );
-
-    const csv = [
-      headers.join(','),
-      ...rows.map(r => r.join(','))
-    ].join('\n');
-
-    const blob = new Blob([csv], { type: 'text/csv' });
-    const url = window.URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `${selectedTemplate}_${format(new Date(), 'yyyy-MM-dd')}.csv`;
-    a.click();
-    window.URL.revokeObjectURL(url);
+    exportToCSV(result.rows, selectedTemplate);
   };
 
   const handleSort = (columnKey: string) => {
@@ -201,7 +193,10 @@ export default function Insights() {
                       variant="ghost"
                       size="sm"
                       className="w-full justify-start"
-                      onClick={() => setDateRange({ from: subDays(new Date(), 30), to: new Date() })}
+                      onClick={() => {
+                        const range = getDateRangeForDays(30);
+                        setDateRange({ from: new Date(range.dateFrom), to: new Date(range.dateTo) });
+                      }}
                     >
                       {t('insights.last30Days')}
                     </Button>
@@ -209,7 +204,10 @@ export default function Insights() {
                       variant="ghost"
                       size="sm"
                       className="w-full justify-start"
-                      onClick={() => setDateRange({ from: subDays(new Date(), 90), to: new Date() })}
+                      onClick={() => {
+                        const range = getDateRangeForDays(90);
+                        setDateRange({ from: new Date(range.dateFrom), to: new Date(range.dateTo) });
+                      }}
                     >
                       {t('insights.last90Days')}
                     </Button>
@@ -217,7 +215,10 @@ export default function Insights() {
                       variant="ghost"
                       size="sm"
                       className="w-full justify-start"
-                      onClick={() => setDateRange({ from: subDays(new Date(), 180), to: new Date() })}
+                      onClick={() => {
+                        const range = getDateRangeForDays(180);
+                        setDateRange({ from: new Date(range.dateFrom), to: new Date(range.dateTo) });
+                      }}
                     >
                       {t('insights.last180Days')}
                     </Button>
@@ -311,7 +312,7 @@ export default function Insights() {
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={exportToCSV}
+                      onClick={handleExportCSV}
                       disabled={!result.rows.length}
                     >
                       <Download className="h-4 w-4 mr-2" />
