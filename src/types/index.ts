@@ -69,8 +69,6 @@ export interface Unit {
   cost_marketing?: number;
   cost_fees?: number;
   cost_overhead_applied?: number;
-  // VIN decode metadata (internal)
-  unit_metadata?: Record<string, any>;
   created_at: string;
   updated_at: string;
 }
@@ -88,21 +86,10 @@ export interface UnitPhoto {
 export interface InventoryEvent {
   id: string;
   unit_id: string;
-  event_type: 'created' | 'updated' | 'published' | 'unpublished' | 'status_changed' | 'photo_added' | 'photo_removed' | 'photo_updated' | 'price_changed' | 'vin_decoded';
+  event_type: 'created' | 'updated' | 'published' | 'unpublished' | 'status_changed' | 'photo_added' | 'photo_removed' | 'photo_updated' | 'price_changed';
   data: Record<string, any>;
   actor_user_id: string;
   occurred_at: string;
-}
-
-export interface VINDecodeCache {
-  id: string;
-  vin: string;
-  model_year: number | null;
-  provider: 'nhtsa';
-  raw: Record<string, any>;
-  normalized: Record<string, any>;
-  fetched_at: string;
-  created_at: string;
 }
 
 export interface MediaAsset {

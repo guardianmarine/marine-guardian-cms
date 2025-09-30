@@ -17,9 +17,3 @@ verify_jwt = true
 
 [functions.get-commissions]
 verify_jwt = true
-
-[functions.decode-vin]
-verify_jwt = true
-
-[functions.insights-query]
-verify_jwt = true
