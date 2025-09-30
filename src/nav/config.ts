@@ -126,6 +126,13 @@ export const NAV_ITEMS: NavItem[] = [
         roles: ['admin', 'sales'] 
       },
       { 
+        id: 'opportunities-kanban', 
+        route: '/backoffice/crm/opportunities/kanban', 
+        icon: 'Kanban', 
+        label: { en: 'Opportunities Kanban', es: 'Oportunidades Kanban' }, 
+        roles: ['admin', 'sales'] 
+      },
+      { 
         id: 'tasks', 
         route: '/backoffice/crm/tasks', 
         icon: 'CheckSquare', 
@@ -185,10 +192,26 @@ export const NAV_ITEMS: NavItem[] = [
 
   { 
     id: 'commissions', 
-    route: '/backoffice/finance/commissions', 
+    route: '/backoffice/finance', 
     icon: 'Coins', 
     label: { en: 'Commissions', es: 'Comisiones' }, 
-    roles: ['admin', 'finance', 'sales'] 
+    roles: ['admin', 'finance', 'sales'],
+    children: [
+      { 
+        id: 'commissions-list', 
+        route: '/backoffice/finance/commissions', 
+        icon: 'DollarSign', 
+        label: { en: 'Commissions', es: 'Comisiones' }, 
+        roles: ['admin', 'finance', 'sales'] 
+      },
+      { 
+        id: 'commissions-report', 
+        route: '/backoffice/finance/commissions-report', 
+        icon: 'FileBarChart', 
+        label: { en: 'Commissions Report', es: 'Reporte de Comisiones' }, 
+        roles: ['admin', 'finance', 'sales'] 
+      },
+    ]
   },
 
   { 
