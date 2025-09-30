@@ -456,3 +456,115 @@ export interface LeadIntakeLink {
   lead?: Lead;
   created_at: string;
 }
+
+// Deals & Finance Module Types
+export type DealStatus = 'draft' | 'issued' | 'partially_paid' | 'paid' | 'canceled';
+export type PaymentMethod = 'wire' | 'ach' | 'check' | 'cash' | 'other';
+export type CommissionBasis = 'net';
+export type CommissionStatus = 'accrued' | 'payable' | 'paid';
+export type FeeCalcType = 'percent' | 'fixed';
+export type FeeBase = 'vehicle_subtotal' | 'custom';
+
+export interface Deal {
+  id: string;
+  opportunity_id: string;
+  opportunity?: Opportunity;
+  account_id: string;
+  account?: Account;
+  sales_rep_id: string;
+  sales_rep?: User;
+  status: DealStatus;
+  currency: string; // 'USD'
+  vehicle_subtotal: number;
+  discounts_total: number;
+  taxes_total: number;
+  fees_total: number;
+  total_due: number;
+  amount_paid: number;
+  balance_due: number;
+  tax_rule_version_id?: string;
+  issued_at?: string;
+  delivered_at?: string;
+  closed_at?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface DealUnit {
+  deal_id: string;
+  unit_id: string;
+  unit?: Unit;
+  agreed_unit_price: number;
+}
+
+export interface DealFee {
+  id: string;
+  deal_id: string;
+  name: string;
+  calc_type: FeeCalcType;
+  base: FeeBase;
+  rate_or_amount: number;
+  result_amount: number;
+  applies: boolean;
+  meta?: Record<string, any>;
+  sort: number;
+}
+
+export interface Payment {
+  id: string;
+  deal_id: string;
+  deal?: Deal;
+  method: PaymentMethod;
+  amount: number;
+  received_at: string;
+  reference?: string;
+  notes?: string;
+  recorded_by: string;
+  recorder?: User;
+  created_at: string;
+}
+
+export interface Commission {
+  id: string;
+  deal_id: string;
+  deal?: Deal;
+  sales_rep_id: string;
+  sales_rep?: User;
+  basis: CommissionBasis;
+  percent?: number;
+  flat_amount?: number;
+  calculated_amount: number;
+  status: CommissionStatus;
+  paid_at?: string;
+  note?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface TaxRegime {
+  id: string;
+  name: string; // 'TX Combo', 'TX Apportioned', 'Out-of-State', 'Wholesale'
+  jurisdiction: string; // 'TX'
+  active: boolean;
+}
+
+export interface TaxRule {
+  id: string;
+  tax_regime_id: string;
+  tax_regime?: TaxRegime;
+  version: number;
+  effective_from: string;
+  effective_to?: string;
+  is_active: boolean;
+}
+
+export interface TaxRuleLine {
+  id: string;
+  tax_rule_id: string;
+  name: string; // 'Sales Tax', 'Title', 'Registration', 'Temp Plate'
+  calc_type: FeeCalcType;
+  base: FeeBase;
+  rate_or_amount: number;
+  conditions?: Record<string, any>;
+  sort: number;
+}
