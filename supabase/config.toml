@@ -1,0 +1,4 @@
+project_id = "your-project-id"
+
+[functions.create-invoice]
+verify_jwt = true

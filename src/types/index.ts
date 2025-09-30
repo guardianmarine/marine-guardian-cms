@@ -569,3 +569,49 @@ export interface TaxRuleLine {
   conditions?: Record<string, any>;
   sort: number;
 }
+
+export interface Invoice {
+  id: string;
+  deal_id: string;
+  deal?: Deal;
+  invoice_number: string;
+  issued_at: string;
+  pdf_url?: string;
+  snapshot: {
+    dealer_info: {
+      name: string;
+      address: string;
+      phone: string;
+      dealer_numbers?: string;
+    };
+    purchaser: {
+      account_name: string;
+      contact_name?: string;
+      contact_phone?: string;
+      contact_email?: string;
+    };
+    units: Array<{
+      year: number;
+      make: string;
+      model: string;
+      stock_unit: string;
+      mileage?: number;
+      vin: string;
+      price: number;
+      location?: string;
+    }>;
+    terms_of_sale?: string;
+    taxes_summary: {
+      vehicle_subtotal: number;
+      discounts_total: number;
+      taxes_total: number;
+      fees_total: number;
+      total_due: number;
+      balance_due: number;
+    };
+    wire_instructions: string;
+    disclaimer: string;
+  };
+  created_at: string;
+  updated_at: string;
+}

@@ -14,10 +14,13 @@ import { useCRMStore } from '@/services/crmStore';
 import { useInventoryStore } from '@/services/inventoryStore';
 import { useAuth } from '@/contexts/AuthContext';
 import { mockUsers } from '@/services/mockData';
-import { ArrowLeft, Plus, FileText, Download, Pencil, Trash2 } from 'lucide-react';
+import { ArrowLeft, Plus, FileText, Download, Pencil, Trash2, Mail, MessageCircle } from 'lucide-react';
 import { format } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
 import { Deal, Payment, DealStatus, PaymentMethod } from '@/types';
+import { generateInvoicePDF, getInvoiceSnapshot, InvoiceData } from '@/lib/pdf-generator';
+import { getMailtoLink, getWhatsAppLink } from '@/lib/invoice-generator';
+import { supabase } from '@/integrations/supabase/client';
 import {
   Table,
   TableBody,
@@ -96,6 +99,10 @@ export default function DealDetail() {
   
   // Delete confirmation
   const [deletePaymentId, setDeletePaymentId] = useState<string | null>(null);
+
+  // Invoice state
+  const [generatingInvoice, setGeneratingInvoice] = useState(false);
+  const [invoiceUrl, setInvoiceUrl] = useState<string | null>(null);
 
   const isAdmin = user?.role === 'admin';
 
@@ -242,11 +249,105 @@ export default function DealDetail() {
     });
   };
 
-  const handleGenerateInvoice = () => {
-    toast({
-      title: 'Coming Soon',
-      description: 'Invoice PDF generation will be implemented',
-    });
+  const handleGenerateInvoice = async () => {
+    if (!deal || !account || !user) return;
+
+    setGeneratingInvoice(true);
+    try {
+      const invoiceNumber = `INV-${Date.now()}-${deal.id.slice(-6).toUpperCase()}`;
+      const dealNumber = `DEAL-${deal.id.slice(-8).toUpperCase()}`;
+
+      // Prepare invoice data
+      const invoiceData: InvoiceData = {
+        invoiceNumber,
+        dealNumber,
+        issuedAt: deal.issued_at || new Date().toISOString(),
+        purchaser: {
+          accountName: account.name,
+          contactName: contact ? `${contact.first_name} ${contact.last_name}` : undefined,
+          contactPhone: contact?.phone,
+          contactEmail: contact?.email,
+        },
+        units: dealUnitsList.map(du => {
+          const unit = units.find(u => u.id === du.unit_id);
+          return {
+            year: unit?.year || 0,
+            make: unit?.make || '',
+            model: unit?.model || '',
+            stockUnit: unit?.id.slice(-6).toUpperCase() || '',
+            mileage: unit?.mileage,
+            vin: unit?.vin_or_serial || '',
+            price: du.agreed_unit_price,
+            location: unit?.location?.name,
+          };
+        }),
+        termsOfSale: undefined,
+        taxesSummary: {
+          vehicleSubtotal: deal.vehicle_subtotal,
+          discountsTotal: deal.discounts_total,
+          taxesTotal: deal.taxes_total,
+          feesTotal: deal.fees_total,
+          totalDue: deal.total_due,
+          balanceDue: deal.balance_due,
+        },
+      };
+
+      // Generate PDF
+      const pdfBlob = generateInvoicePDF(invoiceData);
+      
+      // Upload to Supabase Storage
+      const fileName = `${invoiceNumber}.pdf`;
+      const { data: uploadData, error: uploadError } = await supabase.storage
+        .from('invoices')
+        .upload(fileName, pdfBlob, {
+          contentType: 'application/pdf',
+          upsert: true,
+        });
+
+      if (uploadError) {
+        throw new Error(`Failed to upload PDF: ${uploadError.message}`);
+      }
+
+      // Get public URL
+      const { data: urlData } = supabase.storage
+        .from('invoices')
+        .getPublicUrl(fileName);
+
+      const pdfUrl = urlData.publicUrl;
+      setInvoiceUrl(pdfUrl);
+
+      // Create invoice record via edge function
+      const snapshot = getInvoiceSnapshot(invoiceData);
+
+      const { data: functionData, error: functionError } = await supabase.functions.invoke('create-invoice', {
+        body: {
+          dealId: deal.id,
+          invoiceNumber,
+          issuedAt: invoiceData.issuedAt,
+          pdfUrl,
+          snapshot,
+        },
+      });
+
+      if (functionError) {
+        throw new Error(`Failed to create invoice record: ${functionError.message}`);
+      }
+
+      toast({
+        title: 'Success',
+        description: 'Invoice generated successfully',
+      });
+
+    } catch (error: any) {
+      console.error('Error generating invoice:', error);
+      toast({
+        title: 'Error',
+        description: error.message || 'Failed to generate invoice',
+        variant: 'destructive',
+      });
+    } finally {
+      setGeneratingInvoice(false);
+    }
   };
 
   const handleIssueDeal = () => {
@@ -445,6 +546,38 @@ export default function DealDetail() {
               Issue Deal
             </Button>
           )}
+          {deal.status !== 'draft' && !invoiceUrl && (
+            <Button onClick={handleGenerateInvoice} disabled={generatingInvoice}>
+              <FileText className="h-4 w-4 mr-2" />
+              {generatingInvoice ? 'Generating...' : 'Generate Invoice'}
+            </Button>
+          )}
+          {invoiceUrl && (
+            <>
+              <Button onClick={() => window.open(invoiceUrl, '_blank')} variant="outline">
+                <Download className="h-4 w-4 mr-2" />
+                View Invoice
+              </Button>
+              {contact?.email && (
+                <Button
+                  onClick={() => window.open(getMailtoLink(contact.email!, `INV-${deal.id.slice(-6)}`, invoiceUrl), '_blank')}
+                  variant="outline"
+                >
+                  <Mail className="h-4 w-4 mr-2" />
+                  Email Invoice
+                </Button>
+              )}
+              {contact?.phone && (
+                <Button
+                  onClick={() => window.open(getWhatsAppLink(contact.phone!, `INV-${deal.id.slice(-6)}`, invoiceUrl), '_blank')}
+                  variant="outline"
+                >
+                  <MessageCircle className="h-4 w-4 mr-2" />
+                  WhatsApp Invoice
+                </Button>
+              )}
+            </>
+          )}
           {deal.status === 'paid' && !deal.delivered_at && (
             <Button onClick={handleMarkDelivered} variant="outline">
               Mark Delivered
@@ -455,10 +588,10 @@ export default function DealDetail() {
               Close Deal
             </Button>
           )}
-          {(deal.status === 'issued' || deal.status === 'paid') && (
-            <Button onClick={handleGenerateInvoice} variant="outline">
+          {(deal.status === 'issued' || deal.status === 'paid') && invoiceUrl && (
+            <Button onClick={() => window.open(invoiceUrl, '_blank')} variant="outline">
               <Download className="h-4 w-4 mr-2" />
-              Generate Invoice
+              Download Invoice
             </Button>
           )}
         </div>
