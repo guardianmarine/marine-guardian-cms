@@ -1,237 +1,104 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '@/contexts/AuthContext';
 import { PermissionGuard } from '@/components/PermissionGuard';
-import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
-import { 
-  Sparkles, 
-  TrendingUp, 
-  Clock, 
-  Users, 
-  AlertCircle,
-  Download,
-  Loader2,
-  Code
-} from 'lucide-react';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
-import {
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-  LineChart,
-  Line
-} from 'recharts';
-import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart';
-
-interface InsightMessage {
-  id: string;
-  role: 'user' | 'assistant';
-  content: string;
-  sql?: string;
-  rows?: any[];
-  chart_suggestion?: 'bar' | 'line';
-  explanation?: string;
-  timestamp: Date;
-}
+import { Sparkles, AlertCircle, Loader2 } from 'lucide-react';
+import { InsightsQuickstart } from '@/components/analytics/InsightsQuickstart';
+import { QueryTemplate } from '@/lib/insights-templates';
 
 export default function Insights() {
   const { t } = useTranslation();
   const { user } = useAuth();
-  const [messages, setMessages] = useState<InsightMessage[]>([]);
-  const [input, setInput] = useState('');
+  const [templates, setTemplates] = useState<QueryTemplate[]>([]);
   const [loading, setLoading] = useState(false);
+  const [loadingTemplates, setLoadingTemplates] = useState(true);
+  const [results, setResults] = useState<{
+    sql?: string;
+    rows?: any[];
+    chart_suggestion?: 'bar' | 'line';
+    explanation?: string;
+  } | undefined>();
 
-  const quickPrompts = [
-    { label: 'Top combos (90d)', prompt: 'What are the top selling combinations in the last 90 days?' },
-    { label: 'Slow movers (90+ d)', prompt: 'Show units on lot for more than 90 days' },
-    { label: 'Leads lost reasons', prompt: 'What are the main reasons leads were lost?' },
-    { label: 'Repeat buyers', prompt: 'Show repeat buyers and what they buy' },
-    { label: 'Rep performance (MTD)', prompt: 'Sales rep performance this month' },
-  ];
+  useEffect(() => {
+    loadTemplates();
+  }, []);
 
-  const handleSubmit = async (question: string) => {
-    if (!question.trim() || !user) return;
+  const loadTemplates = async () => {
+    try {
+      setLoadingTemplates(true);
+      // For now, use hardcoded templates from insights-templates.ts
+      // In production, this could come from an API endpoint
+      const { getTemplates } = await import('@/lib/insights-templates');
+      const allTemplates = getTemplates();
+      setTemplates(allTemplates);
+    } catch (error) {
+      console.error('Failed to load templates:', error);
+      toast.error('Failed to load query templates');
+      setTemplates([]);
+    } finally {
+      setLoadingTemplates(false);
+    }
+  };
 
-    const userMessage: InsightMessage = {
-      id: crypto.randomUUID(),
-      role: 'user',
-      content: question,
-      timestamp: new Date(),
-    };
+  const handleQuery = async (templateId: string, params: Record<string, any>) => {
+    if (!user) return;
 
-    setMessages(prev => [...prev, userMessage]);
-    setInput('');
     setLoading(true);
+    setResults(undefined);
 
     try {
       const { data, error } = await supabase.functions.invoke('insights-query', {
         body: { 
-          question,
+          template_id: templateId,
+          params,
           role: user.role,
         }
       });
 
       if (error) throw error;
 
-      const assistantMessage: InsightMessage = {
-        id: crypto.randomUUID(),
-        role: 'assistant',
-        content: data.explanation || 'Here are your results:',
-        sql: data.sql,
-        rows: data.rows,
-        chart_suggestion: data.chart_suggestion,
-        explanation: data.explanation,
-        timestamp: new Date(),
-      };
+      if (!data || typeof data !== 'object') {
+        throw new Error('Invalid response from insights API');
+      }
 
-      setMessages(prev => [...prev, assistantMessage]);
+      setResults({
+        sql: data.sql,
+        rows: Array.isArray(data.rows) ? data.rows : [],
+        chart_suggestion: data.chart_suggestion,
+        explanation: data.explanation || 'Query executed successfully',
+      });
     } catch (error) {
       console.error('Insights error:', error);
-      toast.error('Failed to get insights. Please try again.');
+      toast.error('Failed to execute query. Please check that database views are set up correctly.');
       
-      const errorMessage: InsightMessage = {
-        id: crypto.randomUUID(),
-        role: 'assistant',
-        content: 'I encountered an error processing your question. Please try rephrasing or use one of the quick prompts.',
-        timestamp: new Date(),
-      };
-      setMessages(prev => [...prev, errorMessage]);
+      setResults({
+        explanation: 'Query failed. Please ensure database views are configured correctly or contact your administrator.',
+        rows: [],
+      });
     } finally {
       setLoading(false);
     }
   };
 
-  const exportToCSV = (rows: any[]) => {
-    if (!rows || rows.length === 0) return;
-
-    const headers = Object.keys(rows[0]);
-    const csv = [
-      headers.join(','),
-      ...rows.map(row => headers.map(h => JSON.stringify(row[h] ?? '')).join(','))
-    ].join('\n');
-
-    const blob = new Blob([csv], { type: 'text/csv' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `insights-${Date.now()}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
-  };
-
-  const renderChart = (message: InsightMessage) => {
-    if (!message.rows || message.rows.length === 0) return null;
-
-    const chartConfig = {
-      value: { label: 'Value', color: 'hsl(var(--chart-1))' }
-    };
-
-    if (message.chart_suggestion === 'bar') {
-      return (
-        <ChartContainer config={chartConfig} className="h-[300px] w-full">
-          <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={message.rows.slice(0, 10)}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis 
-                dataKey={Object.keys(message.rows[0])[0]} 
-                tick={{ fontSize: 12 }}
-                angle={-45}
-                textAnchor="end"
-                height={80}
-              />
-              <YAxis />
-              <ChartTooltip content={<ChartTooltipContent />} />
-              <Bar 
-                dataKey={Object.keys(message.rows[0])[1]} 
-                fill="var(--color-value)" 
-                radius={[4, 4, 0, 0]}
-              />
-            </BarChart>
-          </ResponsiveContainer>
-        </ChartContainer>
-      );
-    }
-
-    if (message.chart_suggestion === 'line') {
-      return (
-        <ChartContainer config={chartConfig} className="h-[300px] w-full">
-          <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={message.rows}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis 
-                dataKey={Object.keys(message.rows[0])[0]} 
-                tick={{ fontSize: 12 }}
-              />
-              <YAxis />
-              <ChartTooltip content={<ChartTooltipContent />} />
-              <Line 
-                type="monotone" 
-                dataKey={Object.keys(message.rows[0])[1]} 
-                stroke="var(--color-value)"
-                strokeWidth={2}
-                dot={{ fill: 'var(--color-value)' }}
-              />
-            </LineChart>
-          </ResponsiveContainer>
-        </ChartContainer>
-      );
-    }
-
-    return null;
-  };
-
-  const renderTable = (rows: any[]) => {
-    if (!rows || rows.length === 0) return null;
-
-    const headers = Object.keys(rows[0]);
-
+  if (loadingTemplates) {
     return (
-      <div className="border rounded-lg">
-        <ScrollArea className="h-[400px]">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                {headers.map(header => (
-                  <TableHead key={header} className="font-semibold">
-                    {header}
-                  </TableHead>
-                ))}
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {rows.map((row, idx) => (
-                <TableRow key={idx}>
-                  {headers.map(header => (
-                    <TableCell key={header}>
-                      {row[header]?.toString() || '—'}
-                    </TableCell>
-                  ))}
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </ScrollArea>
-      </div>
+      <PermissionGuard allowedRoles={['admin', 'finance', 'sales']}>
+        <div className="container mx-auto p-6 max-w-7xl">
+          <div className="flex items-center justify-center h-[60vh]">
+            <div className="text-center">
+              <Loader2 className="h-12 w-12 animate-spin mx-auto mb-4 text-muted-foreground" />
+              <p className="text-muted-foreground">Loading insights templates...</p>
+            </div>
+          </div>
+        </div>
+      </PermissionGuard>
     );
-  };
+  }
 
   return (
     <PermissionGuard allowedRoles={['admin', 'finance', 'sales']}>
@@ -242,135 +109,23 @@ export default function Insights() {
             AI Insights
           </h1>
           <p className="text-muted-foreground mt-2">
-            Ask questions about your data in natural language
+            Ask questions about your data using predefined templates
           </p>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Chat Area */}
-          <div className="lg:col-span-2">
-            <Card className="h-[calc(100vh-240px)] flex flex-col">
-              <CardHeader>
-                <CardTitle>Conversation</CardTitle>
-                <CardDescription>
-                  Ask questions and get data-driven answers
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="flex-1 flex flex-col gap-4">
-                {/* Messages */}
-                <ScrollArea className="flex-1 pr-4">
-                  {messages.length === 0 ? (
-                    <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
-                      <Sparkles className="h-12 w-12 mb-4 opacity-50" />
-                      <p>Start by asking a question or using a quick prompt</p>
-                    </div>
-                  ) : (
-                    <div className="space-y-6">
-                      {messages.map(message => (
-                        <div key={message.id} className="space-y-3">
-                          <div className={`flex items-start gap-3 ${
-                            message.role === 'user' ? 'justify-end' : 'justify-start'
-                          }`}>
-                            <div className={`rounded-lg px-4 py-2 max-w-[80%] ${
-                              message.role === 'user' 
-                                ? 'bg-primary text-primary-foreground' 
-                                : 'bg-muted'
-                            }`}>
-                              <p className="text-sm whitespace-pre-wrap">{message.content}</p>
-                            </div>
-                          </div>
-
-                          {message.role === 'assistant' && message.rows && (
-                            <div className="space-y-4 ml-12">
-                              {/* Chart */}
-                              {message.chart_suggestion && renderChart(message)}
-
-                              {/* Table */}
-                              {renderTable(message.rows)}
-
-                              {/* SQL */}
-                              {message.sql && (
-                                <details className="text-xs">
-                                  <summary className="cursor-pointer text-muted-foreground hover:text-foreground flex items-center gap-2">
-                                    <Code className="h-3 w-3" />
-                                    View SQL
-                                  </summary>
-                                  <pre className="mt-2 p-3 bg-muted rounded-lg overflow-x-auto">
-                                    <code>{message.sql}</code>
-                                  </pre>
-                                </details>
-                              )}
-
-                              {/* Export */}
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => exportToCSV(message.rows!)}
-                                className="gap-2"
-                              >
-                                <Download className="h-4 w-4" />
-                                Export CSV
-                              </Button>
-                            </div>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </ScrollArea>
-
-                {/* Input */}
-                <div className="flex gap-2">
-                  <Input
-                    value={input}
-                    onChange={(e) => setInput(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter' && !e.shiftKey) {
-                        e.preventDefault();
-                        handleSubmit(input);
-                      }
-                    }}
-                    placeholder="Ask a question about your data..."
-                    disabled={loading}
-                  />
-                  <Button 
-                    onClick={() => handleSubmit(input)}
-                    disabled={loading || !input.trim()}
-                  >
-                    {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Ask'}
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+          {/* Main Content */}
+          <div className="lg:col-span-3">
+            <InsightsQuickstart
+              templates={templates}
+              onQuery={handleQuery}
+              loading={loading}
+              results={results}
+            />
           </div>
 
-          {/* Quick Prompts Sidebar */}
+          {/* Info Sidebar */}
           <div className="space-y-4">
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-lg">Quick Prompts</CardTitle>
-                <CardDescription>Common analytics queries</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-2">
-                {quickPrompts.map((prompt, idx) => (
-                  <Button
-                    key={idx}
-                    variant="outline"
-                    className="w-full justify-start text-left h-auto py-3"
-                    onClick={() => handleSubmit(prompt.prompt)}
-                    disabled={loading}
-                  >
-                    <div>
-                      <div className="font-medium">{prompt.label}</div>
-                      <div className="text-xs text-muted-foreground mt-1">
-                        {prompt.prompt}
-                      </div>
-                    </div>
-                  </Button>
-                ))}
-              </CardContent>
-            </Card>
-
             <Card>
               <CardHeader>
                 <CardTitle className="text-lg flex items-center gap-2">
@@ -380,7 +135,7 @@ export default function Insights() {
               </CardHeader>
               <CardContent className="space-y-3 text-sm text-muted-foreground">
                 <p>
-                  AI Insights uses natural language processing to answer your questions using read-only database views.
+                  AI Insights uses predefined query templates to analyze your data using read-only database views.
                 </p>
                 <Separator />
                 <div>
@@ -395,6 +150,28 @@ export default function Insights() {
                 <p className="text-xs">
                   All queries are logged for audit purposes. The exact SQL used is shown for reproducibility.
                 </p>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg">Available Templates</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-2">
+                  {templates.length > 0 ? (
+                    templates.map(template => (
+                      <div key={template.id} className="text-xs">
+                        <div className="font-medium">{template.description}</div>
+                        <div className="text-muted-foreground">
+                          {template.rolesAllowed.join(', ')}
+                        </div>
+                      </div>
+                    ))
+                  ) : (
+                    <p className="text-xs text-muted-foreground">No templates available</p>
+                  )}
+                </div>
               </CardContent>
             </Card>
           </div>

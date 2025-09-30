@@ -311,3 +311,8 @@ export function extractParams(question: string): Record<string, any> {
   
   return params;
 }
+
+// Export getTemplates function
+export function getTemplates(): QueryTemplate[] {
+  return QUERY_TEMPLATES;
+}
