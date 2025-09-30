@@ -1,15 +1,9 @@
 import { useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { normalizeNhtsa, VinNormalized, NhtsaRow } from '@/lib/vin-normalizer';
 
-export interface VinDecodeResult {
-  make?: string;
-  model?: string;
-  year?: string;
-  engine?: string;
-  transmission?: string;
-  axles?: string;
-  typeHint?: string;
-  rawData: Record<string, string>;
+export interface VinDecodeResult extends VinNormalized {
+  rawData: NhtsaRow;
 }
 
 export interface VinDecodeState {
@@ -46,37 +40,11 @@ export function useVinDecode() {
         throw new Error(results?.ErrorText || 'Invalid VIN');
       }
 
-      // Normalize the response
-      const engine = [
-        results.EngineManufacturer,
-        results.EngineModel,
-        results.DisplacementL ? `${results.DisplacementL}L` : '',
-        results.EngineHP ? `${results.EngineHP}HP` : '',
-      ]
-        .filter(Boolean)
-        .join(' ');
-
-      const transmission = [
-        results.TransmissionManufacturer,
-        results.TransmissionStyle,
-        results.TransmissionSpeeds ? `${results.TransmissionSpeeds}-speed` : '',
-      ]
-        .filter(Boolean)
-        .join(' ');
-
-      const axles = results.NumberOfAxles || results.Axles || '';
-      
-      // Best-effort type hint from BodyClass or VehicleType
-      const typeHint = results.BodyClass || results.VehicleType || '';
+      // Normalize using utility
+      const normalized = normalizeNhtsa(results);
 
       const result: VinDecodeResult = {
-        make: results.Make || undefined,
-        model: results.Model || undefined,
-        year: results.ModelYear || undefined,
-        engine: engine || undefined,
-        transmission: transmission || undefined,
-        axles: axles ? String(parseInt(axles)) : undefined,
-        typeHint: typeHint || undefined,
+        ...normalized,
         rawData: results,
       };
 
@@ -84,18 +52,10 @@ export function useVinDecode() {
       try {
         await supabase.from('vin_decode_cache').insert({
           vin: vin.toUpperCase(),
-          model_year: modelYear || result.year || null,
+          model_year: modelYear || normalized.year || null,
           provider: 'nhtsa',
           raw: results,
-          normalized: {
-            make: result.make,
-            model: result.model,
-            year: result.year,
-            engine: result.engine,
-            transmission: result.transmission,
-            axles: result.axles,
-            typeHint: result.typeHint,
-          },
+          normalized,
         });
       } catch (cacheError) {
         // Silently ignore cache errors (table may not exist yet)
