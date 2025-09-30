@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { BackofficeLayout } from '@/components/backoffice/Layout';
+import { TaxFeesPanel } from '@/components/deals/TaxFeesPanel';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -58,10 +59,6 @@ export default function DealDetail() {
     getDealFees,
     getPaymentsByDeal,
     addPayment,
-    recalculateDealTotals,
-    taxRegimes,
-    applyTaxRule,
-    getActiveTaxRule,
     issueDeal,
     markDelivered,
     closeDeal,
@@ -72,7 +69,6 @@ export default function DealDetail() {
 
   const [deal, setDeal] = useState<Deal | null>(null);
   const [selectedOpportunityId, setSelectedOpportunityId] = useState('');
-  const [selectedTaxRegimeId, setSelectedTaxRegimeId] = useState('');
   
   // Payment dialog state
   const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
@@ -87,15 +83,9 @@ export default function DealDetail() {
       if (foundDeal) {
         setDeal(foundDeal);
         setSelectedOpportunityId(foundDeal.opportunity_id);
-        if (foundDeal.tax_rule_version_id) {
-          const rule = taxRegimes.find((r) => 
-            r.id === foundDeal.tax_rule_version_id?.split('-')[0]
-          );
-          if (rule) setSelectedTaxRegimeId(rule.id);
-        }
       }
     }
-  }, [id, isNew, deals, taxRegimes]);
+  }, [id, isNew, deals]);
 
   const handleCreateDeal = () => {
     if (!selectedOpportunityId) {
@@ -134,30 +124,6 @@ export default function DealDetail() {
       description: 'Deal created successfully',
     });
     navigate(`/backoffice/deals/${newDeal.id}`);
-  };
-
-  const handleApplyTaxRule = () => {
-    if (!deal || !selectedTaxRegimeId) return;
-
-    const activeRule = getActiveTaxRule(selectedTaxRegimeId);
-    if (!activeRule) {
-      toast({
-        title: 'Error',
-        description: 'No active tax rule found for selected regime',
-        variant: 'destructive',
-      });
-      return;
-    }
-
-    applyTaxRule(deal.id, activeRule.id);
-    toast({
-      title: 'Success',
-      description: 'Tax rule applied successfully',
-    });
-    
-    // Refresh deal
-    const updatedDeal = deals.find((d) => d.id === deal.id);
-    if (updatedDeal) setDeal(updatedDeal);
   };
 
   const handleRecordPayment = () => {
@@ -400,64 +366,22 @@ export default function DealDetail() {
           </Card>
         </div>
 
-        {/* Tax Regime Selection */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Tax & Fee Rules</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="flex items-end gap-4">
-              <div className="flex-1">
-                <Label>Tax Regime</Label>
-                <Select
-                  value={selectedTaxRegimeId}
-                  onValueChange={setSelectedTaxRegimeId}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select tax regime" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {taxRegimes.filter((r) => r.active).map((regime) => (
-                      <SelectItem key={regime.id} value={regime.id}>
-                        {regime.name} ({regime.jurisdiction})
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <Button onClick={handleApplyTaxRule} disabled={!selectedTaxRegimeId}>
-                Apply Rule
-              </Button>
-            </div>
 
-            {fees.length > 0 && (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Fee/Tax Name</TableHead>
-                    <TableHead>Type</TableHead>
-                    <TableHead>Rate</TableHead>
-                    <TableHead>Amount</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {fees.map((fee) => (
-                    <TableRow key={fee.id}>
-                      <TableCell className="font-medium">{fee.name}</TableCell>
-                      <TableCell className="capitalize">{fee.calc_type}</TableCell>
-                      <TableCell>
-                        {fee.calc_type === 'percent' ? `${fee.rate_or_amount}%` : 'Fixed'}
-                      </TableCell>
-                      <TableCell>
-                        ${fee.result_amount.toLocaleString('en-US', { minimumFractionDigits: 2 })}
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            )}
-          </CardContent>
-        </Card>
+        {/* Tax & Fees Panel */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className="lg:col-span-2 space-y-6">
+            {/* Deal Units would go here */}
+          </div>
+          <div>
+            <TaxFeesPanel 
+              deal={deal} 
+              onApply={() => {
+                const updatedDeal = deals.find((d) => d.id === deal.id);
+                if (updatedDeal) setDeal(updatedDeal);
+              }} 
+            />
+          </div>
+        </div>
 
         {/* Payments */}
         <Card>
