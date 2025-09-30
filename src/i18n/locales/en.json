@@ -439,7 +439,8 @@
       "resetError": "Failed to send reset email",
       "fetchError": "Failed to load users",
       "setupRequired": "The users table does not exist yet. Please create a users table in your database with columns: id, name, email, role, status, birth_date (optional), created_at.",
-      "birthDateColumnMissing": "Birth date column not found. Add a \"birth_date\" column (type: date) to your users table to track birthdays.",
+      "birthDateColumnMissing": "Birth date column not found. Ask admin to add it in the database.",
+      "statusColumnMissing": "Status column not found. Ask admin to add it in the database.",
       "accessNote": "Changes here affect backoffice access."
     }
   }

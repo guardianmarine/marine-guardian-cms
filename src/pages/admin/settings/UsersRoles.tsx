@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
+import { z } from 'zod';
 import { BackofficeLayout } from '@/components/backoffice/Layout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -35,12 +36,20 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
 
+// Input validation schema
+const userSchema = z.object({
+  name: z.string().trim().min(1, 'Name is required').max(100, 'Name must be less than 100 characters'),
+  email: z.string().trim().email('Invalid email address').max(255, 'Email must be less than 255 characters'),
+  role: z.enum(['admin', 'inventory', 'sales', 'finance', 'viewer']),
+  birth_date: z.string().optional(),
+});
+
 interface User {
   id: string;
   name: string;
   email: string;
   role: string;
-  status: string;
+  status?: string;
   birth_date?: string;
   created_at: string;
 }
@@ -54,6 +63,8 @@ export default function UsersRoles() {
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [hasUsersTable, setHasUsersTable] = useState(true);
   const [hasBirthDateColumn, setHasBirthDateColumn] = useState(true);
+  const [hasStatusColumn, setHasStatusColumn] = useState(true);
+  const [editingBirthDate, setEditingBirthDate] = useState<{ [key: string]: string }>({});
 
   // Filters
   const [searchText, setSearchText] = useState('');
@@ -104,6 +115,32 @@ export default function UsersRoles() {
             .select('id,name,email,role,status,created_at')
             .order('created_at', { ascending: false });
           
+          if (retryResult.error) {
+            // Check if status column doesn't exist
+            if (retryResult.error.message.includes('status')) {
+              setHasStatusColumn(false);
+              // Retry without status column
+              const finalResult = await supabase
+                .from('users')
+                .select('id,name,email,role,created_at')
+                .order('created_at', { ascending: false });
+              
+              if (finalResult.error) throw finalResult.error;
+              setUsers(finalResult.data || []);
+            } else {
+              throw retryResult.error;
+            }
+          } else {
+            setUsers(retryResult.data || []);
+          }
+        } else if (error.message.includes('status')) {
+          setHasStatusColumn(false);
+          // Retry without status column
+          const retryResult = await supabase
+            .from('users')
+            .select('id,name,email,role,created_at')
+            .order('created_at', { ascending: false });
+          
           if (retryResult.error) throw retryResult.error;
           setUsers(retryResult.data || []);
         } else {
@@ -142,8 +179,8 @@ export default function UsersRoles() {
       filtered = filtered.filter((u) => u.role === roleFilter);
     }
 
-    // Status filter
-    if (statusFilter !== 'all') {
+    // Status filter (only if status column exists)
+    if (hasStatusColumn && statusFilter !== 'all') {
       filtered = filtered.filter((u) => u.status === statusFilter);
     }
 
@@ -151,10 +188,18 @@ export default function UsersRoles() {
   };
 
   const handleAddUser = async () => {
-    if (!addEmail || !addName) {
+    // Validate inputs
+    const validation = userSchema.safeParse({
+      name: addName,
+      email: addEmail,
+      role: addRole,
+      birth_date: addBirthDate,
+    });
+
+    if (!validation.success) {
       toast({
         title: t('common.error', 'Error'),
-        description: t('admin.users.fillRequired', 'Please fill all required fields'),
+        description: validation.error.errors[0].message,
         variant: 'destructive',
       });
       return;
@@ -164,14 +209,17 @@ export default function UsersRoles() {
       setActionLoading(true);
 
       const insertData: any = {
-        email: addEmail,
-        name: addName,
-        role: addRole,
-        status: 'pending',
+        email: validation.data.email.toLowerCase(),
+        name: validation.data.name,
+        role: validation.data.role,
       };
 
-      if (hasBirthDateColumn && addBirthDate) {
-        insertData.birth_date = addBirthDate;
+      if (hasStatusColumn) {
+        insertData.status = 'pending';
+      }
+
+      if (hasBirthDateColumn && validation.data.birth_date) {
+        insertData.birth_date = validation.data.birth_date;
       }
 
       const { error } = await supabase
@@ -193,7 +241,6 @@ export default function UsersRoles() {
       
       fetchUsers();
     } catch (error: any) {
-      console.error('Error adding user:', error);
       toast({
         title: t('common.error', 'Error'),
         description: error.message || t('admin.users.addError', 'Failed to add user'),
@@ -251,7 +298,20 @@ export default function UsersRoles() {
     }
   };
 
-  const handleToggleStatus = async (userId: string, currentStatus: string) => {
+  const handleToggleStatus = async (userId: string, currentStatus?: string) => {
+    if (!hasStatusColumn) {
+      toast({
+        title: t('common.error', 'Error'),
+        description: t('admin.users.statusColumnMissing', 'Status column not available'),
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    if (!currentStatus) {
+      currentStatus = 'pending'; // Default if not set
+    }
+
     const newStatus = currentStatus === 'active' ? 'disabled' : 'active';
     
     try {
@@ -269,7 +329,6 @@ export default function UsersRoles() {
 
       fetchUsers();
     } catch (error: any) {
-      console.error('Error updating status:', error);
       toast({
         title: t('common.error', 'Error'),
         description: error.message || t('admin.users.updateError', 'Failed to update status'),
@@ -304,6 +363,16 @@ export default function UsersRoles() {
   };
 
   const handleUpdateBirthDate = async (userId: string, newBirthDate: string) => {
+    if (!newBirthDate) {
+      // Clear the editing state if empty
+      setEditingBirthDate(prev => {
+        const next = { ...prev };
+        delete next[userId];
+        return next;
+      });
+      return;
+    }
+
     try {
       const { error } = await supabase
         .from('users')
@@ -317,9 +386,15 @@ export default function UsersRoles() {
         description: t('admin.users.birthDateUpdated', 'Birth date updated'),
       });
 
+      // Clear editing state
+      setEditingBirthDate(prev => {
+        const next = { ...prev };
+        delete next[userId];
+        return next;
+      });
+
       fetchUsers();
     } catch (error: any) {
-      console.error('Error updating birth date:', error);
       toast({
         title: t('common.error', 'Error'),
         description: error.message || t('admin.users.updateError', 'Failed to update birth date'),
@@ -378,7 +453,16 @@ export default function UsersRoles() {
           <Alert>
             <AlertCircle className="h-4 w-4" />
             <AlertDescription>
-              {t('admin.users.birthDateColumnMissing', 'Birth date column not found. Add a "birth_date" column (type: date) to your users table to track birthdays.')}
+              {t('admin.users.birthDateColumnMissing', 'Birth date column not found. Ask admin to add it in the database.')}
+            </AlertDescription>
+          </Alert>
+        )}
+
+        {!hasStatusColumn && (
+          <Alert>
+            <AlertCircle className="h-4 w-4" />
+            <AlertDescription>
+              {t('admin.users.statusColumnMissing', 'Status column not found. Ask admin to add it in the database.')}
             </AlertDescription>
           </Alert>
         )}
@@ -415,20 +499,22 @@ export default function UsersRoles() {
                   </SelectContent>
                 </Select>
               </div>
-              <div>
-                <Label htmlFor="status-filter">{t('admin.users.filterStatus', 'Filter by Status')}</Label>
-                <Select value={statusFilter} onValueChange={setStatusFilter}>
-                  <SelectTrigger id="status-filter">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">{t('admin.users.allStatuses', 'All Statuses')}</SelectItem>
-                    <SelectItem value="active">{t('admin.users.active', 'Active')}</SelectItem>
-                    <SelectItem value="pending">{t('admin.users.pending', 'Pending')}</SelectItem>
-                    <SelectItem value="disabled">{t('admin.users.disabled', 'Disabled')}</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
+              {hasStatusColumn && (
+                <div>
+                  <Label htmlFor="status-filter">{t('admin.users.filterStatus', 'Filter by Status')}</Label>
+                  <Select value={statusFilter} onValueChange={setStatusFilter}>
+                    <SelectTrigger id="status-filter">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">{t('admin.users.allStatuses', 'All Statuses')}</SelectItem>
+                      <SelectItem value="active">{t('admin.users.active', 'Active')}</SelectItem>
+                      <SelectItem value="pending">{t('admin.users.pending', 'Pending')}</SelectItem>
+                      <SelectItem value="disabled">{t('admin.users.disabled', 'Disabled')}</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
             </div>
           </CardContent>
         </Card>
@@ -460,7 +546,7 @@ export default function UsersRoles() {
                       <TableHead>{t('admin.users.name', 'Name')}</TableHead>
                       <TableHead>{t('admin.users.email', 'Email')}</TableHead>
                       <TableHead>{t('admin.users.role', 'Role')}</TableHead>
-                      <TableHead>{t('admin.users.status', 'Status')}</TableHead>
+                      {hasStatusColumn && <TableHead>{t('admin.users.status', 'Status')}</TableHead>}
                       {hasBirthDateColumn && <TableHead>{t('admin.users.birthDate', 'Birth Date')}</TableHead>}
                       <TableHead>{t('admin.users.actions', 'Actions')}</TableHead>
                     </TableRow>
@@ -487,23 +573,26 @@ export default function UsersRoles() {
                             </SelectContent>
                           </Select>
                         </TableCell>
-                        <TableCell>
-                          <Badge 
-                            variant={
-                              user.status === 'active' ? 'default' : 
-                              user.status === 'pending' ? 'secondary' : 
-                              'destructive'
-                            }
-                          >
-                            {user.status}
-                          </Badge>
-                        </TableCell>
+                        {hasStatusColumn && (
+                          <TableCell>
+                            <Badge 
+                              variant={
+                                user.status === 'active' ? 'default' : 
+                                user.status === 'pending' ? 'secondary' : 
+                                'destructive'
+                              }
+                            >
+                              {user.status}
+                            </Badge>
+                          </TableCell>
+                        )}
                         {hasBirthDateColumn && (
                           <TableCell>
                             <Input
                               type="date"
-                              value={user.birth_date || ''}
-                              onChange={(e) => handleUpdateBirthDate(user.id, e.target.value)}
+                              value={editingBirthDate[user.id] !== undefined ? editingBirthDate[user.id] : (user.birth_date || '')}
+                              onChange={(e) => setEditingBirthDate(prev => ({ ...prev, [user.id]: e.target.value }))}
+                              onBlur={(e) => handleUpdateBirthDate(user.id, e.target.value)}
                               className="w-36"
                             />
                           </TableCell>
@@ -526,22 +615,24 @@ export default function UsersRoles() {
                             >
                               <RefreshCw className="h-3 w-3" />
                             </Button>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => handleToggleStatus(user.id, user.status)}
-                              title={
-                                user.status === 'active' 
-                                  ? t('admin.users.disable', 'Disable') 
-                                  : t('admin.users.enable', 'Enable')
-                              }
-                            >
-                              {user.status === 'active' ? (
-                                <Ban className="h-3 w-3 text-destructive" />
-                              ) : (
-                                <CheckCircle className="h-3 w-3 text-green-600" />
-                              )}
-                            </Button>
+                            {hasStatusColumn && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleToggleStatus(user.id, user.status)}
+                                title={
+                                  user.status === 'active' 
+                                    ? t('admin.users.disable', 'Disable') 
+                                    : t('admin.users.enable', 'Enable')
+                                }
+                              >
+                                {user.status === 'active' ? (
+                                  <Ban className="h-3 w-3 text-destructive" />
+                                ) : (
+                                  <CheckCircle className="h-3 w-3 text-green-600" />
+                                )}
+                              </Button>
+                            )}
                           </div>
                         </TableCell>
                       </TableRow>

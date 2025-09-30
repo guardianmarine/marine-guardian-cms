@@ -439,7 +439,8 @@
       "resetError": "Error al enviar correo de reseteo",
       "fetchError": "Error al cargar usuarios",
       "setupRequired": "La tabla de usuarios aún no existe. Por favor crea una tabla de usuarios en tu base de datos con columnas: id, name, email, role, status, birth_date (opcional), created_at.",
-      "birthDateColumnMissing": "No se encontró la columna de fecha de nacimiento. Usa el SQL al final para agregarla.",
+      "birthDateColumnMissing": "No se encontró la columna de cumpleaños. Pide al admin agregarla en la base.",
+      "statusColumnMissing": "No se encontró la columna de estado. Pide al admin agregarla en la base.",
       "accessNote": "Los cambios aquí afectan el acceso al backoffice."
     }
   }
