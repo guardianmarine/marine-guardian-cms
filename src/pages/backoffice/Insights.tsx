@@ -228,7 +228,6 @@ export default function Insights() {
                     selected={{ from: dateRange.from, to: dateRange.to }}
                     onSelect={(range: any) => range?.from && range?.to && setDateRange({ from: range.from, to: range.to })}
                     numberOfMonths={2}
-                    className={cn('p-3 pointer-events-auto bg-card')}
                   />
                 </PopoverContent>
               </Popover>
