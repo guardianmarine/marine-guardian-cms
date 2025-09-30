@@ -25,6 +25,7 @@ export interface User {
   name: string;
   email: string;
   role: UserRole;
+  commission_percent?: number; // Default commission % for sales reps
   created_at: string;
   updated_at: string;
 }

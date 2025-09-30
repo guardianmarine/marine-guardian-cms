@@ -32,6 +32,13 @@ interface InventoryStore {
 }
 
 export const useInventoryStore = create<InventoryStore>((set, get) => {
+  // Expose store globally for cross-store access (commission calculations need unit costs)
+  if (typeof window !== 'undefined') {
+    (window as any).__inventoryStore = { 
+      get units() { return get().units; } 
+    };
+  }
+
   // Listen for deal-closed events
   if (typeof window !== 'undefined') {
     window.addEventListener('deal-closed', ((e: CustomEvent) => {

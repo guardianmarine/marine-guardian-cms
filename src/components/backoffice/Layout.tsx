@@ -71,6 +71,7 @@ export function BackofficeLayout({ children }: BackofficeLayoutProps) {
     { path: '/backoffice/deals/tax-regimes', label: 'Tax Regimes' },
     { path: '/backoffice/finance/dashboard', label: 'Finance Dashboard' },
     { path: '/backoffice/finance/commissions', label: 'Commissions' },
+    { path: '/backoffice/finance/commissions-report', label: 'Commissions Report' },
   ];
 
   const isActive = (path: string, exact?: boolean) => {

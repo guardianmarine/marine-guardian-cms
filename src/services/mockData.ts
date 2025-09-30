@@ -12,6 +12,7 @@ export const mockUser: User = {
   name: 'Admin User',
   email: 'admin@guardianmarine.com',
   role: 'admin',
+  commission_percent: 0,
   created_at: new Date().toISOString(),
   updated_at: new Date().toISOString(),
 };
@@ -23,6 +24,7 @@ export const mockUsers: User[] = [
     name: 'John Sales',
     email: 'john@guardianmarine.com',
     role: 'sales',
+    commission_percent: 3.0, // 3% commission
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),
   },
@@ -31,6 +33,7 @@ export const mockUsers: User[] = [
     name: 'Maria Lopez',
     email: 'maria@guardianmarine.com',
     role: 'sales',
+    commission_percent: 2.5, // 2.5% commission
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),
   },
@@ -39,6 +42,7 @@ export const mockUsers: User[] = [
     name: 'Finance Manager',
     email: 'finance@guardianmarine.com',
     role: 'finance',
+    commission_percent: 0,
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),
   },

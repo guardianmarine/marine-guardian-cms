@@ -19,6 +19,12 @@ import {
   mockTaxRules,
   mockTaxRuleLines,
 } from './dealsMockData';
+import { mockUsers } from './mockData';
+
+// Commission configuration
+const COMMISSION_CONFIG = {
+  include_fees_in_net: false, // If false, taxes/fees are excluded from net calculation
+};
 
 interface DealsStore {
   deals: Deal[];
@@ -157,22 +163,7 @@ export const useDealsStore = create<DealsStore>((set, get) => ({
       set((state) => ({ dealUnits: [...state.dealUnits, dealUnit] }));
     });
 
-    // Create commission record (accrued)
-    const commission = {
-      id: `comm-${Date.now()}`,
-      deal_id: dealId,
-      sales_rep_id: salesRepId,
-      basis: 'net' as const,
-      percent: 3.0, // Default 3%
-      flat_amount: undefined,
-      calculated_amount: vehicleSubtotal * 0.03,
-      status: 'accrued' as const,
-      paid_at: undefined,
-      note: undefined,
-      created_at: now,
-      updated_at: now,
-    };
-    set((state) => ({ commissions: [...state.commissions, commission] }));
+    // Commission will be calculated when deal is issued (not here)
 
     return newDeal;
   },
@@ -181,10 +172,73 @@ export const useDealsStore = create<DealsStore>((set, get) => ({
     const deal = get().getDealById(dealId);
     if (!deal || deal.status !== 'draft') return;
 
+    const now = new Date().toISOString();
+
     get().updateDeal(dealId, {
       status: 'issued',
-      issued_at: new Date().toISOString(),
+      issued_at: now,
     });
+
+    // Calculate and create commission on issue
+    const salesRep = mockUsers.find((u) => u.id === deal.sales_rep_id);
+    const commissionPercent = salesRep?.commission_percent || 3.0;
+
+    // Calculate net: vehicle_subtotal - discounts - taxes/fees (based on config)
+    let net = deal.vehicle_subtotal - deal.discounts_total;
+    
+    // Subtract unit costs if available
+    const dealUnits = get().getDealUnits(dealId);
+    if (typeof window !== 'undefined') {
+      // Access inventory store to get unit costs
+      const inventoryStore = (window as any).__inventoryStore;
+      if (inventoryStore) {
+        const totalCost = dealUnits.reduce((sum, du) => {
+          const unit = inventoryStore.units.find((u: any) => u.id === du.unit_id);
+          if (unit) {
+            const costStack = (unit.cost_purchase || 0) + (unit.cost_transport_in || 0) + (unit.cost_reconditioning || 0);
+            return sum + costStack;
+          }
+          return sum;
+        }, 0);
+        net -= totalCost;
+      }
+    }
+
+    // Subtract taxes/fees if config says not to include them in net
+    if (!COMMISSION_CONFIG.include_fees_in_net) {
+      net -= (deal.taxes_total + deal.fees_total);
+    }
+
+    const calculatedAmount = (net * commissionPercent) / 100;
+
+    // Check if commission already exists for this deal
+    const existingComm = get().commissions.find((c) => c.deal_id === dealId);
+    
+    if (existingComm) {
+      // Update existing commission
+      get().updateCommission(existingComm.id, {
+        percent: commissionPercent,
+        calculated_amount: calculatedAmount,
+        status: 'accrued',
+      });
+    } else {
+      // Create new commission
+      const commission: Commission = {
+        id: `comm-${Date.now()}`,
+        deal_id: dealId,
+        sales_rep_id: deal.sales_rep_id,
+        basis: 'net',
+        percent: commissionPercent,
+        flat_amount: undefined,
+        calculated_amount: calculatedAmount,
+        status: 'accrued',
+        paid_at: undefined,
+        note: undefined,
+        created_at: now,
+        updated_at: now,
+      };
+      set((state) => ({ commissions: [...state.commissions, commission] }));
+    }
   },
 
   markDelivered: (dealId) => {
