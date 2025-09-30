@@ -57,7 +57,7 @@ export default function AcquisitionBatches() {
     updateReceivingItem,
     purchaseIntakes,
   } = usePurchasingStore();
-  const { addUnit } = useInventoryStore();
+  const { addUnit, logEvent } = useInventoryStore();
 
   const [batchDialogOpen, setBatchDialogOpen] = useState(false);
   const [selectedBatch, setSelectedBatch] = useState<AcquisitionBatch | null>(null);
@@ -161,6 +161,21 @@ export default function AcquisitionBatches() {
 
     addUnit(newUnit);
     updateReceivingItem(item.id, { status: 'converted' });
+
+    // Log inventory event for audit trail
+    logEvent({
+      unit_id: unitId,
+      event_type: 'created',
+      data: {
+        source: 'receiving_item',
+        receiving_item_id: item.id,
+        acquisition_batch_id: item.acquisition_batch_id,
+        photos_transferred: unitPhotos.length,
+        cost_purchase: item.cost_purchase,
+        cost_transport_in: item.cost_transport_in,
+      },
+      actor_user_id: 'system', // TODO: Replace with actual user ID from auth context
+    });
 
     toast({
       title: 'Unit created',
