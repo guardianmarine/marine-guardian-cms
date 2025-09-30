@@ -10,9 +10,12 @@ import {
   LogOut,
   Menu,
   X,
-  Users
+  Users,
+  ShoppingCart,
+  ChevronDown
 } from 'lucide-react';
 import { useState } from 'react';
+import { cn } from '@/lib/utils';
 import logo from '@/assets/logo.png';
 
 interface BackofficeLayoutProps {
@@ -24,6 +27,9 @@ export function BackofficeLayout({ children }: BackofficeLayoutProps) {
   const navigate = useNavigate();
   const { user, logout } = useAuth();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [purchasingOpen, setPurchasingOpen] = useState(
+    location.pathname.startsWith('/backoffice/purchasing')
+  );
 
   const handleLogout = () => {
     logout();
@@ -38,9 +44,15 @@ export function BackofficeLayout({ children }: BackofficeLayoutProps) {
     { path: '/backoffice/buyer-requests', label: 'Buyer Requests', icon: Users },
   ];
 
+  const purchasingItems = [
+    { path: '/backoffice/purchasing/suppliers', label: 'Suppliers' },
+    { path: '/backoffice/purchasing/intakes', label: 'Purchase Intakes' },
+    { path: '/backoffice/purchasing/batches', label: 'Acquisition Batches' },
+  ];
+
   const isActive = (path: string, exact?: boolean) => {
     if (exact) return location.pathname === path;
-    return location.pathname.startsWith(path);
+    return location.pathname.startsWith(path) && !location.pathname.includes('/purchasing');
   };
 
   return (
@@ -94,6 +106,49 @@ export function BackofficeLayout({ children }: BackofficeLayoutProps) {
                 </Link>
               );
             })}
+
+            {/* Purchasing Submenu */}
+            <div className="pt-2">
+              <button
+                onClick={() => setPurchasingOpen(!purchasingOpen)}
+                className={cn(
+                  'flex items-center justify-between w-full px-3 py-2 rounded-lg transition-colors',
+                  location.pathname.includes('/purchasing')
+                    ? 'bg-primary text-primary-foreground'
+                    : 'hover:bg-accent hover:text-accent-foreground'
+                )}
+              >
+                <div className="flex items-center space-x-3">
+                  <ShoppingCart className="h-5 w-5" />
+                  <span className="font-medium">Purchasing</span>
+                </div>
+                <ChevronDown
+                  className={cn(
+                    'h-4 w-4 transition-transform',
+                    purchasingOpen && 'rotate-180'
+                  )}
+                />
+              </button>
+              {purchasingOpen && (
+                <div className="ml-8 mt-1 space-y-1">
+                  {purchasingItems.map((item) => (
+                    <Link
+                      key={item.path}
+                      to={item.path}
+                      onClick={() => setSidebarOpen(false)}
+                      className={cn(
+                        'block px-3 py-2 rounded-lg text-sm transition-colors',
+                        location.pathname === item.path
+                          ? 'bg-primary/10 text-primary font-medium'
+                          : 'hover:bg-accent hover:text-accent-foreground'
+                      )}
+                    >
+                      {item.label}
+                    </Link>
+                  ))}
+                </div>
+              )}
+            </div>
           </nav>
 
           {/* User Info */}

@@ -19,6 +19,9 @@ import HomeEditor from "./pages/backoffice/HomeEditor";
 import InventoryAdmin from "./pages/backoffice/InventoryAdmin";
 import UnitForm from "./pages/backoffice/UnitForm";
 import BuyerRequests from "./pages/backoffice/BuyerRequests";
+import Suppliers from "./pages/backoffice/purchasing/Suppliers";
+import PurchaseIntakes from "./pages/backoffice/purchasing/PurchaseIntakes";
+import AcquisitionBatches from "./pages/backoffice/purchasing/AcquisitionBatches";
 import NotFound from "./pages/NotFound";
 import "@/i18n/config";
 
@@ -151,6 +154,30 @@ const App = () => (
               element={
                 <ProtectedRoute>
                   <BuyerRequests />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/backoffice/purchasing/suppliers"
+              element={
+                <ProtectedRoute>
+                  <Suppliers />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/backoffice/purchasing/intakes"
+              element={
+                <ProtectedRoute>
+                  <PurchaseIntakes />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/backoffice/purchasing/batches"
+              element={
+                <ProtectedRoute>
+                  <AcquisitionBatches />
                 </ProtectedRoute>
               }
             />
