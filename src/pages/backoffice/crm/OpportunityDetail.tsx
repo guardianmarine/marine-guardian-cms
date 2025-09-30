@@ -13,6 +13,8 @@ import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useCRMStore } from '@/services/crmStore';
 import { useInventoryStore } from '@/services/inventoryStore';
+import { useAuth } from '@/contexts/AuthContext';
+import { getCRMPermissions } from '@/lib/permissions';
 import { TrendingUp, Package, FileText, Activity as ActivityIcon, Plus, X, CheckCircle, XCircle, Upload } from 'lucide-react';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
@@ -22,6 +24,7 @@ export default function OpportunityDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { t } = useTranslation();
+  const { user } = useAuth();
   const {
     getOpportunity,
     updateOpportunity,
@@ -39,6 +42,8 @@ export default function OpportunityDetail() {
     addDocument,
   } = useCRMStore();
   const { units } = useInventoryStore();
+  
+  const permissions = user ? getCRMPermissions(user.role) : { canEditCRM: false };
 
   const opportunity = id ? getOpportunity(id) : null;
   const account = opportunity?.account_id ? getAccount(opportunity.account_id) : null;
@@ -198,18 +203,10 @@ export default function OpportunityDetail() {
             <Select value={opportunity.pipeline_stage} onValueChange={(v) => handleStageChange(v as OpportunityStage)}>
               <SelectTrigger className="w-48">
                 <Badge className={getStageColor(opportunity.pipeline_stage)}>
-                  {opportunity.pipeline_stage}
-                </Badge>
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="new">New</SelectItem>
-                <SelectItem value="qualified">Qualified</SelectItem>
-                <SelectItem value="visit">Visit</SelectItem>
-                <SelectItem value="quote">Quote</SelectItem>
-                <SelectItem value="negotiation">Negotiation</SelectItem>
-              </SelectContent>
-            </Select>
-            {opportunity.pipeline_stage !== 'won' && opportunity.pipeline_stage !== 'lost' && (
+                {opportunity.pipeline_stage}
+              </Badge>
+            )}
+            {permissions.canEditCRM && opportunity.pipeline_stage !== 'won' && opportunity.pipeline_stage !== 'lost' && (
               <Dialog open={closeDialog} onOpenChange={setCloseDialog}>
                 <DialogTrigger asChild>
                   <Button variant="outline">Close</Button>
@@ -270,8 +267,10 @@ export default function OpportunityDetail() {
                       Confirm Close
                     </Button>
                   </div>
-                </DialogContent>
-              </Dialog>
+                  </DialogContent>
+                </Dialog>
+                )}
+            )}
             )}
           </div>
         </div>
@@ -343,6 +342,7 @@ export default function OpportunityDetail() {
             <Card>
               <CardHeader className="flex flex-row items-center justify-between">
                 <CardTitle>Units in Opportunity</CardTitle>
+                {permissions.canEditCRM && (
                 <Dialog open={unitDialog} onOpenChange={setUnitDialog}>
                   <DialogTrigger asChild>
                     <Button size="sm">
@@ -386,6 +386,7 @@ export default function OpportunityDetail() {
                     </div>
                   </DialogContent>
                 </Dialog>
+                )}
               </CardHeader>
               <CardContent>
                 {opportunityUnits.length === 0 ? (
@@ -408,24 +409,32 @@ export default function OpportunityDetail() {
                               {unit?.year} {unit?.make} {unit?.model}
                             </p>
                             <p className="text-sm text-muted-foreground">VIN: {unit?.vin_or_serial}</p>
-                            <div className="flex items-center gap-2 mt-2">
-                              <Label className="text-xs">Price:</Label>
-                              <Input
-                                type="number"
-                                value={ou.agreed_unit_price || ''}
-                                onChange={(e) => handleUpdateUnitPrice(ou.unit_id, e.target.value)}
-                                placeholder="Set price"
-                                className="w-32 h-8"
-                              />
-                            </div>
+                            {permissions.canEditCRM && (
+                              <div className="flex items-center gap-2 mt-2">
+                                <Label className="text-xs">Price:</Label>
+                                <Input
+                                  type="number"
+                                  value={ou.agreed_unit_price || ''}
+                                  onChange={(e) => handleUpdateUnitPrice(ou.unit_id, e.target.value)}
+                                  placeholder="Set price"
+                                  className="w-32 h-8"
+                                />
+                              </div>
+                            )}
+                            {!permissions.canEditCRM && ou.agreed_unit_price && (
+                              <p className="text-sm text-green-600 mt-2">
+                                Price: ${ou.agreed_unit_price.toLocaleString()}
+                              </p>
+                            )}
                           </div>
-                          <Button
+                          {permissions.canEditCRM && (
                             variant="ghost"
                             size="sm"
                             onClick={() => handleRemoveUnit(ou.unit_id)}
                           >
                             <X className="h-4 w-4" />
                           </Button>
+                          )}
                         </div>
                       );
                     })}
@@ -439,6 +448,7 @@ export default function OpportunityDetail() {
             <Card>
               <CardHeader className="flex flex-row items-center justify-between">
                 <CardTitle>Activity Timeline</CardTitle>
+                {permissions.canEditCRM && (
                 <Dialog open={activityDialog} onOpenChange={setActivityDialog}>
                   <DialogTrigger asChild>
                     <Button size="sm">
@@ -479,6 +489,7 @@ export default function OpportunityDetail() {
                     </div>
                   </DialogContent>
                 </Dialog>
+                )}
               </CardHeader>
               <CardContent>
                 {activities.length === 0 ? (
@@ -511,6 +522,7 @@ export default function OpportunityDetail() {
             <Card>
               <CardHeader className="flex flex-row items-center justify-between">
                 <CardTitle>Documents</CardTitle>
+                {permissions.canEditCRM && (
                 <Dialog open={documentDialog} onOpenChange={setDocumentDialog}>
                   <DialogTrigger asChild>
                     <Button size="sm">

@@ -11,6 +11,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { useCRMStore } from '@/services/crmStore';
+import { useAuth } from '@/contexts/AuthContext';
+import { getCRMPermissions } from '@/lib/permissions';
 import { Phone, Mail, MessageSquare, ClipboardList, CheckCircle, XCircle, TrendingUp, AlertCircle, Clock } from 'lucide-react';
 import { format, differenceInHours } from 'date-fns';
 import { toast } from 'sonner';
@@ -20,7 +22,10 @@ export default function LeadDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { t } = useTranslation();
+  const { user } = useAuth();
   const { getLead, updateLead, getActivities, addActivity, getAccount, getContact, addOpportunity, convertLeadToOpportunity } = useCRMStore();
+  
+  const permissions = user ? getCRMPermissions(user.role) : { canEditCRM: false };
   
   const lead = id ? getLead(id) : null;
   const account = lead?.account_id ? getAccount(lead.account_id) : null;
@@ -185,6 +190,7 @@ export default function LeadDetail() {
             <CardTitle>Quick Actions</CardTitle>
           </CardHeader>
           <CardContent className="flex flex-wrap gap-2">
+            {permissions.canEditCRM && (
             <Dialog open={activityDialog} onOpenChange={setActivityDialog}>
               <DialogTrigger asChild>
                 <Button variant="outline" onClick={() => setActivityKind('call')}>
@@ -225,6 +231,7 @@ export default function LeadDetail() {
                 </div>
               </DialogContent>
             </Dialog>
+            )}
 
             {contact?.email && (
               <Button variant="outline" asChild>
@@ -274,21 +281,21 @@ export default function LeadDetail() {
               </DialogContent>
             </Dialog>
 
-            {lead.status !== 'qualified' && lead.status !== 'converted' && (
+            {permissions.canEditCRM && lead.status !== 'qualified' && lead.status !== 'converted' && (
               <Button variant="outline" onClick={() => handleStatusChange('qualified' as LeadStatus)}>
                 <CheckCircle className="h-4 w-4 mr-2" />
                 Qualify
               </Button>
             )}
 
-            {lead.status !== 'disqualified' && (
+            {permissions.canEditCRM && lead.status !== 'disqualified' && (
               <Button variant="outline" onClick={() => handleStatusChange('disqualified' as LeadStatus)}>
                 <XCircle className="h-4 w-4 mr-2" />
                 Disqualify
               </Button>
             )}
 
-            {lead.status === 'qualified' && (
+            {permissions.canEditCRM && lead.status === 'qualified' && (
               <Dialog open={convertDialog} onOpenChange={setConvertDialog}>
                 <DialogTrigger asChild>
                   <Button>
