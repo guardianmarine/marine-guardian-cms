@@ -71,7 +71,11 @@
     "batches": "Acquisition Batches",
     "receiving": "Receiving",
     "buyerRequests": "Buyer Requests",
-    "csvImport": "CSV Import"
+    "csvImport": "CSV Import",
+    "importWizard": "Import Wizard",
+    "downloadTemplate": "Download Template",
+    "columnMapping": "Column Mapping",
+    "validationResults": "Validation Results"
   },
   "truckTypes": {
     "Sleeper": "Sleeper",

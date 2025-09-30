@@ -71,7 +71,11 @@
     "batches": "Lotes de Adquisición",
     "receiving": "Recepción",
     "buyerRequests": "Solicitudes de Compradores",
-    "csvImport": "Importar CSV"
+    "csvImport": "Importar CSV",
+    "importWizard": "Asistente de Importación",
+    "downloadTemplate": "Descargar Plantilla",
+    "columnMapping": "Mapeo de Columnas",
+    "validationResults": "Resultados de Validación"
   },
   "truckTypes": {
     "Sleeper": "Sleeper",

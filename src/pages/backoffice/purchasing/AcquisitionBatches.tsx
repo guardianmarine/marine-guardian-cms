@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { CSVImportWizard } from '@/components/purchasing/CSVImportWizard';
 import { BackofficeLayout } from '@/components/backoffice/Layout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -31,7 +32,7 @@ import {
 import { Card, CardContent } from '@/components/ui/card';
 import { usePurchasingStore } from '@/services/purchasingStore';
 import { useInventoryStore } from '@/services/inventoryStore';
-import { AcquisitionBatch, AcquisitionBatchStatus, ReceivingItem, Unit } from '@/types';
+import { AcquisitionBatch, AcquisitionBatchStatus, ReceivingItem, Unit, Supplier } from '@/types';
 import { useToast } from '@/hooks/use-toast';
 import {
   Plus,
@@ -59,15 +60,13 @@ export default function AcquisitionBatches() {
 
   const [batchDialogOpen, setBatchDialogOpen] = useState(false);
   const [selectedBatch, setSelectedBatch] = useState<AcquisitionBatch | null>(null);
-  const [csvDialogOpen, setCsvDialogOpen] = useState(false);
+  const [importWizardOpen, setImportWizardOpen] = useState(false);
 
   const [batchForm, setBatchForm] = useState({
     supplier_id: '',
     name_or_po: '',
     notes: '',
   });
-
-  const [csvData, setCsvData] = useState('');
 
   const handleCreateBatch = () => {
     if (!batchForm.supplier_id || !batchForm.name_or_po) {
@@ -95,65 +94,9 @@ export default function AcquisitionBatches() {
     setBatchForm({ supplier_id: '', name_or_po: '', notes: '' });
   };
 
-  const handleImportCSV = () => {
-    if (!selectedBatch) return;
-
-    // Parse CSV (simplified - in production use a proper CSV parser)
-    const lines = csvData.trim().split('\n');
-    if (lines.length < 2) {
-      toast({
-        title: 'Invalid CSV',
-        description: 'CSV must have headers and at least one row',
-        variant: 'destructive',
-      });
-      return;
-    }
-
-    const headers = lines[0].split(',').map((h) => h.trim());
-    let imported = 0;
-
-    for (let i = 1; i < lines.length; i++) {
-      const values = lines[i].split(',').map((v) => v.trim());
-      const row: Record<string, string> = {};
-      headers.forEach((header, idx) => {
-        row[header] = values[idx] || '';
-      });
-
-      // Create receiving item from CSV row
-      const newItem: ReceivingItem = {
-        id: Math.random().toString(36).substr(2, 9),
-        acquisition_batch_id: selectedBatch.id,
-        category: (row.category as any) || 'truck',
-        make: row.make || '',
-        year: parseInt(row.year) || new Date().getFullYear(),
-        model: row.model || '',
-        color: row.color,
-        mileage: row.mileage ? parseInt(row.mileage) : undefined,
-        engine: row.engine,
-        transmission: row.transmission,
-        vin_or_serial: row.vin_or_serial || row.vin || '',
-        axles: row.axles ? parseInt(row.axles) : undefined,
-        type: row.type || '',
-        hours: row.hours ? parseInt(row.hours) : undefined,
-        condition_report: {},
-        cost_purchase: row.cost_purchase ? parseFloat(row.cost_purchase) : 0,
-        cost_transport_in: row.cost_transport_in ? parseFloat(row.cost_transport_in) : 0,
-        status: 'pending',
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      };
-
-      addReceivingItem(newItem);
-      imported++;
-    }
-
-    updateAcquisitionBatch(selectedBatch.id, { status: 'receiving' });
-    toast({
-      title: 'CSV Imported',
-      description: `Successfully imported ${imported} items`,
-    });
-    setCsvDialogOpen(false);
-    setCsvData('');
+  const handleImportCSV = (batch: AcquisitionBatch) => {
+    setSelectedBatch(batch);
+    setImportWizardOpen(true);
   };
 
   const handleValidateAndConvert = (item: ReceivingItem) => {
@@ -272,13 +215,10 @@ export default function AcquisitionBatches() {
                         <Button
                           size="sm"
                           variant="outline"
-                          onClick={() => {
-                            setSelectedBatch(batch);
-                            setCsvDialogOpen(true);
-                          }}
+                          onClick={() => handleImportCSV(batch)}
                         >
                           <Upload className="h-4 w-4 mr-2" />
-                          Import CSV
+                          Import CSV/Excel
                         </Button>
                         <Select
                           value={batch.status}
@@ -449,38 +389,14 @@ export default function AcquisitionBatches() {
           </DialogContent>
         </Dialog>
 
-        {/* CSV Import Dialog */}
-        <Dialog open={csvDialogOpen} onOpenChange={setCsvDialogOpen}>
-          <DialogContent className="max-w-3xl">
-            <DialogHeader>
-              <DialogTitle>Import Units from CSV</DialogTitle>
-              <DialogDescription>
-                Paste CSV data with columns: category, make, year, model, type, vin_or_serial, mileage,
-                engine, transmission, axles, color, hours, cost_purchase, cost_transport_in
-              </DialogDescription>
-            </DialogHeader>
-
-            <div className="space-y-4">
-              <div className="space-y-2">
-                <Label>CSV Data</Label>
-                <Textarea
-                  value={csvData}
-                  onChange={(e) => setCsvData(e.target.value)}
-                  rows={12}
-                  placeholder="category,make,year,model,type,vin_or_serial,mileage,engine,transmission,axles&#10;truck,Freightliner,2020,Cascadia,Sleeper,1FUJG...,250000,DD15,12-Speed,3"
-                  className="font-mono text-sm"
-                />
-              </div>
-            </div>
-
-            <DialogFooter>
-              <Button variant="outline" onClick={() => setCsvDialogOpen(false)}>
-                Cancel
-              </Button>
-              <Button onClick={handleImportCSV}>Import</Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
+        {/* CSV Import Wizard */}
+        {selectedBatch && (
+          <CSVImportWizard
+            open={importWizardOpen}
+            onOpenChange={setImportWizardOpen}
+            batch={selectedBatch}
+          />
+        )}
       </div>
     </BackofficeLayout>
   );
