@@ -17,7 +17,10 @@
     "backToDashboard": "Back to Dashboard",
     "backToHome": "Back to Home",
     "pageNotFound": "Page Not Found",
-    "pageNotFoundMessage": "The page you are looking for does not exist or has been moved."
+    "pageNotFoundMessage": "The page you are looking for does not exist or has been moved.",
+    "noUserRecordMessage": "Your account has not been set up yet. Contact your administrator to grant you access.",
+    "inactiveAccountMessage": "Your account is not active. Contact your administrator to activate it.",
+    "insufficientRoleMessage": "You do not have the required role to access this resource."
   },
   "dashboard": {
     "welcomeBack": "Welcome back",

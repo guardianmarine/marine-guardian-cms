@@ -17,7 +17,10 @@
     "backToDashboard": "Volver al Panel",
     "backToHome": "Volver al Inicio",
     "pageNotFound": "Página No Encontrada",
-    "pageNotFoundMessage": "La página que busca no existe o ha sido movida."
+    "pageNotFoundMessage": "La página que busca no existe o ha sido movida.",
+    "noUserRecordMessage": "Tu cuenta aún no ha sido configurada. Contacta a tu administrador para que te otorgue acceso.",
+    "inactiveAccountMessage": "Tu cuenta no está activa. Contacta a tu administrador para activarla.",
+    "insufficientRoleMessage": "No tienes el rol requerido para acceder a este recurso."
   },
   "dashboard": {
     "welcomeBack": "Bienvenido de nuevo",
