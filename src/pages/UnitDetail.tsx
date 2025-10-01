@@ -6,9 +6,10 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { UnitCard } from '@/components/inventory/UnitCard';
+import { RequestInfoDialog } from '@/components/inventory/RequestInfoDialog';
 import { InventoryService } from '@/services/inventoryService';
 import { Unit } from '@/types';
-import { Phone, MessageCircle, ChevronLeft, ChevronRight, Truck, Cog, Settings, MapPin } from 'lucide-react';
+import { Phone, MessageCircle, Mail, ChevronLeft, ChevronRight, Truck, Cog, Settings, MapPin, ExternalLink } from 'lucide-react';
 import { TransformWrapper, TransformComponent } from 'react-zoom-pan-pinch';
 import { generateVehicleSchema, shortenVin } from '@/lib/seo';
 import { getUnitTypeLabel } from '@/lib/i18n-helpers';
@@ -20,6 +21,7 @@ export default function UnitDetail() {
   const [similarUnits, setSimilarUnits] = useState<Unit[]>([]);
   const [loading, setLoading] = useState(true);
   const [currentPhotoIndex, setCurrentPhotoIndex] = useState(0);
+  const [requestDialogOpen, setRequestDialogOpen] = useState(false);
 
   // Extract ID from slug if using slug-based route
   const unitId = id || (slug ? slug.split('-').pop() : null);
@@ -74,6 +76,17 @@ export default function UnitDetail() {
 
   const schema = generateVehicleSchema(unit);
   const typeLabel = getUnitTypeLabel(unit.type, unit.category, t);
+  
+  const whatsappText = encodeURIComponent(
+    `Hi, I'm interested in the ${unit.year} ${unit.make} ${unit.model} (ID: ${unit.id}). Please send me more information.`
+  );
+  const emailSubject = encodeURIComponent(`Inquiry about ${unit.year} ${unit.make} ${unit.model}`);
+  const emailBody = encodeURIComponent(
+    `Hi,\n\nI'm interested in the ${unit.year} ${unit.make} ${unit.model} (ID: ${unit.id}).\n\nPlease contact me with more information.\n\nThank you!`
+  );
+  
+  const address = '306 Burney Ln, Red Oak, TX 75154, United States';
+  const mapsUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address)}`;
 
   return (
     <>
@@ -279,12 +292,17 @@ export default function UnitDetail() {
             </div>
 
             {/* Sticky Contact CTAs */}
-            <div className="lg:sticky lg:top-24">
+            <div className="lg:sticky lg:top-24 space-y-4">
+              {/* Price Card */}
               <Card className="border-2 border-primary">
                 <CardContent className="p-6 space-y-4">
                   <div>
-                    <h3 className="font-bold text-xl mb-1">Interested in this unit?</h3>
-                    <p className="text-muted-foreground text-sm">Contact us for more information</p>
+                    <h3 className="font-bold text-xl mb-1">
+                      {t('public.interestedInUnit', 'Interested in this unit?')}
+                    </h3>
+                    <p className="text-muted-foreground text-sm">
+                      {t('public.contactForInfo', 'Contact us for more information')}
+                    </p>
                   </div>
                   
                   <div className="text-center py-3 border-y">
@@ -295,20 +313,49 @@ export default function UnitDetail() {
                   </div>
 
                   <div className="space-y-2">
-                    <Button className="w-full" size="lg">
-                      <Phone className="h-5 w-5 mr-2" />
-                      Request Info
+                    <Button 
+                      className="w-full" 
+                      size="lg"
+                      onClick={() => setRequestDialogOpen(true)}
+                    >
+                      <Mail className="h-5 w-5 mr-2" />
+                      {t('public.requestInfo', 'Request Info')}
                     </Button>
                     <Button variant="outline" className="w-full" size="lg" asChild>
                       <a href={`tel:${t('common.phone')}`}>
                         <Phone className="h-5 w-5 mr-2" />
-                        Call {t('common.phone')}
+                        {t('public.call', 'Call')} {t('common.phone')}
                       </a>
                     </Button>
                     <Button variant="outline" className="w-full" size="lg" asChild>
-                      <a href={`https://wa.me/12146138521`} target="_blank" rel="noopener noreferrer">
+                      <a href={`https://wa.me/12146138521?text=${whatsappText}`} target="_blank" rel="noopener noreferrer">
                         <MessageCircle className="h-5 w-5 mr-2" />
                         WhatsApp
+                      </a>
+                    </Button>
+                    <Button variant="outline" className="w-full" size="lg" asChild>
+                      <a href={`mailto:sales@guardianm.com?subject=${emailSubject}&body=${emailBody}`}>
+                        <Mail className="h-5 w-5 mr-2" />
+                        {t('public.email', 'Email')}
+                      </a>
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Location Card */}
+              <Card>
+                <CardContent className="p-6 space-y-4">
+                  <h3 className="font-bold text-lg flex items-center">
+                    <MapPin className="h-5 w-5 mr-2 text-primary" />
+                    {t('public.location', 'Location')}
+                  </h3>
+                  <div className="text-sm">
+                    <p className="font-medium mb-2">{address}</p>
+                    <Button variant="outline" size="sm" asChild className="w-full">
+                      <a href={mapsUrl} target="_blank" rel="noopener noreferrer">
+                        <ExternalLink className="h-4 w-4 mr-2" />
+                        {t('public.getDirections', 'Get Directions')}
                       </a>
                     </Button>
                   </div>
@@ -331,6 +378,15 @@ export default function UnitDetail() {
         )}
       </div>
     </div>
+    
+    {/* Request Info Dialog */}
+    {unit && (
+      <RequestInfoDialog
+        open={requestDialogOpen}
+        onOpenChange={setRequestDialogOpen}
+        unit={unit}
+      />
+    )}
     </>
   );
 }

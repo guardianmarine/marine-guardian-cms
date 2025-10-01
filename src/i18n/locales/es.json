@@ -526,5 +526,27 @@
       "magicLinkTooltip": "Envía un enlace de acceso sin contraseña",
       "disableTooltip": "Prefiere esto sobre Borrar para desactivación temporal"
     }
+  },
+  "public": {
+    "interestedInUnit": "¿Interesado en esta unidad?",
+    "contactForInfo": "Contáctanos para más información",
+    "requestInfo": "Solicitar Información",
+    "yourName": "Tu Nombre",
+    "namePlaceholder": "Juan Pérez",
+    "email": "Correo Electrónico",
+    "phone": "Teléfono",
+    "preferredContact": "Método de Contacto Preferido",
+    "byPhone": "Teléfono",
+    "byEmail": "Correo",
+    "message": "Mensaje",
+    "optional": "Opcional",
+    "sendRequest": "Enviar Solicitud",
+    "sending": "Enviando...",
+    "requestSent": "¡Solicitud Enviada!",
+    "requestSentDesc": "Gracias por tu interés. Nuestro equipo te contactará pronto.",
+    "location": "Ubicación",
+    "getDirections": "Obtener Direcciones",
+    "call": "Llamar",
+    "close": "Cerrar"
   }
 }

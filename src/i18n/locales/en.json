@@ -526,5 +526,27 @@
       "magicLinkTooltip": "Sends a passwordless login link",
       "disableTooltip": "Prefer this over Delete for temporary deactivation"
     }
+  },
+  "public": {
+    "interestedInUnit": "Interested in this unit?",
+    "contactForInfo": "Contact us for more information",
+    "requestInfo": "Request Information",
+    "yourName": "Your Name",
+    "namePlaceholder": "John Doe",
+    "email": "Email",
+    "phone": "Phone",
+    "preferredContact": "Preferred Contact Method",
+    "byPhone": "Phone",
+    "byEmail": "Email",
+    "message": "Message",
+    "optional": "Optional",
+    "sendRequest": "Send Request",
+    "sending": "Sending...",
+    "requestSent": "Request Sent!",
+    "requestSentDesc": "Thank you for your interest. Our team will contact you shortly.",
+    "location": "Location",
+    "getDirections": "Get Directions",
+    "call": "Call",
+    "close": "Close"
   }
 }
