@@ -65,89 +65,129 @@ function serializeForPublic(unit: any): Unit {
 }
 
 // Build base query for published units (defensive - supports multiple schema patterns)
-function getPublishedUnitsQuery() {
-  return supabase
-    .from('units')
-    .select(`
-      id, slug, category, make, model, year, mileage, engine, transmission, 
-      axles, type, display_price, vin_or_serial, color, location, status, 
-      listed_at, published_at, main_photo_url, photos, description, 
-      features, fuel_type, exterior_color, interior_color, sleeper_type,
-      trailer_type, box_length, gvwr, suspension, tire_size, brake_type,
-      fifth_wheel, landing_gear, door_type, floor_type, roof_type,
-      equipment_type, bucket_specs, attachments, condition
-    `)
-    .not('published_at', 'is', null)
-    .in('status', ['available', 'reserved']);
+// Two ways a row is considered published:
+// 1) is_published = true
+// 2) published_at not null AND status in ('available','reserved')
+export function getPublishedUnitsQuery(sb = supabase) {
+  let q = sb.from('units').select(`
+    id, slug, category, make, model, year, mileage, engine, transmission, 
+    axles, type, price, display_price, vin, vin_or_serial, color, location, status, 
+    listed_at, published_at, is_published, main_photo_url, photos, description, 
+    features, fuel_type, exterior_color, interior_color, sleeper_type,
+    trailer_type, box_length, gvwr, suspension, tire_size, brake_type,
+    fifth_wheel, landing_gear, door_type, floor_type, roof_type,
+    equipment_type, bucket_specs, attachments, condition
+  `);
+
+  // Use OR with Supabase syntax for both publishing methods
+  q = q.or(
+    'is_published.eq.true,and(published_at.not.is.null,status.in.(available,reserved))'
+  );
+
+  return q;
 }
 
 export class InventoryService {
   static async getPublicUnits(filters: InventoryFilters = {}, _lang: Locale = 'en'): Promise<Unit[]> {
-    let query = getPublishedUnitsQuery();
+    try {
+      let query = getPublishedUnitsQuery();
 
-    // Apply filters
-    if (filters.category) {
-      query = query.eq('category', filters.category);
-    }
-    if (filters.make) {
-      query = query.ilike('make', `%${filters.make}%`);
-    }
-    if (filters.type) {
-      query = query.ilike('type', `%${filters.type}%`);
-    }
-    if (filters.year_min) {
-      query = query.gte('year', filters.year_min);
-    }
-    if (filters.year_max) {
-      query = query.lte('year', filters.year_max);
-    }
-    if (filters.mileage_min) {
-      query = query.gte('mileage', filters.mileage_min);
-    }
-    if (filters.mileage_max) {
-      query = query.lte('mileage', filters.mileage_max);
-    }
+      // Apply filters only if they have values (defensive)
+      if (filters.category) {
+        query = query.eq('category', filters.category);
+      }
+      if (filters.make) {
+        query = query.ilike('make', `%${filters.make}%`);
+      }
+      if (filters.type) {
+        query = query.ilike('type', `%${filters.type}%`);
+      }
+      if (filters.year_min !== undefined && filters.year_min !== null) {
+        query = query.gte('year', filters.year_min);
+      }
+      if (filters.year_max !== undefined && filters.year_max !== null) {
+        query = query.lte('year', filters.year_max);
+      }
+      if (filters.mileage_min !== undefined && filters.mileage_min !== null) {
+        query = query.gte('mileage', filters.mileage_min);
+      }
+      if (filters.mileage_max !== undefined && filters.mileage_max !== null) {
+        query = query.lte('mileage', filters.mileage_max);
+      }
 
-    query = query.order('published_at', { ascending: false });
+      query = query.order('published_at', { ascending: false, nullsFirst: false });
 
-    const { data, error } = await query;
+      const { data, error } = await query;
 
-    if (error) {
-      console.error('Error fetching public units:', error);
+      if (error) {
+        console.error('Error fetching public units:', error);
+        return [];
+      }
+
+      // Strip internal fields - no additional filtering needed (RLS + query already handles it)
+      return (data || []).map(serializeForPublic);
+    } catch (error) {
+      console.error('Exception fetching public units:', error);
       return [];
     }
-
-    // Strip internal fields and filter with publishing logic
-    return (data || [])
-      .filter((unit) => isUnitPublished(unit))
-      .map(serializeForPublic);
   }
 
-  static async getPublicUnit(id: string, _lang: Locale = 'en'): Promise<Unit | null> {
-    // Try by ID first
-    let { data: unit, error } = await getPublishedUnitsQuery()
-      .eq('id', id)
-      .maybeSingle();
+  static async getPublicUnit(idOrSlug: string, _lang: Locale = 'en'): Promise<Unit | null> {
+    try {
+      // Determine if it looks like a slug (contains hyphens) or a UUID
+      const isLikelySlug = idOrSlug.includes('-') && !idOrSlug.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i);
 
-    // If not found by ID, try by slug
-    if (!unit && !error) {
-      const slugResult = await getPublishedUnitsQuery()
-        .eq('slug', id)
-        .maybeSingle();
-      unit = slugResult.data;
-      error = slugResult.error;
-    }
+      let unit = null;
+      let error = null;
 
-    if (error) {
-      console.error('Error fetching public unit:', error);
+      if (isLikelySlug) {
+        // Try by slug first
+        const slugResult = await getPublishedUnitsQuery()
+          .eq('slug', idOrSlug)
+          .maybeSingle();
+        unit = slugResult.data;
+        error = slugResult.error;
+
+        // If not found by slug, try by ID
+        if (!unit && !error) {
+          const idResult = await getPublishedUnitsQuery()
+            .eq('id', idOrSlug)
+            .maybeSingle();
+          unit = idResult.data;
+          error = idResult.error;
+        }
+      } else {
+        // Try by ID first
+        const idResult = await getPublishedUnitsQuery()
+          .eq('id', idOrSlug)
+          .maybeSingle();
+        unit = idResult.data;
+        error = idResult.error;
+
+        // If not found by ID, try by slug
+        if (!unit && !error) {
+          const slugResult = await getPublishedUnitsQuery()
+            .eq('slug', idOrSlug)
+            .maybeSingle();
+          unit = slugResult.data;
+          error = slugResult.error;
+        }
+      }
+
+      if (error) {
+        console.error('Error fetching public unit:', error);
+        return null;
+      }
+
+      if (!unit) {
+        return null;
+      }
+
+      return serializeForPublic(unit);
+    } catch (error) {
+      console.error('Exception fetching public unit:', error);
       return null;
     }
-
-    if (!unit || !isUnitPublished(unit)) {
-      return null;
-    }
-
-    return serializeForPublic(unit);
   }
 
   static async getSimilarUnits(unit: Unit, limit: number = 4): Promise<Unit[]> {

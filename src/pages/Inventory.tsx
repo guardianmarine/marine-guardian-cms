@@ -349,20 +349,26 @@ export default function Inventory() {
                   <Card>
                     <CardContent className="p-12 text-center">
                       <Truck className="h-16 w-16 mx-auto mb-4 text-muted-foreground" />
-                      <h3 className="text-2xl font-semibold mb-2">No Units Found</h3>
-                      <p className="text-muted-foreground mb-6 max-w-md mx-auto">
-                        We couldn't find any units matching your criteria. Try adjusting your filters or request a specific unit.
+                      <h3 className="text-2xl font-bold mb-2">
+                        {t('inventory.noUnitsAvailable', 'No units available at the moment')}
+                      </h3>
+                      <p className="text-muted-foreground mb-6">
+                        {i18n.language === 'es' 
+                          ? 'No hay unidades disponibles por ahora.' 
+                          : 'Try adjusting your filters or check back later for new inventory.'}
                       </p>
-                      <div className="flex items-center justify-center gap-4">
-                        {hasActiveFilters && (
-                          <Button onClick={clearFilters} variant="outline">
-                            Clear Filters
-                          </Button>
-                        )}
-                        <Button asChild>
-                          <a href="/request-unit">Request a Unit</a>
+                      {process.env.NODE_ENV !== 'production' && (
+                        <Button variant="outline" asChild>
+                          <a href="/__diag/inventory" target="_blank" rel="noopener noreferrer">
+                            View Diagnostics
+                          </a>
                         </Button>
-                      </div>
+                      )}
+                      {hasActiveFilters && (
+                        <Button variant="outline" onClick={clearFilters} className="mt-4">
+                          Clear Filters
+                        </Button>
+                      )}
                     </CardContent>
                   </Card>
 
