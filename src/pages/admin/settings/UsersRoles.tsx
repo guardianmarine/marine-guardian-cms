@@ -29,11 +29,18 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { UserCog, Mail, UserPlus, Loader2, Calendar, RefreshCw, AlertCircle, Info, Ban, CheckCircle } from 'lucide-react';
+import { UserCog, Mail, UserPlus, Loader2, Calendar, RefreshCw, AlertCircle, Info, Ban, CheckCircle, Trash2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/contexts/AuthContext';
 import { format } from 'date-fns';
 
 // Input validation schema
@@ -51,12 +58,14 @@ interface User {
   role: string;
   status?: string;
   birth_date?: string;
+  auth_user_id?: string;
   created_at: string;
 }
 
 export default function UsersRoles() {
   const { t } = useTranslation();
   const { toast } = useToast();
+  const { user: currentUser } = useAuth();
   const [users, setUsers] = useState<User[]>([]);
   const [filteredUsers, setFilteredUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
@@ -65,6 +74,12 @@ export default function UsersRoles() {
   const [hasBirthDateColumn, setHasBirthDateColumn] = useState(true);
   const [hasStatusColumn, setHasStatusColumn] = useState(true);
   const [editingBirthDate, setEditingBirthDate] = useState<{ [key: string]: string }>({});
+
+  // Delete user state
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [userToDelete, setUserToDelete] = useState<User | null>(null);
+  const [confirmEmail, setConfirmEmail] = useState('');
+  const [deleteLoading, setDeleteLoading] = useState(false);
 
   // Filters
   const [searchText, setSearchText] = useState('');
@@ -90,10 +105,10 @@ export default function UsersRoles() {
     try {
       setLoading(true);
       
-      // Try to fetch users with birth_date
+      // Try to fetch users with birth_date and auth_user_id
       let query = supabase
         .from('users')
-        .select('id,name,email,role,status,birth_date,created_at')
+        .select('id,name,email,role,status,birth_date,auth_user_id,created_at')
         .order('created_at', { ascending: false });
 
       const { data, error } = await query;
@@ -409,6 +424,102 @@ export default function UsersRoles() {
     }
   };
 
+  const openDeleteDialog = (user: User) => {
+    setUserToDelete(user);
+    setConfirmEmail('');
+    setIsDeleteDialogOpen(true);
+  };
+
+  const handleDeleteUser = async () => {
+    if (!userToDelete) return;
+
+    // Check if email matches
+    if (confirmEmail.trim().toLowerCase() !== userToDelete.email.toLowerCase()) {
+      toast({
+        title: t('common.error', 'Error'),
+        description: t('admin.users.emailMismatch', 'Email does not match'),
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    // Safeguard: cannot delete self
+    if (
+      userToDelete.auth_user_id === currentUser?.id ||
+      userToDelete.email === currentUser?.email
+    ) {
+      toast({
+        title: t('common.error', 'Error'),
+        description: t('admin.users.cannotDeleteSelf', 'You cannot delete your own admin account.'),
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    // Safeguard: keep at least one active admin
+    if (userToDelete.role === 'admin' && userToDelete.status === 'active') {
+      try {
+        const { count } = await supabase
+          .from('users')
+          .select('id', { count: 'exact', head: true })
+          .eq('role', 'admin')
+          .eq('status', 'active')
+          .neq('id', userToDelete.id);
+
+        if (count === 0) {
+          toast({
+            title: t('common.error', 'Error'),
+            description: t('admin.users.lastAdminError', 'At least one active admin is required.'),
+            variant: 'destructive',
+          });
+          return;
+        }
+      } catch (error) {
+        console.error('Error checking admin count:', error);
+      }
+    }
+
+    setDeleteLoading(true);
+
+    try {
+      const { error } = await supabase
+        .from('users')
+        .delete()
+        .eq('id', userToDelete.id);
+
+      if (error) throw error;
+
+      toast({
+        title: t('common.success', 'Success'),
+        description: t('admin.users.userDeleted', 'User deleted.'),
+      });
+
+      setIsDeleteDialogOpen(false);
+      setUserToDelete(null);
+      setConfirmEmail('');
+      fetchUsers();
+    } catch (error: any) {
+      console.error('Error deleting user:', error);
+      
+      // Check if it's an RLS error
+      if (error.message?.includes('policy') || error.code === '42501') {
+        toast({
+          title: t('common.error', 'Error'),
+          description: t('admin.users.deletePermissionError', 'Delete failed. Check permissions.'),
+          variant: 'destructive',
+        });
+      } else {
+        toast({
+          title: t('common.error', 'Error'),
+          description: error.message || t('admin.users.deleteError', 'Failed to delete user'),
+          variant: 'destructive',
+        });
+      }
+    } finally {
+      setDeleteLoading(false);
+    }
+  };
+
   if (!hasUsersTable) {
     return (
       <BackofficeLayout>
@@ -605,42 +716,100 @@ export default function UsersRoles() {
                         )}
                         <TableCell>
                           <div className="flex items-center gap-2 flex-wrap">
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => handleSendSetupLink(user.email)}
-                              title={t('admin.users.sendSetupLink', 'Send Setup Link')}
-                            >
-                              <Mail className="h-3 w-3 mr-1" />
-                              <span className="text-xs">{t('admin.users.setup', 'Setup')}</span>
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => handleSendMagicLink(user.email)}
-                              title={t('admin.users.sendMagicLink', 'Send Magic Link')}
-                            >
-                              <RefreshCw className="h-3 w-3 mr-1" />
-                              <span className="text-xs">{t('admin.users.magic', 'Magic')}</span>
-                            </Button>
+                            <TooltipProvider>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => handleSendSetupLink(user.email)}
+                                    title={t('admin.users.sendSetupLink', 'Send Setup Link')}
+                                  >
+                                    <Mail className="h-3 w-3 mr-1" />
+                                    <span className="text-xs">{t('admin.users.setup', 'Setup')}</span>
+                                  </Button>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                  <p className="text-xs max-w-xs">
+                                    {t('admin.users.setupLinkTooltip', 'Sends a password reset link to set up their account')}
+                                  </p>
+                                </TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
+
+                            <TooltipProvider>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => handleSendMagicLink(user.email)}
+                                    title={t('admin.users.sendMagicLink', 'Send Magic Link')}
+                                  >
+                                    <RefreshCw className="h-3 w-3 mr-1" />
+                                    <span className="text-xs">{t('admin.users.magic', 'Magic')}</span>
+                                  </Button>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                  <p className="text-xs max-w-xs">
+                                    {t('admin.users.magicLinkTooltip', 'Sends a passwordless login link')}
+                                  </p>
+                                </TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
+
                             {hasStatusColumn && (
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => handleToggleStatus(user.id, user.status)}
-                                title={
-                                  user.status === 'active' 
-                                    ? t('admin.users.disable', 'Disable') 
-                                    : t('admin.users.enable', 'Enable')
-                                }
-                              >
-                                {user.status === 'active' ? (
-                                  <Ban className="h-3 w-3 text-destructive" />
-                                ) : (
-                                  <CheckCircle className="h-3 w-3 text-green-600" />
-                                )}
-                              </Button>
+                              <TooltipProvider>
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      onClick={() => handleToggleStatus(user.id, user.status)}
+                                      title={
+                                        user.status === 'active' 
+                                          ? t('admin.users.disable', 'Disable') 
+                                          : t('admin.users.enable', 'Enable')
+                                      }
+                                    >
+                                      {user.status === 'active' ? (
+                                        <Ban className="h-3 w-3 text-destructive" />
+                                      ) : (
+                                        <CheckCircle className="h-3 w-3 text-green-600" />
+                                      )}
+                                    </Button>
+                                  </TooltipTrigger>
+                                  <TooltipContent>
+                                    <p className="text-xs max-w-xs">
+                                      {t('admin.users.disableTooltip', 'Prefer this over Delete for temporary deactivation')}
+                                    </p>
+                                  </TooltipContent>
+                                </Tooltip>
+                              </TooltipProvider>
                             )}
+
+                            <TooltipProvider>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => openDeleteDialog(user)}
+                                    title={t('admin.users.delete', 'Delete')}
+                                  >
+                                    <Trash2 className="h-3 w-3 text-destructive" />
+                                  </Button>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                  <p className="text-xs max-w-xs">
+                                    {t(
+                                      'admin.users.deleteTooltip',
+                                      'Permanent removal from staff table (Auth account stays). Prefer \'Disable\' if unsure.'
+                                    )}
+                                  </p>
+                                </TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
                           </div>
                         </TableCell>
                       </TableRow>
@@ -718,6 +887,75 @@ export default function UsersRoles() {
             <Button onClick={handleAddUser} disabled={actionLoading}>
               {actionLoading && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
               {t('admin.users.addUser', 'Add User')}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete User Dialog */}
+      <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="text-destructive">
+              {t('admin.users.deleteUserTitle', 'Delete user?')}
+            </DialogTitle>
+            <DialogDescription className="space-y-3 pt-2">
+              <Alert variant="destructive">
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription>
+                  {t(
+                    'admin.users.deleteWarning',
+                    'This removes the staff record from public.users. The Auth account in Supabase is not deleted and can still exist, but will no longer have access (status/role missing). Prefer \'Disable\' if you might re-activate later.'
+                  )}
+                </AlertDescription>
+              </Alert>
+              {userToDelete && (
+                <div className="space-y-2">
+                  <p className="font-semibold">
+                    {t('admin.users.deletingUser', 'Deleting user')}: <span className="text-destructive">{userToDelete.email}</span>
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    {t(
+                      'admin.users.authNote',
+                      'To remove the Auth account entirely, delete it in Supabase → Auth → Users.'
+                    )}
+                  </p>
+                </div>
+              )}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="confirm-email">
+                {t('admin.users.confirmEmailLabel', 'Type the email to confirm')}
+              </Label>
+              <Input
+                id="confirm-email"
+                type="email"
+                value={confirmEmail}
+                onChange={(e) => setConfirmEmail(e.target.value)}
+                placeholder={userToDelete?.email || ''}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button 
+              variant="outline" 
+              onClick={() => {
+                setIsDeleteDialogOpen(false);
+                setUserToDelete(null);
+                setConfirmEmail('');
+              }}
+            >
+              {t('common.cancel', 'Cancel')}
+            </Button>
+            <Button 
+              variant="destructive"
+              onClick={handleDeleteUser} 
+              disabled={deleteLoading || confirmEmail.trim().toLowerCase() !== userToDelete?.email.toLowerCase()}
+            >
+              {deleteLoading && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              {t('admin.users.delete', 'Delete')}
             </Button>
           </DialogFooter>
         </DialogContent>

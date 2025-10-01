@@ -502,7 +502,23 @@
       "magicLinkSent": "Enlace mágico enviado",
       "magicLinkError": "Error al enviar enlace mágico",
       "setup": "Config",
-      "magic": "Mágico"
+      "magic": "Mágico",
+      "delete": "Borrar",
+      "deleteUserTitle": "¿Borrar usuario?",
+      "deleteWarning": "Esto elimina el registro del staff en public.users. La cuenta de Auth en Supabase no se elimina y puede seguir existiendo, pero ya no tendrá acceso (sin rol/estatus). Prefiere 'Desactivar' si planeas reactivarlo después.",
+      "deletingUser": "Borrando usuario",
+      "authNote": "Para eliminar la cuenta Auth por completo, bórrala en Supabase → Auth → Users.",
+      "confirmEmailLabel": "Escribe el correo para confirmar",
+      "emailMismatch": "El correo no coincide",
+      "cannotDeleteSelf": "No puedes borrar tu propia cuenta de administrador.",
+      "lastAdminError": "Debe quedar al menos un administrador activo.",
+      "userDeleted": "Usuario borrado.",
+      "deletePermissionError": "No se pudo borrar. Revisa permisos.",
+      "deleteError": "Error al borrar usuario",
+      "deleteTooltip": "Eliminación permanente de la tabla de staff (la cuenta Auth permanece). Prefiere 'Desactivar' si no estás seguro.",
+      "setupLinkTooltip": "Envía un enlace para configurar su cuenta",
+      "magicLinkTooltip": "Envía un enlace de acceso sin contraseña",
+      "disableTooltip": "Prefiere esto sobre Borrar para desactivación temporal"
     }
   }
 }

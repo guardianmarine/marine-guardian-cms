@@ -502,7 +502,23 @@
       "magicLinkSent": "Magic link sent",
       "magicLinkError": "Failed to send magic link",
       "setup": "Setup",
-      "magic": "Magic"
+      "magic": "Magic",
+      "delete": "Delete",
+      "deleteUserTitle": "Delete user?",
+      "deleteWarning": "This removes the staff record from public.users. The Auth account in Supabase is not deleted and can still exist, but will no longer have access (status/role missing). Prefer 'Disable' if you might re-activate later.",
+      "deletingUser": "Deleting user",
+      "authNote": "To remove the Auth account entirely, delete it in Supabase → Auth → Users.",
+      "confirmEmailLabel": "Type the email to confirm",
+      "emailMismatch": "Email does not match",
+      "cannotDeleteSelf": "You cannot delete your own admin account.",
+      "lastAdminError": "At least one active admin is required.",
+      "userDeleted": "User deleted.",
+      "deletePermissionError": "Delete failed. Check permissions.",
+      "deleteError": "Failed to delete user",
+      "deleteTooltip": "Permanent removal from staff table (Auth account stays). Prefer 'Disable' if unsure.",
+      "setupLinkTooltip": "Sends a password reset link to set up their account",
+      "magicLinkTooltip": "Sends a passwordless login link",
+      "disableTooltip": "Prefer this over Delete for temporary deactivation"
     }
   }
 }
