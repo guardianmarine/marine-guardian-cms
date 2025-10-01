@@ -39,7 +39,6 @@ export interface Location {
 
 export interface Unit {
   id: string;
-  slug?: string; // SEO-friendly slug
   category: UnitCategory;
   make: string;
   year: number;
@@ -56,8 +55,6 @@ export interface Unit {
   status: UnitStatus;
   received_at: string;
   listed_at?: string;
-  published_at?: string; // Timestamp when published
-  is_published?: boolean; // Boolean flag for published
   sold_at?: string;
   location_id: string;
   location?: Location;

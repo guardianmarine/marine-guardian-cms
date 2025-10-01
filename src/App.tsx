@@ -47,7 +47,6 @@ import Commissions from "./pages/backoffice/finance/Commissions";
 import CommissionsReport from "./pages/backoffice/finance/CommissionsReport";
 import Insights from "./pages/backoffice/Insights";
 import UsersRoles from "./pages/admin/settings/UsersRoles";
-import PublicInventoryDiag from "./pages/diag/PublicInventoryDiag";
 import NotFound from "./pages/NotFound";
 import "@/i18n/config";
 
@@ -132,17 +131,6 @@ const App = () => (
             <Route path="/auth/set-password" element={<SetPassword />} />
             <Route path="/auth/callback" element={<Callback />} />
             <Route path="/no-access" element={<NoAccess />} />
-            
-            {/* Diagnostics Route (dev only) */}
-            <Route path="/__diag/inventory" element={
-              <div className="flex flex-col min-h-screen">
-                <Header />
-                <main className="flex-1">
-                  <PublicInventoryDiag />
-                </main>
-                <Footer />
-              </div>
-            } />
             
             {/* Legacy route - redirect to /login */}
             <Route path="/backoffice/login" element={<Login />} />

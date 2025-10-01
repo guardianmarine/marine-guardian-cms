@@ -30,8 +30,6 @@ export default function Inventory() {
   const [page, setPage] = useState(1);
   const [sortBy, setSortBy] = useState<SortOption>('newest');
   const [filters, setFilters] = useState<InventoryFilters>({});
-  const [makes, setMakes] = useState<string[]>([]);
-  const [types, setTypes] = useState<string[]>([]);
 
   useEffect(() => {
     const category = searchParams.get('category') as any;
@@ -65,24 +63,6 @@ export default function Inventory() {
   }, [page, units]);
 
   useEffect(() => {
-    const loadFilters = async () => {
-      try {
-        const [makesData, typesData] = await Promise.all([
-          InventoryService.getUniqueMakes(filters.category),
-          InventoryService.getUniqueTypes(filters.category),
-        ]);
-        setMakes(Array.isArray(makesData) ? makesData : []);
-        setTypes(Array.isArray(typesData) ? typesData : []);
-      } catch (error) {
-        console.error('Error loading filter options:', error);
-        setMakes([]);
-        setTypes([]);
-      }
-    };
-    loadFilters();
-  }, [filters.category]);
-
-  useEffect(() => {
     // Load featured picks for empty state
     const loadFeatured = async () => {
       const content = await ContentService.getHomeContent(i18n.language as any);
@@ -109,6 +89,9 @@ export default function Inventory() {
         return sorted;
     }
   };
+
+  const makes = InventoryService.getUniqueMakes(filters.category);
+  const types = InventoryService.getUniqueTypes(filters.category);
 
   const updateFilter = (key: string, value: string) => {
     const newParams = new URLSearchParams(searchParams);
@@ -349,26 +332,20 @@ export default function Inventory() {
                   <Card>
                     <CardContent className="p-12 text-center">
                       <Truck className="h-16 w-16 mx-auto mb-4 text-muted-foreground" />
-                      <h3 className="text-2xl font-bold mb-2">
-                        {t('inventory.noUnitsAvailable', 'No units available at the moment')}
-                      </h3>
-                      <p className="text-muted-foreground mb-6">
-                        {i18n.language === 'es' 
-                          ? 'No hay unidades disponibles por ahora.' 
-                          : 'Try adjusting your filters or check back later for new inventory.'}
+                      <h3 className="text-2xl font-semibold mb-2">No Units Found</h3>
+                      <p className="text-muted-foreground mb-6 max-w-md mx-auto">
+                        We couldn't find any units matching your criteria. Try adjusting your filters or request a specific unit.
                       </p>
-                      {process.env.NODE_ENV !== 'production' && (
-                        <Button variant="outline" asChild>
-                          <a href="/__diag/inventory" target="_blank" rel="noopener noreferrer">
-                            View Diagnostics
-                          </a>
+                      <div className="flex items-center justify-center gap-4">
+                        {hasActiveFilters && (
+                          <Button onClick={clearFilters} variant="outline">
+                            Clear Filters
+                          </Button>
+                        )}
+                        <Button asChild>
+                          <a href="/request-unit">Request a Unit</a>
                         </Button>
-                      )}
-                      {hasActiveFilters && (
-                        <Button variant="outline" onClick={clearFilters} className="mt-4">
-                          Clear Filters
-                        </Button>
-                      )}
+                      </div>
                     </CardContent>
                   </Card>
 
