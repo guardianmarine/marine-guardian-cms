@@ -10,6 +10,9 @@ import {
   LogOut, 
   Sun, 
   Moon,
+  Lock,
+  Unlock,
+  MousePointer,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { NavItem, filterNavByRole, Role } from '@/nav/config';
@@ -42,11 +45,20 @@ export function ModernSidebar({ items, userRole, getBadge }: ModernSidebarProps)
   const navigate = useNavigate();
   const locale = (i18n.language === 'es' ? 'es' : 'en') as 'en' | 'es';
   
-  // Collapse state
-  const [collapsed, setCollapsed] = useState(() => {
-    const saved = localStorage.getItem('gm:sb:collapsed');
-    return saved === 'true';
+  // Sidebar mode: 'auto' | 'locked-open' | 'locked-collapsed'
+  const [sidebarMode, setSidebarMode] = useState<'auto' | 'locked-open' | 'locked-collapsed'>(() => {
+    const saved = localStorage.getItem('gm:sb:mode');
+    return (saved as any) || 'auto';
   });
+
+  // Hover state for auto mode
+  const [hoverOpen, setHoverOpen] = useState(false);
+
+  // Check if device has fine pointer (desktop with mouse)
+  const allowHover = window.matchMedia?.('(pointer: fine)').matches ?? true;
+
+  // Derive collapsed state from mode
+  const collapsed = sidebarMode === 'locked-collapsed' || (sidebarMode === 'auto' && !hoverOpen);
 
   // Expanded groups state
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(() => {
@@ -72,10 +84,10 @@ export function ModernSidebar({ items, userRole, getBadge }: ModernSidebarProps)
   // Filter items by role
   const visibleItems = filterNavByRole(items, userRole);
 
-  // Save collapsed state
+  // Save mode state
   useEffect(() => {
-    localStorage.setItem('gm:sb:collapsed', String(collapsed));
-  }, [collapsed]);
+    localStorage.setItem('gm:sb:mode', sidebarMode);
+  }, [sidebarMode]);
 
   // Save expanded groups
   useEffect(() => {
@@ -95,7 +107,19 @@ export function ModernSidebar({ items, userRole, getBadge }: ModernSidebarProps)
     }
   }, [location.pathname, collapsed]);
 
-  const toggleCollapse = () => setCollapsed(!collapsed);
+  const toggleLock = () => {
+    if (sidebarMode === 'locked-open') {
+      setSidebarMode('locked-collapsed');
+    } else if (sidebarMode === 'locked-collapsed') {
+      setSidebarMode('auto');
+    } else {
+      setSidebarMode('locked-open');
+    }
+  };
+
+  const setAutoMode = () => {
+    setSidebarMode('auto');
+  };
 
   const toggleGroup = (id: string) => {
     setExpandedGroups(prev => {
@@ -292,8 +316,10 @@ export function ModernSidebar({ items, userRole, getBadge }: ModernSidebarProps)
 
   return (
     <aside
+      onMouseEnter={() => allowHover && sidebarMode === 'auto' && setHoverOpen(true)}
+      onMouseLeave={() => allowHover && sidebarMode === 'auto' && setHoverOpen(false)}
       className={cn(
-        'fixed left-0 top-0 h-screen bg-[hsl(var(--sb-bg))] text-[hsl(var(--sb-text))] border-r border-[hsla(var(--sb-border))] transition-all duration-300 z-50',
+        'fixed left-0 top-0 h-screen bg-[hsl(var(--sb-bg))] text-[hsl(var(--sb-text))] border-r border-[hsla(var(--sb-border))] transition-[width] duration-200 z-50',
         collapsed ? 'w-16' : 'w-64',
         sidebarTheme === 'dark' ? 'sidebar-dark' : 'sidebar-light'
       )}
@@ -308,7 +334,9 @@ export function ModernSidebar({ items, userRole, getBadge }: ModernSidebarProps)
                   <img 
                     src={getBrandAsset()} 
                     alt="Guardian Marine" 
-                    className={cn(collapsed ? 'h-8 w-8' : 'h-8')} 
+                    className={cn(
+                      collapsed ? 'h-8 w-8' : 'h-10 md:h-11 w-auto object-contain',
+                    )} 
                   />
                 </div>
               </TooltipTrigger>
@@ -316,26 +344,62 @@ export function ModernSidebar({ items, userRole, getBadge }: ModernSidebarProps)
             </Tooltip>
           </TooltipProvider>
           {!collapsed && (
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={toggleCollapse}
-                    className="h-8 w-8 text-[hsl(var(--sb-text))] hover:bg-[hsl(var(--sb-bg-hover))]"
-                    aria-label={t('sidebar.collapse', 'Collapse')}
-                  >
-                    <ChevronLeft className="h-4 w-4" />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>{locale === 'es' ? 'Colapsar' : 'Collapse'}</TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
+            <div className="flex gap-1">
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={setAutoMode}
+                      className={cn(
+                        'h-8 w-8 text-[hsl(var(--sb-text))] hover:bg-[hsl(var(--sb-bg-hover))]',
+                        sidebarMode === 'auto' && 'bg-[hsl(var(--sb-bg-hover))]'
+                      )}
+                      aria-label={locale === 'es' ? 'Automático' : 'Auto'}
+                      aria-pressed={sidebarMode === 'auto'}
+                    >
+                      <MousePointer className="h-4 w-4" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>{locale === 'es' ? 'Automático (abre al pasar el mouse)' : 'Auto (opens on hover)'}</TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={toggleLock}
+                      className="h-8 w-8 text-[hsl(var(--sb-text))] hover:bg-[hsl(var(--sb-bg-hover))]"
+                      aria-label={
+                        sidebarMode === 'locked-open' 
+                          ? (locale === 'es' ? 'Fijar colapsado' : 'Lock collapsed')
+                          : (locale === 'es' ? 'Fijar abierto' : 'Lock open')
+                      }
+                    >
+                      {sidebarMode === 'locked-open' ? (
+                        <ChevronLeft className="h-4 w-4" />
+                      ) : (
+                        <Lock className="h-4 w-4" />
+                      )}
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    {sidebarMode === 'locked-open' 
+                      ? (locale === 'es' ? 'Fijar colapsado' : 'Lock collapsed')
+                      : (locale === 'es' ? 'Fijar abierto' : 'Lock open')
+                    }
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            </div>
           )}
         </div>
 
-        {/* Expand button when collapsed */}
+        {/* Lock toggle when collapsed */}
         {collapsed && (
           <div className="px-2 py-2">
             <TooltipProvider>
@@ -344,14 +408,27 @@ export function ModernSidebar({ items, userRole, getBadge }: ModernSidebarProps)
                   <Button
                     variant="ghost"
                     size="icon"
-                    onClick={toggleCollapse}
+                    onClick={toggleLock}
                     className="w-full h-10 text-[hsl(var(--sb-text))] hover:bg-[hsl(var(--sb-bg-hover))]"
-                    aria-label={t('sidebar.expand', 'Expand')}
+                    aria-label={
+                      sidebarMode === 'locked-collapsed'
+                        ? (locale === 'es' ? 'Automático' : 'Auto')
+                        : (locale === 'es' ? 'Fijar abierto' : 'Lock open')
+                    }
                   >
-                    <ChevronRight className="h-4 w-4" />
+                    {sidebarMode === 'locked-collapsed' ? (
+                      <Unlock className="h-4 w-4" />
+                    ) : (
+                      <Lock className="h-4 w-4" />
+                    )}
                   </Button>
                 </TooltipTrigger>
-                <TooltipContent side="right">{locale === 'es' ? 'Expandir' : 'Expand'}</TooltipContent>
+                <TooltipContent side="right">
+                  {sidebarMode === 'locked-collapsed'
+                    ? (locale === 'es' ? 'Automático' : 'Auto')
+                    : (locale === 'es' ? 'Fijar abierto' : 'Lock open')
+                  }
+                </TooltipContent>
               </Tooltip>
             </TooltipProvider>
           </div>

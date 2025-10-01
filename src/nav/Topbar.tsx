@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
@@ -11,8 +11,9 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { Menu, User, Globe, Zap, LogOut } from 'lucide-react';
+import { Menu, User, Globe, Zap, LogOut, Sun, Moon, Monitor } from 'lucide-react';
 import { NotificationCenter } from '@/components/dashboard/NotificationCenter';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 interface TopbarProps {
   onMenuClick: () => void;
@@ -23,6 +24,33 @@ export function Topbar({ onMenuClick }: TopbarProps) {
   const navigate = useNavigate();
   const { user, logout } = useAuth();
   const [currentLang, setCurrentLang] = useState(i18n.language);
+  const [appTheme, setAppTheme] = useState<'light' | 'dark' | 'system'>(() => {
+    return (localStorage.getItem('gm:appTheme') as any) || 'system';
+  });
+
+  const applyAppTheme = (value: 'light' | 'dark' | 'system') => {
+    const root = document.documentElement;
+    const systemDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+    const enableDark = value === 'dark' || (value === 'system' && systemDark);
+    root.classList.toggle('dark', enableDark);
+  };
+
+  useEffect(() => {
+    applyAppTheme(appTheme);
+  }, [appTheme]);
+
+  useEffect(() => {
+    if (appTheme !== 'system') return;
+    const mq = window.matchMedia('(prefers-color-scheme: dark)');
+    const handler = () => applyAppTheme('system');
+    mq.addEventListener?.('change', handler);
+    return () => mq.removeEventListener?.('change', handler);
+  }, [appTheme]);
+
+  const handleThemeChange = (value: 'light' | 'dark' | 'system') => {
+    setAppTheme(value);
+    localStorage.setItem('gm:appTheme', value);
+  };
 
   const toggleLanguage = () => {
     const newLang = currentLang === 'en' ? 'es' : 'en';
@@ -56,6 +84,60 @@ export function Topbar({ onMenuClick }: TopbarProps) {
 
       {/* Notification Center */}
       <NotificationCenter />
+
+      {/* Global Theme Toggle */}
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="gap-2 transition-all duration-200 hover:shadow-md hover:scale-105 focus-visible:ring-2 focus-visible:ring-ring"
+                >
+                  {appTheme === 'light' ? (
+                    <Sun className="h-4 w-4" />
+                  ) : appTheme === 'dark' ? (
+                    <Moon className="h-4 w-4" />
+                  ) : (
+                    <Monitor className="h-4 w-4" />
+                  )}
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>{currentLang === 'es' ? 'Tema' : 'Theme'}</TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" className="w-40 bg-card shadow-lg animate-scale-in">
+          <DropdownMenuLabel>{currentLang === 'es' ? 'Tema' : 'Theme'}</DropdownMenuLabel>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem
+            onClick={() => handleThemeChange('light')}
+            className="cursor-pointer transition-colors duration-150 focus:bg-accent"
+          >
+            <Sun className="h-4 w-4 mr-2" />
+            {currentLang === 'es' ? 'Claro' : 'Light'}
+            {appTheme === 'light' && ' ✓'}
+          </DropdownMenuItem>
+          <DropdownMenuItem
+            onClick={() => handleThemeChange('dark')}
+            className="cursor-pointer transition-colors duration-150 focus:bg-accent"
+          >
+            <Moon className="h-4 w-4 mr-2" />
+            {currentLang === 'es' ? 'Oscuro' : 'Dark'}
+            {appTheme === 'dark' && ' ✓'}
+          </DropdownMenuItem>
+          <DropdownMenuItem
+            onClick={() => handleThemeChange('system')}
+            className="cursor-pointer transition-colors duration-150 focus:bg-accent"
+          >
+            <Monitor className="h-4 w-4 mr-2" />
+            {currentLang === 'es' ? 'Sistema' : 'System'}
+            {appTheme === 'system' && ' ✓'}
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
 
       {/* Quick Actions */}
       <DropdownMenu>

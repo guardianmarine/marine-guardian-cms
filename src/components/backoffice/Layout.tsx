@@ -33,8 +33,8 @@ export function BackofficeLayout({ children }: BackofficeLayoutProps) {
           getBadge={getBadge}
         />
 
-        {/* Main Content - with left padding for sidebar */}
-        <div className="flex-1 flex flex-col overflow-hidden ml-16 lg:ml-64 transition-all duration-300">
+        {/* Main Content - with left padding for sidebar (responsive to actual state) */}
+        <div className="flex-1 flex flex-col overflow-hidden ml-16 lg:ml-16 transition-all duration-200">
           {/* Header */}
           <Topbar onMenuClick={() => {}} />
 
