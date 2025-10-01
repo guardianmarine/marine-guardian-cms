@@ -66,12 +66,18 @@ export default function Inventory() {
 
   useEffect(() => {
     const loadFilters = async () => {
-      const [makesData, typesData] = await Promise.all([
-        InventoryService.getUniqueMakes(filters.category),
-        InventoryService.getUniqueTypes(filters.category),
-      ]);
-      setMakes(makesData);
-      setTypes(typesData);
+      try {
+        const [makesData, typesData] = await Promise.all([
+          InventoryService.getUniqueMakes(filters.category),
+          InventoryService.getUniqueTypes(filters.category),
+        ]);
+        setMakes(Array.isArray(makesData) ? makesData : []);
+        setTypes(Array.isArray(typesData) ? typesData : []);
+      } catch (error) {
+        console.error('Error loading filter options:', error);
+        setMakes([]);
+        setTypes([]);
+      }
     };
     loadFilters();
   }, [filters.category]);

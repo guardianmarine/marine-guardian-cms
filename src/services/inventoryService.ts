@@ -194,32 +194,52 @@ export class InventoryService {
 
   // Helper methods for filters - only show published units to public
   static async getUniqueMakes(category?: string): Promise<string[]> {
-    let query = getPublishedUnitsQuery();
-    
-    if (category) {
-      query = query.eq('category', category);
-    }
+    try {
+      let query = getPublishedUnitsQuery();
+      
+      if (category) {
+        query = query.eq('category', category);
+      }
 
-    const { data } = await query.select('make');
-    const makes = (data || [])
-      .filter((u) => u.make && isUnitPublished(u))
-      .map((u) => u.make);
-    
-    return [...new Set(makes)].sort();
+      const { data } = await query.select('make');
+      
+      if (!data || !Array.isArray(data)) {
+        return [];
+      }
+      
+      const makes = data
+        .filter((u) => u.make && isUnitPublished(u))
+        .map((u) => u.make);
+      
+      return [...new Set(makes)].sort();
+    } catch (error) {
+      console.error('Error fetching unique makes:', error);
+      return [];
+    }
   }
 
   static async getUniqueTypes(category?: string): Promise<string[]> {
-    let query = getPublishedUnitsQuery();
-    
-    if (category) {
-      query = query.eq('category', category);
-    }
+    try {
+      let query = getPublishedUnitsQuery();
+      
+      if (category) {
+        query = query.eq('category', category);
+      }
 
-    const { data } = await query.select('type');
-    const types = (data || [])
-      .filter((u) => u.type && isUnitPublished(u))
-      .map((u) => u.type);
-    
-    return [...new Set(types)].sort();
+      const { data } = await query.select('type');
+      
+      if (!data || !Array.isArray(data)) {
+        return [];
+      }
+      
+      const types = data
+        .filter((u) => u.type && isUnitPublished(u))
+        .map((u) => u.type);
+      
+      return [...new Set(types)].sort();
+    } catch (error) {
+      console.error('Error fetching unique types:', error);
+      return [];
+    }
   }
 }

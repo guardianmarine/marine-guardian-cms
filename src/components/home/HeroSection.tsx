@@ -22,12 +22,18 @@ export function HeroSection() {
 
   useEffect(() => {
     const loadFilters = async () => {
-      const [makesData, typesData] = await Promise.all([
-        InventoryService.getUniqueMakes(activeTab),
-        InventoryService.getUniqueTypes(activeTab),
-      ]);
-      setMakes(makesData);
-      setTypes(typesData);
+      try {
+        const [makesData, typesData] = await Promise.all([
+          InventoryService.getUniqueMakes(activeTab),
+          InventoryService.getUniqueTypes(activeTab),
+        ]);
+        setMakes(Array.isArray(makesData) ? makesData : []);
+        setTypes(Array.isArray(typesData) ? typesData : []);
+      } catch (error) {
+        console.error('Error loading filter options:', error);
+        setMakes([]);
+        setTypes([]);
+      }
     };
     loadFilters();
   }, [activeTab]);
