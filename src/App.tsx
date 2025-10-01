@@ -264,6 +264,8 @@ const App = () => (
             />
             
             {/* CRM Routes */}
+            <Route path="/crm/inbound-requests" element={<ProtectedRoute><RoleGuard allowedRoles={['admin','sales']}><InboundRequests /></RoleGuard></ProtectedRoute>} />
+            <Route path="/backoffice/inbound-requests" element={<ProtectedRoute><RoleGuard allowedRoles={['admin','sales']}><InboundRequests /></RoleGuard></ProtectedRoute>} />
             <Route path="/backoffice/crm/accounts" element={<ProtectedRoute><RoleGuard allowedRoles={['admin','sales','finance','inventory','viewer']}><Accounts /></RoleGuard></ProtectedRoute>} />
             <Route path="/backoffice/crm/accounts/new" element={<ProtectedRoute><RoleGuard allowedRoles={['admin','sales']}><AccountForm /></RoleGuard></ProtectedRoute>} />
             <Route path="/backoffice/crm/accounts/:id/edit" element={<ProtectedRoute><RoleGuard allowedRoles={['admin','sales']}><AccountForm /></RoleGuard></ProtectedRoute>} />

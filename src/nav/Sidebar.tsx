@@ -11,9 +11,10 @@ interface SidebarProps {
   items: NavItem[];
   userRole: Role;
   onItemClick?: () => void;
+  getBadge?: (item: NavItem) => number | null;
 }
 
-export function Sidebar({ items, userRole, onItemClick }: SidebarProps) {
+export function Sidebar({ items, userRole, onItemClick, getBadge }: SidebarProps) {
   const { i18n } = useTranslation();
   const location = useLocation();
   const locale = (i18n.language === 'es' ? 'es' : 'en') as 'en' | 'es'; // Fallback to 'en'
@@ -90,6 +91,7 @@ export function Sidebar({ items, userRole, onItemClick }: SidebarProps) {
     const hasChildren = item.children && item.children.length > 0;
     const isExpanded = expandedGroups.has(item.id);
     const active = isActive(item.route);
+    const badgeCount = getBadge?.(item) ?? null;
 
     if (hasChildren) {
       return (
@@ -104,7 +106,7 @@ export function Sidebar({ items, userRole, onItemClick }: SidebarProps) {
                 : 'hover:bg-accent/50 hover:text-accent-foreground hover:shadow-sm'
             )}
           >
-            <div className="flex items-center space-x-3">
+            <div className="flex items-center space-x-3 flex-1">
               <div className={cn(
                 'transition-transform duration-200',
                 'group-hover:scale-110'
@@ -112,6 +114,11 @@ export function Sidebar({ items, userRole, onItemClick }: SidebarProps) {
                 {getIcon(item.icon)}
               </div>
               <span className="font-medium">{item.label[locale]}</span>
+              {badgeCount && badgeCount > 0 && (
+                <span className="ml-auto inline-flex items-center justify-center h-5 min-w-5 px-1.5 text-xs font-semibold rounded-full bg-primary text-primary-foreground">
+                  {badgeCount > 99 ? '99+' : badgeCount}
+                </span>
+              )}
             </div>
             <ChevronDown
               className={cn(
@@ -156,6 +163,11 @@ export function Sidebar({ items, userRole, onItemClick }: SidebarProps) {
           </div>
         )}
         <span className={level === 0 ? 'font-medium' : ''}>{item.label[locale]}</span>
+        {badgeCount && badgeCount > 0 && (
+          <span className="ml-auto inline-flex items-center justify-center h-5 min-w-5 px-1.5 text-xs font-semibold rounded-full bg-primary text-primary-foreground">
+            {badgeCount > 99 ? '99+' : badgeCount}
+          </span>
+        )}
       </Link>
     );
   };

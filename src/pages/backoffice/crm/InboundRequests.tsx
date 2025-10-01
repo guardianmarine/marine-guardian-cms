@@ -70,9 +70,9 @@ export default function InboundRequests() {
 
       if (error) throw error;
       setRequests(data || []);
-    } catch (error) {
+      } catch (error: any) {
       console.error('Error loading requests:', error);
-      toast.error('Failed to load requests');
+      toast.error(error?.message ?? (i18n.language === 'es' ? 'Error al cargar solicitudes' : 'Failed to load requests'));
     } finally {
       setLoading(false);
     }
@@ -89,20 +89,20 @@ export default function InboundRequests() {
     return matchesSearch && matchesStatus && matchesType;
   });
 
-  const getStatusColor = (status: string) => {
+  const getStatusVariant = (status: string): 'default' | 'secondary' | 'destructive' | 'outline' => {
     switch (status) {
       case 'new':
-        return 'bg-blue-500';
+        return 'default';
       case 'processing':
-        return 'bg-yellow-500';
+        return 'secondary';
       case 'converted':
-        return 'bg-green-500';
+        return 'outline';
       case 'spam':
-        return 'bg-red-500';
+        return 'destructive';
       case 'closed':
-        return 'bg-gray-500';
+        return 'outline';
       default:
-        return 'bg-gray-500';
+        return 'secondary';
     }
   };
 
@@ -119,9 +119,9 @@ export default function InboundRequests() {
         prev.map((req) => (req.id === id ? { ...req, status: newStatus } : req))
       );
       toast.success(i18n.language === 'es' ? 'Estado actualizado' : 'Status updated');
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error updating status:', error);
-      toast.error(i18n.language === 'es' ? 'Error al actualizar' : 'Failed to update');
+      toast.error(error?.message ?? (i18n.language === 'es' ? 'Error al actualizar' : 'Failed to update'));
     }
   };
 
@@ -137,8 +137,8 @@ export default function InboundRequests() {
         // Table doesn't exist
         toast.error(
           i18n.language === 'es'
-            ? 'Tabla de leads no encontrada. Marca como en proceso y maneja manualmente.'
-            : 'Leads table not found. Mark as processing and handle manually.'
+            ? "Tabla 'leads' no encontrada. Marcado como En proceso."
+            : 'Leads table not found. Marked as Processing.'
         );
         await handleStatusChange(request.id, 'processing');
         return;
@@ -158,9 +158,9 @@ export default function InboundRequests() {
 
       await handleStatusChange(request.id, 'converted');
       toast.success(i18n.language === 'es' ? 'Lead creado' : 'Lead created');
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error converting to lead:', error);
-      toast.error(i18n.language === 'es' ? 'Error al crear lead' : 'Failed to create lead');
+      toast.error(error?.message ?? (i18n.language === 'es' ? 'Error al crear lead' : 'Failed to create lead'));
     }
   };
 
@@ -290,7 +290,7 @@ export default function InboundRequests() {
                       <TableCell className="text-sm">{request.phone || '-'}</TableCell>
                       <TableCell className="text-sm capitalize">{request.preferred_contact || '-'}</TableCell>
                       <TableCell>
-                        <Badge className={getStatusColor(request.status)}>{request.status}</Badge>
+                        <Badge variant={getStatusVariant(request.status)}>{request.status}</Badge>
                       </TableCell>
                       <TableCell>
                         <Button

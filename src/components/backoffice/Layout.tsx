@@ -3,10 +3,11 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { X } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { NAV_ITEMS } from '@/nav/config';
+import { NAV_ITEMS, NavItem } from '@/nav/config';
 import { Sidebar } from '@/nav/Sidebar';
 import { Topbar } from '@/nav/Topbar';
 import { Breadcrumbs } from '@/nav/Breadcrumbs';
+import { useInboundRequestsCount } from '@/hooks/useInboundRequestsCount';
 import logo from '@/assets/logo.png';
 
 interface BackofficeLayoutProps {
@@ -16,6 +17,14 @@ interface BackofficeLayoutProps {
 export function BackofficeLayout({ children }: BackofficeLayoutProps) {
   const { user } = useAuth();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const inboundRequestsCount = useInboundRequestsCount();
+
+  const getBadge = (item: NavItem): number | null => {
+    if (item.id === 'inbound-requests') {
+      return inboundRequestsCount;
+    }
+    return null;
+  };
 
   return (
     <div className="flex h-screen bg-muted/30">
@@ -54,6 +63,7 @@ export function BackofficeLayout({ children }: BackofficeLayoutProps) {
             items={NAV_ITEMS}
             userRole={user?.role || 'viewer'}
             onItemClick={() => setSidebarOpen(false)}
+            getBadge={getBadge}
           />
         </div>
       </aside>
