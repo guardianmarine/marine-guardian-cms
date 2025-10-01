@@ -1,112 +1,154 @@
 import { Unit, InventoryFilters, Locale } from '@/types';
-import { mockUnits } from './mockData';
+import { supabase } from '@/integrations/supabase/client';
 import { isUnitPublished } from '@/lib/publishing-utils';
 
 // Public API serializer - strips internal-only fields
-function serializeForPublic(unit: Unit): Unit {
+function serializeForPublic(unit: any): Unit {
   const { hours, cost_purchase, cost_transport_in, cost_reconditioning, ...publicFields } = unit;
   return publicFields as Unit;
 }
 
+// Build base query for published units (defensive - supports multiple schema patterns)
+function getPublishedUnitsQuery() {
+  return supabase
+    .from('units')
+    .select(`
+      id, slug, category, make, model, year, mileage, engine, transmission, 
+      axles, type, display_price, vin_or_serial, color, location, status, 
+      listed_at, published_at, main_photo_url, photos, description, 
+      features, fuel_type, exterior_color, interior_color, sleeper_type,
+      trailer_type, box_length, gvwr, suspension, tire_size, brake_type,
+      fifth_wheel, landing_gear, door_type, floor_type, roof_type,
+      equipment_type, bucket_specs, attachments, condition
+    `)
+    .not('published_at', 'is', null)
+    .in('status', ['available', 'reserved']);
+}
+
 export class InventoryService {
-  private static filterUnits(units: Unit[], filters: InventoryFilters): Unit[] {
-    return units.filter((unit) => {
-      if (filters.category && unit.category !== filters.category) return false;
-      if (filters.make && unit.make !== filters.make) return false;
-      if (filters.type && unit.type !== filters.type) return false;
-      if (filters.status && unit.status !== filters.status) return false;
-      if (filters.year_min && unit.year < filters.year_min) return false;
-      if (filters.year_max && unit.year > filters.year_max) return false;
-      if (filters.mileage_min && (unit.mileage || 0) < filters.mileage_min) return false;
-      if (filters.mileage_max && (unit.mileage || 0) > filters.mileage_max) return false;
-      return true;
-    });
-  }
-
   static async getPublicUnits(filters: InventoryFilters = {}, _lang: Locale = 'en'): Promise<Unit[]> {
-    // Simulate API delay
-    await new Promise((resolve) => setTimeout(resolve, 300));
+    let query = getPublishedUnitsQuery();
 
-    // Use flexible publishing logic to support different schemas
-    const publishedUnits = mockUnits.filter((unit) => isUnitPublished(unit));
-    const filtered = this.filterUnits(publishedUnits, filters);
+    // Apply filters
+    if (filters.category) {
+      query = query.eq('category', filters.category);
+    }
+    if (filters.make) {
+      query = query.ilike('make', `%${filters.make}%`);
+    }
+    if (filters.type) {
+      query = query.ilike('type', `%${filters.type}%`);
+    }
+    if (filters.year_min) {
+      query = query.gte('year', filters.year_min);
+    }
+    if (filters.year_max) {
+      query = query.lte('year', filters.year_max);
+    }
+    if (filters.mileage_min) {
+      query = query.gte('mileage', filters.mileage_min);
+    }
+    if (filters.mileage_max) {
+      query = query.lte('mileage', filters.mileage_max);
+    }
 
-    // Strip internal fields using serializer
-    return filtered.map(serializeForPublic);
+    query = query.order('published_at', { ascending: false });
+
+    const { data, error } = await query;
+
+    if (error) {
+      console.error('Error fetching public units:', error);
+      return [];
+    }
+
+    // Strip internal fields and filter with publishing logic
+    return (data || [])
+      .filter((unit) => isUnitPublished(unit))
+      .map(serializeForPublic);
   }
 
   static async getPublicUnit(id: string, _lang: Locale = 'en'): Promise<Unit | null> {
-    await new Promise((resolve) => setTimeout(resolve, 200));
+    // Try by ID first
+    let { data: unit, error } = await getPublishedUnitsQuery()
+      .eq('id', id)
+      .maybeSingle();
 
-    // Use flexible publishing logic
-    const unit = mockUnits.find((u) => u.id === id && isUnitPublished(u));
-    if (!unit) return null;
+    // If not found by ID, try by slug
+    if (!unit && !error) {
+      const slugResult = await getPublishedUnitsQuery()
+        .eq('slug', id)
+        .maybeSingle();
+      unit = slugResult.data;
+      error = slugResult.error;
+    }
 
-    // Strip internal fields using serializer
+    if (error) {
+      console.error('Error fetching public unit:', error);
+      return null;
+    }
+
+    if (!unit || !isUnitPublished(unit)) {
+      return null;
+    }
+
     return serializeForPublic(unit);
   }
 
   static async getSimilarUnits(unit: Unit, limit: number = 4): Promise<Unit[]> {
-    await new Promise((resolve) => setTimeout(resolve, 200));
-
     // Filter: same category and type, exclude current unit, only published
-    const similar = mockUnits
-      .filter(
-        (u) =>
-          u.id !== unit.id &&
-          isUnitPublished(u) &&
-          u.category === unit.category &&
-          u.type === unit.type
-      )
-      // Sort by closest year (prioritize similar age)
-      .sort((a, b) => {
-        const aDiff = Math.abs(a.year - unit.year);
-        const bDiff = Math.abs(b.year - unit.year);
-        return aDiff - bDiff;
-      })
-      .slice(0, limit)
+    const { data: similar } = await getPublishedUnitsQuery()
+      .neq('id', unit.id)
+      .eq('category', unit.category)
+      .eq('type', unit.type)
+      .order('year', { ascending: false })
+      .limit(limit);
+
+    const similarUnits = (similar || [])
+      .filter((u) => isUnitPublished(u))
       .map(serializeForPublic);
 
     // Fallback: if not enough similar units, include same category only
-    if (similar.length < limit) {
-      const fallback = mockUnits
-        .filter(
-          (u) =>
-            u.id !== unit.id &&
-            isUnitPublished(u) &&
-            u.category === unit.category &&
-            !similar.find(s => s.id === u.id)
-        )
-        .sort((a, b) => b.year - a.year)
-        .slice(0, limit - similar.length)
+    if (similarUnits.length < limit) {
+      const { data: fallback } = await getPublishedUnitsQuery()
+        .neq('id', unit.id)
+        .eq('category', unit.category)
+        .order('year', { ascending: false })
+        .limit(limit - similarUnits.length);
+
+      const fallbackUnits = (fallback || [])
+        .filter((u) => isUnitPublished(u) && !similarUnits.find((s) => s.id === u.id))
         .map(serializeForPublic);
-      
-      return [...similar, ...fallback];
+
+      return [...similarUnits, ...fallbackUnits];
     }
 
-    return similar;
+    return similarUnits;
   }
 
   // Category counts API - returns only categories with published units
-  static getCategoryCounts(): Record<string, number> {
+  static async getCategoryCounts(): Promise<Record<string, number>> {
+    const { data } = await getPublishedUnitsQuery().select('category');
+
     const counts: Record<string, number> = {
       truck: 0,
       trailer: 0,
       equipment: 0,
     };
 
-    mockUnits
+    (data || [])
       .filter((u) => isUnitPublished(u))
       .forEach((unit) => {
-        counts[unit.category]++;
+        if (unit.category && counts[unit.category] !== undefined) {
+          counts[unit.category]++;
+        }
       });
 
     return counts;
   }
 
   // Get categories with published units only (for hiding empty categories)
-  static getActiveCategories(): Array<{ category: string; count: number }> {
-    const counts = this.getCategoryCounts();
+  static async getActiveCategories(): Promise<Array<{ category: string; count: number }>> {
+    const counts = await this.getCategoryCounts();
     return Object.entries(counts)
       .filter(([_, count]) => count > 0)
       .map(([category, count]) => ({ category, count }));
@@ -114,27 +156,70 @@ export class InventoryService {
 
   // Admin APIs - returns all fields including internal ones
   static async getAllUnits(filters: InventoryFilters = {}): Promise<Unit[]> {
-    await new Promise((resolve) => setTimeout(resolve, 300));
-    return this.filterUnits(mockUnits, filters);
+    let query = supabase.from('units').select('*');
+
+    if (filters.category) query = query.eq('category', filters.category);
+    if (filters.make) query = query.ilike('make', `%${filters.make}%`);
+    if (filters.type) query = query.ilike('type', `%${filters.type}%`);
+    if (filters.status) query = query.eq('status', filters.status);
+    if (filters.year_min) query = query.gte('year', filters.year_min);
+    if (filters.year_max) query = query.lte('year', filters.year_max);
+    if (filters.mileage_min) query = query.gte('mileage', filters.mileage_min);
+    if (filters.mileage_max) query = query.lte('mileage', filters.mileage_max);
+
+    const { data, error } = await query.order('created_at', { ascending: false });
+
+    if (error) {
+      console.error('Error fetching all units:', error);
+      return [];
+    }
+
+    return data || [];
   }
 
   static async getUnit(id: string): Promise<Unit | null> {
-    await new Promise((resolve) => setTimeout(resolve, 200));
-    return mockUnits.find((u) => u.id === id) || null;
+    const { data: unit, error } = await supabase
+      .from('units')
+      .select('*')
+      .eq('id', id)
+      .maybeSingle();
+
+    if (error) {
+      console.error('Error fetching unit:', error);
+      return null;
+    }
+
+    return unit;
   }
 
   // Helper methods for filters - only show published units to public
-  static getUniqueMakes(category?: string): string[] {
-    const units = category 
-      ? mockUnits.filter((u) => u.category === category && isUnitPublished(u)) 
-      : mockUnits.filter(u => isUnitPublished(u));
-    return [...new Set(units.map((u) => u.make))].sort();
+  static async getUniqueMakes(category?: string): Promise<string[]> {
+    let query = getPublishedUnitsQuery();
+    
+    if (category) {
+      query = query.eq('category', category);
+    }
+
+    const { data } = await query.select('make');
+    const makes = (data || [])
+      .filter((u) => u.make && isUnitPublished(u))
+      .map((u) => u.make);
+    
+    return [...new Set(makes)].sort();
   }
 
-  static getUniqueTypes(category?: string): string[] {
-    const units = category 
-      ? mockUnits.filter((u) => u.category === category && isUnitPublished(u)) 
-      : mockUnits.filter(u => isUnitPublished(u));
-    return [...new Set(units.map((u) => u.type))].sort();
+  static async getUniqueTypes(category?: string): Promise<string[]> {
+    let query = getPublishedUnitsQuery();
+    
+    if (category) {
+      query = query.eq('category', category);
+    }
+
+    const { data } = await query.select('type');
+    const types = (data || [])
+      .filter((u) => u.type && isUnitPublished(u))
+      .map((u) => u.type);
+    
+    return [...new Set(types)].sort();
   }
 }

@@ -30,6 +30,8 @@ export default function Inventory() {
   const [page, setPage] = useState(1);
   const [sortBy, setSortBy] = useState<SortOption>('newest');
   const [filters, setFilters] = useState<InventoryFilters>({});
+  const [makes, setMakes] = useState<string[]>([]);
+  const [types, setTypes] = useState<string[]>([]);
 
   useEffect(() => {
     const category = searchParams.get('category') as any;
@@ -63,6 +65,18 @@ export default function Inventory() {
   }, [page, units]);
 
   useEffect(() => {
+    const loadFilters = async () => {
+      const [makesData, typesData] = await Promise.all([
+        InventoryService.getUniqueMakes(filters.category),
+        InventoryService.getUniqueTypes(filters.category),
+      ]);
+      setMakes(makesData);
+      setTypes(typesData);
+    };
+    loadFilters();
+  }, [filters.category]);
+
+  useEffect(() => {
     // Load featured picks for empty state
     const loadFeatured = async () => {
       const content = await ContentService.getHomeContent(i18n.language as any);
@@ -89,9 +103,6 @@ export default function Inventory() {
         return sorted;
     }
   };
-
-  const makes = InventoryService.getUniqueMakes(filters.category);
-  const types = InventoryService.getUniqueTypes(filters.category);
 
   const updateFilter = (key: string, value: string) => {
     const newParams = new URLSearchParams(searchParams);

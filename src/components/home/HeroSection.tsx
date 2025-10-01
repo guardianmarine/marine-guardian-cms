@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -17,9 +17,20 @@ export function HeroSection() {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<UnitCategory>('truck');
   const [filters, setFilters] = useState<Record<string, any>>({});
+  const [makes, setMakes] = useState<string[]>([]);
+  const [types, setTypes] = useState<string[]>([]);
 
-  const makes = InventoryService.getUniqueMakes(activeTab);
-  const types = InventoryService.getUniqueTypes(activeTab);
+  useEffect(() => {
+    const loadFilters = async () => {
+      const [makesData, typesData] = await Promise.all([
+        InventoryService.getUniqueMakes(activeTab),
+        InventoryService.getUniqueTypes(activeTab),
+      ]);
+      setMakes(makesData);
+      setTypes(typesData);
+    };
+    loadFilters();
+  }, [activeTab]);
 
   const handleSearch = () => {
     const params = new URLSearchParams();
