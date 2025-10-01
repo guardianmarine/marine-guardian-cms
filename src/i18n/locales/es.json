@@ -2,6 +2,7 @@
   "common": {
     "loading": "Cargando...",
     "error": "Ocurrió un error",
+    "success": "Éxito",
     "save": "Guardar",
     "cancel": "Cancelar",
     "delete": "Eliminar",
@@ -18,9 +19,10 @@
     "backToHome": "Volver al Inicio",
     "pageNotFound": "Página No Encontrada",
     "pageNotFoundMessage": "La página que busca no existe o ha sido movida.",
-    "noUserRecordMessage": "Tu cuenta aún no ha sido configurada. Contacta a tu administrador para que te otorgue acceso.",
+    "noUserRecordMessage": "Tu cuenta aún no ha sido configurada. Puedes sincronizar tu perfil o contactar a tu administrador.",
     "inactiveAccountMessage": "Tu cuenta no está activa. Contacta a tu administrador para activarla.",
-    "insufficientRoleMessage": "No tienes el rol requerido para acceder a este recurso."
+    "insufficientRoleMessage": "No tienes el rol requerido para acceder a este recurso.",
+    "syncMyProfile": "Sincronizar mi perfil"
   },
   "dashboard": {
     "companyDashboard": "Panel de la Empresa",
@@ -149,6 +151,48 @@
     "inventory": "Gestión de Inventario",
     "content": "Gestión de Contenido",
     "users": "Usuarios"
+  },
+  "auth": {
+    "login": "Iniciar Sesión",
+    "email": "Correo Electrónico",
+    "password": "Contraseña",
+    "forgotPassword": "¿Olvidaste tu contraseña?",
+    "loginDescription": "Ingresa tus credenciales para acceder al panel",
+    "emailPlaceholder": "tu@email.com",
+    "loggingIn": "Iniciando sesión...",
+    "loginSuccess": "Sesión iniciada con éxito",
+    "loginError": "Email o contraseña inválidos",
+    "emailRequired": "Por favor ingresa tu email",
+    "useEmailLink": "Usar enlace por email",
+    "magicLinkSent": "Revisa tu email para el enlace de acceso",
+    "magicLinkError": "Error al enviar el enlace mágico",
+    "sendingLink": "Enviando enlace...",
+    "forgotPasswordTitle": "Resetear Contraseña",
+    "forgotPasswordDescription": "Ingresa tu email y te enviaremos un enlace para resetear tu contraseña",
+    "sendResetLink": "Enviar enlace de reseteo",
+    "resetLinkSent": "Si el correo existe, enviamos un enlace para crear una nueva contraseña.",
+    "backToLogin": "Volver al login",
+    "setNewPassword": "Crea tu nueva contraseña",
+    "setNewPasswordDescription": "Crea una contraseña segura para tu cuenta",
+    "newPassword": "Nueva Contraseña",
+    "confirmPassword": "Confirmar Contraseña",
+    "passwordStrength": "Seguridad",
+    "weak": "débil",
+    "medium": "media",
+    "strong": "fuerte",
+    "passwordsMatch": "Las contraseñas coinciden",
+    "passwordMismatch": "Las contraseñas no coinciden",
+    "passwordTooShort": "La contraseña debe tener al menos 6 caracteres",
+    "updatingPassword": "Actualizando contraseña...",
+    "updatePassword": "Actualizar contraseña",
+    "passwordUpdated": "Tu contraseña ha sido actualizada",
+    "passwordUpdateError": "Error al actualizar la contraseña",
+    "verifyingLink": "Verificando tu enlace...",
+    "invalidLink": "Enlace Inválido",
+    "invalidLinkDescription": "Este enlace es inválido o ha expirado. Por favor solicita un nuevo enlace de reseteo de contraseña.",
+    "goToForgot": "Ir a Olvidé mi Contraseña",
+    "signingIn": "Iniciando sesión...",
+    "callbackError": "Autenticación fallida. Por favor intenta de nuevo."
   },
   "crm": {
     "accounts": "Cuentas",
@@ -441,7 +485,15 @@
       "setupRequired": "La tabla de usuarios aún no existe. Por favor crea una tabla de usuarios en tu base de datos con columnas: id, name, email, role, status, birth_date (opcional), created_at.",
       "birthDateColumnMissing": "No se encontró la columna de cumpleaños. Pide al admin agregarla en la base.",
       "statusColumnMissing": "No se encontró la columna de estado. Pide al admin agregarla en la base.",
-      "accessNote": "Los cambios aquí afectan el acceso al backoffice."
+      "accessNote": "Los cambios aquí afectan el acceso al backoffice.",
+      "sendSetupLink": "Enviar Enlace de Configuración",
+      "sendMagicLink": "Enviar Enlace Mágico",
+      "setupLinkSent": "Enlace de configuración enviado",
+      "setupLinkError": "Error al enviar enlace de configuración",
+      "magicLinkSent": "Enlace mágico enviado",
+      "magicLinkError": "Error al enviar enlace mágico",
+      "setup": "Config",
+      "magic": "Mágico"
     }
   }
 }

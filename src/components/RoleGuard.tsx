@@ -24,34 +24,47 @@ export function RoleGuard({ children, allowedRoles, fallback }: RoleGuardProps) 
   useEffect(() => {
     const checkAuthorization = async () => {
       if (!user) {
-        setIsAuthorized(false);
+        // Check if we have an auth session but no staff user
+        const { data: { user: authUser } } = await supabase.auth.getUser();
+        
+        if (authUser) {
+          // Authenticated but no staff record - show self-provision option
+          setAuthError('noUserRecord');
+          setIsAuthorized(false);
+        } else {
+          setIsAuthorized(false);
+        }
         setLoading(false);
         return;
       }
 
       try {
-        // Query public.users to verify status and role
-        const { data, error } = await supabase
+        // Query public.users by auth_user_id or email
+        const { data: { user: authUser } } = await supabase.auth.getUser();
+        
+        let { data: staff } = await supabase
           .from('users')
-          .select('id,email,role,status')
-          .eq('email', user.email)
-          .single();
+          .select('id,email,role,status,auth_user_id')
+          .eq('auth_user_id', authUser?.id)
+          .maybeSingle();
 
-        if (error) {
-          // If users table doesn't exist or user not found
-          if (error.code === 'PGRST116' || error.message.includes('relation')) {
-            // Fallback to checking role from auth context
-            setIsAuthorized(allowedRoles.includes(user.role));
-          } else {
-            throw error;
-          }
-        } else if (!data) {
+        // Fallback by email
+        if (!staff && user.email) {
+          const res = await supabase
+            .from('users')
+            .select('id,email,role,status,auth_user_id')
+            .eq('email', user.email)
+            .maybeSingle();
+          staff = res.data || null;
+        }
+
+        if (!staff) {
           setAuthError('noUserRecord');
           setIsAuthorized(false);
-        } else if (data.status !== 'active') {
+        } else if (staff.status !== 'active') {
           setAuthError('inactiveAccount');
           setIsAuthorized(false);
-        } else if (!allowedRoles.includes(data.role)) {
+        } else if (!allowedRoles.includes(staff.role)) {
           setAuthError('insufficientRole');
           setIsAuthorized(false);
         } else {
@@ -59,8 +72,8 @@ export function RoleGuard({ children, allowedRoles, fallback }: RoleGuardProps) 
         }
       } catch (error) {
         console.error('Error checking authorization:', error);
-        // Fallback to auth context check
-        setIsAuthorized(allowedRoles.includes(user.role));
+        setAuthError('checkError');
+        setIsAuthorized(false);
       } finally {
         setLoading(false);
       }
@@ -68,6 +81,30 @@ export function RoleGuard({ children, allowedRoles, fallback }: RoleGuardProps) 
 
     checkAuthorization();
   }, [user, allowedRoles]);
+
+  const handleSelfProvision = async () => {
+    try {
+      const { data: { user: authUser } } = await supabase.auth.getUser();
+      
+      if (!authUser) return;
+
+      await supabase.from('users').upsert(
+        {
+          email: authUser.email,
+          auth_user_id: authUser.id,
+          name: authUser.user_metadata?.name || authUser.email,
+          status: 'pending',
+          role: 'viewer',
+        },
+        { onConflict: 'email' }
+      );
+
+      // Reload the page to re-check authorization
+      window.location.reload();
+    } catch (error) {
+      console.error('Error self-provisioning:', error);
+    }
+  };
 
   if (loading) {
     return (
@@ -85,27 +122,41 @@ export function RoleGuard({ children, allowedRoles, fallback }: RoleGuardProps) 
     const getErrorMessage = () => {
       switch (authError) {
         case 'noUserRecord':
-          return t(
-            'common.noUserRecordMessage',
-            'Your account has not been set up yet. Contact your administrator to grant you access.'
-          );
+          return {
+            message: t(
+              'common.noUserRecordMessage',
+              'Your account has not been set up yet. You can sync your profile or contact your administrator.'
+            ),
+            showSyncButton: true,
+          };
         case 'inactiveAccount':
-          return t(
-            'common.inactiveAccountMessage',
-            'Your account is not active. Contact your administrator to activate it.'
-          );
+          return {
+            message: t(
+              'common.inactiveAccountMessage',
+              'Your account is not active. Contact your administrator to activate it.'
+            ),
+            showSyncButton: false,
+          };
         case 'insufficientRole':
-          return t(
-            'common.insufficientRoleMessage',
-            'You do not have the required role to access this resource.'
-          );
+          return {
+            message: t(
+              'common.insufficientRoleMessage',
+              'You do not have the required role to access this resource.'
+            ),
+            showSyncButton: false,
+          };
         default:
-          return t(
-            'common.notAuthorizedMessage',
-            'You do not have permission to access this resource. Contact your administrator.'
-          );
+          return {
+            message: t(
+              'common.notAuthorizedMessage',
+              'You do not have permission to access this resource. Contact your administrator.'
+            ),
+            showSyncButton: false,
+          };
       }
     };
+
+    const errorInfo = getErrorMessage();
 
     return (
       <div className="flex items-center justify-center min-h-[600px] p-6">
@@ -115,10 +166,17 @@ export function RoleGuard({ children, allowedRoles, fallback }: RoleGuardProps) 
             {t('common.notAuthorized', 'Not Authorized')}
           </AlertTitle>
           <AlertDescription className="space-y-4">
-            <p>{getErrorMessage()}</p>
-            <Button onClick={() => navigate('/admin')} variant="outline" className="w-full">
-              {t('common.backToDashboard', 'Back to Dashboard')}
-            </Button>
+            <p>{errorInfo.message}</p>
+            <div className="space-y-2">
+              {errorInfo.showSyncButton && (
+                <Button onClick={handleSelfProvision} variant="default" className="w-full">
+                  {t('common.syncMyProfile', 'Sync my profile')}
+                </Button>
+              )}
+              <Button onClick={() => navigate('/admin')} variant="outline" className="w-full">
+                {t('common.backToDashboard', 'Back to Dashboard')}
+              </Button>
+            </div>
           </AlertDescription>
         </Alert>
       </div>

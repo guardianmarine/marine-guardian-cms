@@ -2,6 +2,7 @@
   "common": {
     "loading": "Loading...",
     "error": "An error occurred",
+    "success": "Success",
     "save": "Save",
     "cancel": "Cancel",
     "delete": "Delete",
@@ -18,9 +19,10 @@
     "backToHome": "Back to Home",
     "pageNotFound": "Page Not Found",
     "pageNotFoundMessage": "The page you are looking for does not exist or has been moved.",
-    "noUserRecordMessage": "Your account has not been set up yet. Contact your administrator to grant you access.",
+    "noUserRecordMessage": "Your account has not been set up yet. You can sync your profile or contact your administrator.",
     "inactiveAccountMessage": "Your account is not active. Contact your administrator to activate it.",
-    "insufficientRoleMessage": "You do not have the required role to access this resource."
+    "insufficientRoleMessage": "You do not have the required role to access this resource.",
+    "syncMyProfile": "Sync my profile"
   },
   "dashboard": {
     "companyDashboard": "Company Dashboard",
@@ -149,6 +151,48 @@
     "inventory": "Inventory Management",
     "content": "Content Management",
     "users": "Users"
+  },
+  "auth": {
+    "login": "Login",
+    "email": "Email",
+    "password": "Password",
+    "forgotPassword": "Forgot password?",
+    "loginDescription": "Enter your credentials to access the dashboard",
+    "emailPlaceholder": "your@email.com",
+    "loggingIn": "Logging in...",
+    "loginSuccess": "Successfully logged in",
+    "loginError": "Invalid email or password",
+    "emailRequired": "Please enter your email",
+    "useEmailLink": "Use email link",
+    "magicLinkSent": "Check your email for the login link",
+    "magicLinkError": "Failed to send magic link",
+    "sendingLink": "Sending link...",
+    "forgotPasswordTitle": "Reset Password",
+    "forgotPasswordDescription": "Enter your email and we'll send you a link to reset your password",
+    "sendResetLink": "Send reset link",
+    "resetLinkSent": "If that email exists, we sent a link to set a new password.",
+    "backToLogin": "Back to login",
+    "setNewPassword": "Set your new password",
+    "setNewPasswordDescription": "Create a strong password for your account",
+    "newPassword": "New Password",
+    "confirmPassword": "Confirm Password",
+    "passwordStrength": "Strength",
+    "weak": "weak",
+    "medium": "medium",
+    "strong": "strong",
+    "passwordsMatch": "Passwords match",
+    "passwordMismatch": "Passwords do not match",
+    "passwordTooShort": "Password must be at least 6 characters",
+    "updatingPassword": "Updating password...",
+    "updatePassword": "Update password",
+    "passwordUpdated": "Your password has been updated",
+    "passwordUpdateError": "Failed to update password",
+    "verifyingLink": "Verifying your link...",
+    "invalidLink": "Invalid Link",
+    "invalidLinkDescription": "This link is invalid or has expired. Please request a new password reset link.",
+    "goToForgot": "Go to Forgot Password",
+    "signingIn": "Signing you in...",
+    "callbackError": "Authentication failed. Please try again."
   },
   "crm": {
     "accounts": "Accounts",
@@ -441,7 +485,15 @@
       "setupRequired": "The users table does not exist yet. Please create a users table in your database with columns: id, name, email, role, status, birth_date (optional), created_at.",
       "birthDateColumnMissing": "Birth date column not found. Ask admin to add it in the database.",
       "statusColumnMissing": "Status column not found. Ask admin to add it in the database.",
-      "accessNote": "Changes here affect backoffice access."
+      "accessNote": "Changes here affect backoffice access.",
+      "sendSetupLink": "Send Setup Link",
+      "sendMagicLink": "Send Magic Link",
+      "setupLinkSent": "Setup link sent",
+      "setupLinkError": "Failed to send setup link",
+      "magicLinkSent": "Magic link sent",
+      "magicLinkError": "Failed to send magic link",
+      "setup": "Setup",
+      "magic": "Magic"
     }
   }
 }

@@ -13,7 +13,10 @@ import Inventory from "./pages/Inventory";
 import UnitDetail from "./pages/UnitDetail";
 import SellTrade from "./pages/SellTrade";
 import RequestUnit from "./pages/RequestUnit";
-import Login from "./pages/backoffice/Login";
+import Login from "./pages/Login";
+import Forgot from "./pages/Forgot";
+import Reset from "./pages/auth/Reset";
+import Callback from "./pages/auth/Callback";
 import Dashboard from "./pages/backoffice/Dashboard";
 import MediaLibrary from "./pages/backoffice/MediaLibrary";
 import HomeEditor from "./pages/backoffice/HomeEditor";
@@ -119,7 +122,13 @@ const App = () => (
               }
             />
 
-            {/* Backoffice Routes */}
+            {/* Auth Routes */}
+            <Route path="/login" element={<Login />} />
+            <Route path="/forgot" element={<Forgot />} />
+            <Route path="/auth/reset" element={<Reset />} />
+            <Route path="/auth/callback" element={<Callback />} />
+            
+            {/* Legacy route - redirect to /login */}
             <Route path="/backoffice/login" element={<Login />} />
             <Route
               path="/admin"

@@ -251,12 +251,34 @@ export default function UsersRoles() {
     }
   };
 
-  const handleSendInvite = async (email: string) => {
+  const handleSendSetupLink = async (email: string) => {
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: `${window.location.origin}/auth/reset`,
+      });
+
+      if (error) throw error;
+
+      toast({
+        title: t('common.success', 'Success'),
+        description: t('admin.users.setupLinkSent', 'Setup link sent'),
+      });
+    } catch (error: any) {
+      console.error('Error sending setup link:', error);
+      toast({
+        title: t('common.error', 'Error'),
+        description: error.message || t('admin.users.setupLinkError', 'Failed to send setup link'),
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const handleSendMagicLink = async (email: string) => {
     try {
       const { error } = await supabase.auth.signInWithOtp({
         email,
-        options: { 
-          emailRedirectTo: `${window.location.origin}/backoffice/login`
+        options: {
+          emailRedirectTo: `${window.location.origin}/auth/callback`
         }
       });
 
@@ -264,35 +286,13 @@ export default function UsersRoles() {
 
       toast({
         title: t('common.success', 'Success'),
-        description: t('admin.users.inviteSent', 'Invite sent to ' + email),
+        description: t('admin.users.magicLinkSent', 'Magic link sent'),
       });
     } catch (error: any) {
-      console.error('Error sending invite:', error);
+      console.error('Error sending magic link:', error);
       toast({
         title: t('common.error', 'Error'),
-        description: error.message || t('admin.users.inviteError', 'Failed to send invitation'),
-        variant: 'destructive',
-      });
-    }
-  };
-
-  const handleResetPassword = async (email: string) => {
-    try {
-      const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: `${window.location.origin}/reset-password`,
-      });
-
-      if (error) throw error;
-
-      toast({
-        title: t('common.success', 'Success'),
-        description: t('admin.users.resetSent', 'Password reset email sent'),
-      });
-    } catch (error: any) {
-      console.error('Error sending reset email:', error);
-      toast({
-        title: t('common.error', 'Error'),
-        description: error.message || t('admin.users.resetError', 'Failed to send reset email'),
+        description: error.message || t('admin.users.magicLinkError', 'Failed to send magic link'),
         variant: 'destructive',
       });
     }
@@ -602,18 +602,20 @@ export default function UsersRoles() {
                             <Button
                               variant="ghost"
                               size="sm"
-                              onClick={() => handleSendInvite(user.email)}
-                              title={t('admin.users.sendInvite', 'Send Invite')}
+                              onClick={() => handleSendSetupLink(user.email)}
+                              title={t('admin.users.sendSetupLink', 'Send Setup Link')}
                             >
-                              <Mail className="h-3 w-3" />
+                              <Mail className="h-3 w-3 mr-1" />
+                              <span className="text-xs">{t('admin.users.setup', 'Setup')}</span>
                             </Button>
                             <Button
                               variant="ghost"
                               size="sm"
-                              onClick={() => handleResetPassword(user.email)}
-                              title={t('admin.users.resetPassword', 'Reset Password')}
+                              onClick={() => handleSendMagicLink(user.email)}
+                              title={t('admin.users.sendMagicLink', 'Send Magic Link')}
                             >
-                              <RefreshCw className="h-3 w-3" />
+                              <RefreshCw className="h-3 w-3 mr-1" />
+                              <span className="text-xs">{t('admin.users.magic', 'Magic')}</span>
                             </Button>
                             {hasStatusColumn && (
                               <Button

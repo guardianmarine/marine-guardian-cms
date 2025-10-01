@@ -1,9 +1,11 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { User } from '@/types';
-import { mockUser } from '@/services/mockData';
+import { supabase } from '@/integrations/supabase/client';
+import type { User as SupabaseUser, Session } from '@supabase/supabase-js';
 
 interface AuthContextType {
   user: User | null;
+  session: Session | null;
   isAuthenticated: boolean;
   login: (email: string, password: string) => Promise<void>;
   logout: () => void;
@@ -12,39 +14,108 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+// Debug helper (optional)
+if (typeof window !== 'undefined') {
+  (window as any).sb = supabase;
+}
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
+  const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Check if user is logged in (localStorage)
-    const storedUser = localStorage.getItem('guardian_user');
-    if (storedUser) {
-      setUser(JSON.parse(storedUser));
-    }
-    setLoading(false);
+    // Set up auth state listener FIRST
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      (event, currentSession) => {
+        setSession(currentSession);
+        
+        if (currentSession?.user) {
+          // Defer staff row fetch with setTimeout
+          setTimeout(() => {
+            fetchStaffUser(currentSession.user);
+          }, 0);
+        } else {
+          setUser(null);
+        }
+      }
+    );
+
+    // THEN check for existing session
+    supabase.auth.getSession().then(({ data: { session: currentSession } }) => {
+      setSession(currentSession);
+      
+      if (currentSession?.user) {
+        fetchStaffUser(currentSession.user);
+      } else {
+        setLoading(false);
+      }
+    });
+
+    return () => subscription.unsubscribe();
   }, []);
 
-  const login = async (email: string, password: string) => {
-    // Mock authentication
-    if (email && password) {
-      localStorage.setItem('guardian_user', JSON.stringify(mockUser));
-      setUser(mockUser);
-    } else {
-      throw new Error('Invalid credentials');
+  const fetchStaffUser = async (authUser: SupabaseUser) => {
+    try {
+      // Try by auth_user_id first
+      let { data: staff } = await supabase
+        .from('users')
+        .select('id,email,name,role,status,auth_user_id')
+        .eq('auth_user_id', authUser.id)
+        .maybeSingle();
+
+      // Fallback by email
+      if (!staff && authUser.email) {
+        const res = await supabase
+          .from('users')
+          .select('id,email,name,role,status,auth_user_id')
+          .eq('email', authUser.email)
+          .maybeSingle();
+        staff = res.data || null;
+      }
+
+      if (staff) {
+        setUser({
+          id: staff.id,
+          email: staff.email,
+          name: staff.name,
+          role: staff.role as any,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        });
+      } else {
+        // No staff record found - user can self-provision via RoleGuard
+        setUser(null);
+      }
+    } catch (error) {
+      console.error('Error fetching staff user:', error);
+      setUser(null);
+    } finally {
+      setLoading(false);
     }
   };
 
-  const logout = () => {
-    localStorage.removeItem('guardian_user');
+  const login = async (email: string, password: string) => {
+    const { error } = await supabase.auth.signInWithPassword({
+      email: email.toLowerCase().trim(),
+      password,
+    });
+    
+    if (error) throw error;
+  };
+
+  const logout = async () => {
+    await supabase.auth.signOut();
     setUser(null);
+    setSession(null);
   };
 
   return (
     <AuthContext.Provider
       value={{
         user,
-        isAuthenticated: !!user,
+        session,
+        isAuthenticated: !!session,
         login,
         logout,
         loading,
