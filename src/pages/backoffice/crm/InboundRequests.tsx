@@ -46,12 +46,22 @@ type BuyerRequest = {
   created_at: string;
 };
 
+type UnitInfo = {
+  id: string;
+  make?: string;
+  model?: string;
+  year?: number;
+  slug?: string;
+};
+
 type Status = 'new' | 'processing' | 'converted' | 'spam' | 'closed' | 'all';
 
 export default function InboundRequests() {
   const { t, i18n } = useTranslation();
   const [requests, setRequests] = useState<BuyerRequest[]>([]);
+  const [unitsById, setUnitsById] = useState<Record<string, UnitInfo>>({});
   const [loading, setLoading] = useState(true);
+  const [converting, setConverting] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<Status>('all');
   const [typeFilter, setTypeFilter] = useState<'all' | 'info' | 'wish'>('all');
@@ -70,7 +80,23 @@ export default function InboundRequests() {
 
       if (error) throw error;
       setRequests(data || []);
-      } catch (error: any) {
+
+      // Fetch referenced units
+      const unitIds = Array.from(new Set((data || []).map(r => r.unit_id).filter(Boolean) as string[]));
+      if (unitIds.length > 0) {
+        try {
+          const { data: units } = await supabase
+            .from('units')
+            .select('id, make, model, year, slug')
+            .in('id', unitIds);
+          
+          setUnitsById(Object.fromEntries((units ?? []).map(u => [String(u.id), u])));
+        } catch (unitError) {
+          console.error('Error loading units:', unitError);
+          // Don't fail, just leave unitsById empty
+        }
+      }
+    } catch (error: any) {
       console.error('Error loading requests:', error);
       toast.error(error?.message ?? (i18n.language === 'es' ? 'Error al cargar solicitudes' : 'Failed to load requests'));
     } finally {
@@ -119,6 +145,9 @@ export default function InboundRequests() {
         prev.map((req) => (req.id === id ? { ...req, status: newStatus } : req))
       );
       toast.success(i18n.language === 'es' ? 'Estado actualizado' : 'Status updated');
+      
+      // Refresh the list to update badge count
+      await loadRequests();
     } catch (error: any) {
       console.error('Error updating status:', error);
       toast.error(error?.message ?? (i18n.language === 'es' ? 'Error al actualizar' : 'Failed to update'));
@@ -126,41 +155,52 @@ export default function InboundRequests() {
   };
 
   const handleConvertToLead = async (request: BuyerRequest) => {
+    setConverting(request.id);
     try {
-      // Check if leads table exists by trying to query it
-      const { error: leadsCheckError } = await supabase
-        .from('leads')
-        .select('id')
-        .limit(1);
+      const payload = {
+        source: 'website',
+        account_name: request.name,
+        contact_email: request.email,
+        phone: request.phone ?? null,
+        unit_id: request.unit_id ?? null,
+        notes: request.message ?? null,
+      };
 
-      if (leadsCheckError && leadsCheckError.code === '42P01') {
-        // Table doesn't exist
-        toast.error(
-          i18n.language === 'es'
-            ? "Tabla 'leads' no encontrada. Marcado como En proceso."
-            : 'Leads table not found. Marked as Processing.'
-        );
-        await handleStatusChange(request.id, 'processing');
+      const { error: leadErr } = await supabase.from('leads').insert(payload);
+
+      if (leadErr) {
+        // Check if table doesn't exist
+        const msg = (leadErr.message || '').toLowerCase();
+        if (
+          leadErr.code === '42P01' ||
+          leadErr.code === 'PGRST205' ||
+          msg.includes('relation') ||
+          msg.includes('schema cache') ||
+          (msg.includes('table') && msg.includes('leads'))
+        ) {
+          await supabase.from('buyer_requests').update({ status: 'processing' }).eq('id', request.id);
+          toast.info(
+            i18n.language === 'es'
+              ? 'Tabla "leads" no encontrada. Marcado como En proceso.'
+              : 'Leads table not found. Marked as Processing.'
+          );
+          await loadRequests();
+          return;
+        }
+        // Other errors → surface message
+        toast.error(leadErr.message);
         return;
       }
 
-      // Try to create lead
-      const { error: insertError } = await supabase.from('leads').insert({
-        source: 'website',
-        name: request.name,
-        email: request.email,
-        phone: request.phone,
-        notes: request.message,
-        status: 'new',
-      });
-
-      if (insertError) throw insertError;
-
-      await handleStatusChange(request.id, 'converted');
-      toast.success(i18n.language === 'es' ? 'Lead creado' : 'Lead created');
+      // Success: mark as converted
+      await supabase.from('buyer_requests').update({ status: 'converted' }).eq('id', request.id);
+      toast.success(i18n.language === 'es' ? 'Convertido a lead.' : 'Converted to lead.');
+      await loadRequests();
     } catch (error: any) {
       console.error('Error converting to lead:', error);
       toast.error(error?.message ?? (i18n.language === 'es' ? 'Error al crear lead' : 'Failed to create lead'));
+    } finally {
+      setConverting(null);
     }
   };
 
@@ -270,19 +310,42 @@ export default function InboundRequests() {
                         </Badge>
                       </TableCell>
                       <TableCell>
-                        {request.unit_id ? (
+                        {request.unit_id && unitsById[request.unit_id] ? (
                           <a
-                            href={`/inventory/${request.unit_id}`}
+                            href={
+                              unitsById[request.unit_id].slug
+                                ? `/unit/${unitsById[request.unit_id].slug}`
+                                : `/unit/${unitsById[request.unit_id].id}`
+                            }
                             target="_blank"
-                            rel="noopener noreferrer"
+                            rel="noreferrer"
                             onClick={(e) => e.stopPropagation()}
                             className="flex items-center gap-1 text-primary hover:underline"
                           >
-                            <span className="text-sm">{request.unit_id.substring(0, 8)}...</span>
+                            <span className="text-sm">
+                              {[
+                                unitsById[request.unit_id].year,
+                                unitsById[request.unit_id].make,
+                                unitsById[request.unit_id].model,
+                              ]
+                                .filter(Boolean)
+                                .join(' ')}
+                            </span>
+                            <ExternalLink className="h-3 w-3" />
+                          </a>
+                        ) : request.page_url ? (
+                          <a
+                            href={request.page_url}
+                            target="_blank"
+                            rel="noreferrer"
+                            onClick={(e) => e.stopPropagation()}
+                            className="flex items-center gap-1 text-primary hover:underline text-sm"
+                          >
+                            {i18n.language === 'es' ? 'Abrir' : 'Open'}
                             <ExternalLink className="h-3 w-3" />
                           </a>
                         ) : (
-                          <span className="text-muted-foreground text-sm">-</span>
+                          <span className="text-muted-foreground text-sm">—</span>
                         )}
                       </TableCell>
                       <TableCell className="font-medium">{request.name}</TableCell>
@@ -300,6 +363,7 @@ export default function InboundRequests() {
                             e.stopPropagation();
                             handleConvertToLead(request);
                           }}
+                          disabled={converting === request.id}
                           title={i18n.language === 'es' ? 'Convertir a Lead' : 'Convert to Lead'}
                         >
                           <UserPlus className="h-4 w-4" />
@@ -406,7 +470,10 @@ export default function InboundRequests() {
                     >
                       {i18n.language === 'es' ? 'Marcar Spam' : 'Mark as Spam'}
                     </Button>
-                    <Button onClick={() => handleConvertToLead(selectedRequest)}>
+                    <Button
+                      onClick={() => handleConvertToLead(selectedRequest)}
+                      disabled={converting === selectedRequest.id}
+                    >
                       <UserPlus className="h-4 w-4 mr-2" />
                       {i18n.language === 'es' ? 'Convertir a Lead' : 'Convert to Lead'}
                     </Button>
