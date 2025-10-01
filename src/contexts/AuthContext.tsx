@@ -64,14 +64,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         .eq('auth_user_id', authUser.id)
         .maybeSingle();
 
-      // Fallback by email
+      // Fallback by email (for legacy accounts)
       if (!staff && authUser.email) {
         const res = await supabase
           .from('users')
           .select('id,email,name,role,status,auth_user_id')
-          .eq('email', authUser.email)
+          .ilike('email', authUser.email)
           .maybeSingle();
         staff = res.data || null;
+
+        // Link auth_user_id if found by email but not linked
+        if (staff && !staff.auth_user_id) {
+          await supabase
+            .from('users')
+            .update({ auth_user_id: authUser.id })
+            .eq('id', staff.id);
+          staff.auth_user_id = authUser.id;
+        }
       }
 
       if (staff) {

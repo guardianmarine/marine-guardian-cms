@@ -1,16 +1,50 @@
-import { ReactNode } from 'react';
-import { Navigate, useLocation } from 'react-router-dom';
-import { useAuth } from '@/contexts/AuthContext';
+import { ReactNode, useEffect, useState } from 'react';
+import { Navigate } from 'react-router-dom';
+import { getActiveUserForSession } from '@/services/authUser';
 
 interface ProtectedRouteProps {
   children: ReactNode;
 }
 
 export function ProtectedRoute({ children }: ProtectedRouteProps) {
-  const { isAuthenticated, loading, user, session } = useAuth();
-  const location = useLocation();
+  const [state, setState] = useState<'checking' | 'allowed' | 'login' | 'noaccess'>('checking');
 
-  if (loading) {
+  useEffect(() => {
+    let mounted = true;
+    
+    (async () => {
+      const { session, staff } = await getActiveUserForSession();
+      
+      if (!mounted) return;
+
+      // No session → redirect to login
+      if (!session) {
+        setState('login');
+        return;
+      }
+
+      // No staff record → redirect to no-access
+      if (!staff) {
+        setState('noaccess');
+        return;
+      }
+
+      // Staff exists but not active → redirect to no-access
+      if ((staff.status ?? '').toLowerCase() !== 'active') {
+        setState('noaccess');
+        return;
+      }
+
+      // All good → allow access
+      setState('allowed');
+    })();
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  if (state === 'checking') {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
@@ -18,15 +52,12 @@ export function ProtectedRoute({ children }: ProtectedRouteProps) {
     );
   }
 
-  // If not authenticated, redirect to login
-  if (!isAuthenticated) {
+  if (state === 'login') {
     return <Navigate to="/login" replace />;
   }
 
-  // If authenticated but no user record (inactive or no staff record), redirect to no-access
-  if (session && !user) {
-    const email = session.user?.email || '';
-    return <Navigate to={`/no-access?email=${encodeURIComponent(email)}`} replace />;
+  if (state === 'noaccess') {
+    return <Navigate to="/no-access" replace />;
   }
 
   return <>{children}</>;

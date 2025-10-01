@@ -31,9 +31,9 @@ export function Topbar({ onMenuClick }: TopbarProps) {
     setCurrentLang(newLang);
   };
 
-  const handleLogout = () => {
-    logout();
-    navigate('/');
+  const handleLogout = async () => {
+    await logout();
+    navigate('/login', { replace: true });
   };
 
   const quickActions = [
