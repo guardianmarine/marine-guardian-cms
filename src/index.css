@@ -62,6 +62,13 @@
     --brand: 221 83% 33%;
     --brand-2: 217 91% 60%;
     --card-muted: 210 20% 97%;
+    
+    /* Modern sidebar tokens */
+    --sb-bg: 221 53% 8%;
+    --sb-bg-hover: 221 45% 12%;
+    --sb-text: 226 100% 88%;
+    --sb-accent: 217 91% 60%;
+    --sb-border: 0 0% 100% / 0.08;
   }
 
   .dark {
@@ -131,5 +138,32 @@
   }
   .gradient-subtle {
     background: var(--gradient-subtle);
+  }
+  
+  /* Scrollbar styles */
+  .scrollbar-thin {
+    scrollbar-width: thin;
+  }
+  .scrollbar-thin::-webkit-scrollbar {
+    width: 6px;
+  }
+  .scrollbar-thin::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  .scrollbar-thin::-webkit-scrollbar-thumb {
+    background: hsl(var(--muted-foreground) / 0.3);
+    border-radius: 3px;
+  }
+  .scrollbar-thin::-webkit-scrollbar-thumb:hover {
+    background: hsl(var(--muted-foreground) / 0.5);
+  }
+  
+  @media (prefers-reduced-motion: reduce) {
+    .animate-fade-in,
+    .animate-scale-in {
+      animation: none;
+      opacity: 1;
+      transform: none;
+    }
   }
 }
