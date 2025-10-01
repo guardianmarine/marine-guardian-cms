@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { BackofficeLayout } from '@/components/backoffice/Layout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -252,10 +252,10 @@ export default function Leads() {
                       <TableCell className="text-sm">{lead.contact_phone || '-'}</TableCell>
                       <TableCell>
                         {lead.unit_id && unitsById[lead.unit_id] ? (
-                          <a
-                            href={
+                          <Link
+                            to={
                               unitsById[lead.unit_id].slug
-                                ? `/unit/${unitsById[lead.unit_id].slug}`
+                                ? `/inventory/${unitsById[lead.unit_id].year || 'unit'}/${unitsById[lead.unit_id].slug}`
                                 : `/unit/${unitsById[lead.unit_id].id}`
                             }
                             target="_blank"
@@ -273,13 +273,14 @@ export default function Leads() {
                                 .join(' ')}
                             </span>
                             <ExternalLink className="h-3 w-3" />
-                          </a>
+                          </Link>
                         ) : (
                           <span className="text-muted-foreground text-sm">—</span>
                         )}
                       </TableCell>
                       <TableCell>
                         <Button
+                          type="button"
                           size="sm"
                           variant="ghost"
                           onClick={(e) => {

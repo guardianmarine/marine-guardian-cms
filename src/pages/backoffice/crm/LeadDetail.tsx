@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, Link } from 'react-router-dom';
 import { BackofficeLayout } from '@/components/backoffice/Layout';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -14,7 +14,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { supabase } from '@/integrations/supabase/client';
-import { ArrowLeft, ExternalLink } from 'lucide-react';
+import { ArrowLeft, ExternalLink, Plus } from 'lucide-react';
 import { toast } from 'sonner';
 import { formatDistanceToNow } from 'date-fns';
 
@@ -131,7 +131,7 @@ export default function LeadDetail() {
       <div className="p-6 space-y-6">
         {/* Header */}
         <div className="flex items-center gap-4">
-          <Button variant="ghost" size="icon" onClick={() => navigate('/backoffice/crm/leads')}>
+          <Button type="button" variant="ghost" size="icon" onClick={() => navigate('/backoffice/crm/leads')}>
             <ArrowLeft className="h-4 w-4" />
           </Button>
           <div className="flex-1">
@@ -140,7 +140,15 @@ export default function LeadDetail() {
               {i18n.language === 'es' ? 'Detalles del Lead' : 'Lead Details'}
             </p>
           </div>
-          <Button onClick={handleSave} disabled={saving}>
+          <Button 
+            type="button"
+            variant="outline"
+            onClick={() => navigate(`/backoffice/deals/new?lead_id=${lead.id}`)}
+          >
+            <Plus className="h-4 w-4 mr-2" />
+            {i18n.language === 'es' ? 'Crear Deal' : 'Create Deal'}
+          </Button>
+          <Button type="button" onClick={handleSave} disabled={saving}>
             {saving 
               ? (i18n.language === 'es' ? 'Guardando...' : 'Saving...') 
               : (i18n.language === 'es' ? 'Guardar' : 'Save')}
@@ -207,8 +215,8 @@ export default function LeadDetail() {
                 {unit && (
                   <div>
                     <Label>{i18n.language === 'es' ? 'Unidad de Interés' : 'Unit of Interest'}</Label>
-                    <a
-                      href={unit.slug ? `/unit/${unit.slug}` : `/unit/${unit.id}`}
+                    <Link
+                      to={unit.slug ? `/inventory/${unit.year || 'unit'}/${unit.slug}` : `/unit/${unit.id}`}
                       target="_blank"
                       rel="noreferrer"
                       className="flex items-center gap-2 mt-1 text-primary hover:underline"
@@ -217,7 +225,7 @@ export default function LeadDetail() {
                         {[unit.year, unit.make, unit.model].filter(Boolean).join(' ')}
                       </span>
                       <ExternalLink className="h-4 w-4" />
-                    </a>
+                    </Link>
                   </div>
                 )}
 
@@ -264,6 +272,7 @@ export default function LeadDetail() {
                 </CardHeader>
                 <CardContent>
                   <Button
+                    type="button"
                     variant="outline"
                     className="w-full"
                     onClick={() => navigate('/backoffice/crm/inbound-requests')}
