@@ -200,6 +200,12 @@
     "invalidLink": "Enlace Inválido",
     "invalidLinkDescription": "Este enlace es inválido o ha expirado. Por favor solicita un nuevo enlace de reseteo de contraseña.",
     "goToForgot": "Ir a Olvidé mi Contraseña",
+    "noAccess": "Sin Acceso",
+    "noAccessDescription": "Tu cuenta no está activada",
+    "noAccessMessage": "Tu cuenta no está activada. Pide a un administrador que habilite tu acceso.",
+    "adminCanActivate": "El administrador puede activar este usuario en Admin → Usuarios y Roles",
+    "signOut": "Cerrar sesión",
+    "passwordSet": "Tu contraseña ha sido creada exitosamente",
     "signingIn": "Iniciando sesión...",
     "callbackError": "Autenticación fallida. Por favor intenta de nuevo."
   },

@@ -18,6 +18,7 @@ import Forgot from "./pages/Forgot";
 import Reset from "./pages/auth/Reset";
 import SetPassword from "./pages/auth/SetPassword";
 import Callback from "./pages/auth/Callback";
+import NoAccess from "./pages/NoAccess";
 import Dashboard from "./pages/backoffice/Dashboard";
 import MediaLibrary from "./pages/backoffice/MediaLibrary";
 import HomeEditor from "./pages/backoffice/HomeEditor";
@@ -129,6 +130,7 @@ const App = () => (
             <Route path="/auth/reset" element={<Reset />} />
             <Route path="/auth/set-password" element={<SetPassword />} />
             <Route path="/auth/callback" element={<Callback />} />
+            <Route path="/no-access" element={<NoAccess />} />
             
             {/* Legacy route - redirect to /login */}
             <Route path="/backoffice/login" element={<Login />} />

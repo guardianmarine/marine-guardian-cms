@@ -75,12 +75,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
 
       if (staff) {
-        // Check if status is not active - redirect to set password
+        // Check if status is not active - redirect to /no-access
         if (staff.status !== 'active') {
           const currentPath = window.location.pathname;
-          // Don't redirect if already on auth pages
-          if (!currentPath.startsWith('/auth/') && !currentPath.startsWith('/login') && !currentPath.startsWith('/forgot')) {
-            window.location.replace(`/auth/set-password?next=${encodeURIComponent(currentPath)}`);
+          // Don't redirect if already on auth pages or no-access
+          if (!currentPath.startsWith('/auth/') && 
+              !currentPath.startsWith('/login') && 
+              !currentPath.startsWith('/forgot') &&
+              !currentPath.startsWith('/no-access')) {
+            window.location.replace(`/no-access?email=${encodeURIComponent(authUser.email || '')}`);
             return;
           }
         }
@@ -94,7 +97,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           updated_at: new Date().toISOString(),
         });
       } else {
-        // No staff record found - user can self-provision via RoleGuard
+        // No staff record found - redirect to /no-access for backoffice routes
+        const currentPath = window.location.pathname;
+        if (currentPath.startsWith('/admin') || currentPath.startsWith('/backoffice')) {
+          if (!currentPath.startsWith('/no-access')) {
+            window.location.replace(`/no-access?email=${encodeURIComponent(authUser.email || '')}`);
+            return;
+          }
+        }
         setUser(null);
       }
     } catch (error) {

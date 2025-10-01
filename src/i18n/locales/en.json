@@ -200,6 +200,12 @@
     "invalidLink": "Invalid Link",
     "invalidLinkDescription": "This link is invalid or has expired. Please request a new password reset link.",
     "goToForgot": "Go to Forgot Password",
+    "noAccess": "No Access",
+    "noAccessDescription": "Your account is not activated",
+    "noAccessMessage": "Your account is not activated. Ask an administrator to enable your access.",
+    "adminCanActivate": "Admin can activate this user in Admin → Users & Roles",
+    "signOut": "Sign out",
+    "passwordSet": "Your password has been set successfully",
     "signingIn": "Signing you in...",
     "callbackError": "Authentication failed. Please try again."
   },

@@ -52,61 +52,72 @@ export default function SetPassword() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) {
-      toast({
-        title: t('common.error', 'Error'),
-        description: t('auth.sessionExpired', 'Session expired. Please login again.'),
-        variant: 'destructive',
-      });
-      navigate('/login');
-      return;
-    }
-
-    if (password !== confirmPassword) {
-      toast({
-        title: t('common.error', 'Error'),
-        description: t('auth.passwordMismatch', 'Passwords do not match'),
-        variant: 'destructive',
-      });
-      return;
-    }
-
-    if (password.length < 6) {
-      toast({
-        title: t('common.error', 'Error'),
-        description: t('auth.passwordTooShort', 'Password must be at least 6 characters'),
-        variant: 'destructive',
-      });
-      return;
-    }
-
     setLoading(true);
 
     try {
-      const { error } = await supabase.auth.updateUser({
-        password: password,
-      });
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      if (!user) {
+        toast({
+          title: t('common.error', 'Error'),
+          description: t('auth.sessionExpired', 'Session expired. Please try again.'),
+          variant: 'destructive',
+        });
+        return;
+      }
+
+      if (password !== confirmPassword) {
+        toast({
+          title: t('common.error', 'Error'),
+          description: t('auth.passwordMismatch', 'Passwords do not match'),
+          variant: 'destructive',
+        });
+        return;
+      }
+
+      if (password.length < 6) {
+        toast({
+          title: t('common.error', 'Error'),
+          description: t('auth.passwordTooShort', 'Password must be at least 6 characters'),
+          variant: 'destructive',
+        });
+        return;
+      }
+
+      // Check for staff row - NO AUTO-UPSERT
+      let { data: staff } = await supabase
+        .from('users')
+        .select('id, status')
+        .eq('auth_user_id', user.id)
+        .maybeSingle();
+
+      // Fallback by email
+      if (!staff && user.email) {
+        const res = await supabase
+          .from('users')
+          .select('id, status')
+          .eq('email', user.email)
+          .maybeSingle();
+        staff = res.data || null;
+      }
+
+      // If no staff or not active → /no-access
+      if (!staff || staff.status !== 'active') {
+        window.location.replace(`/no-access?email=${encodeURIComponent(user.email || '')}`);
+        return;
+      }
+
+      // Update password only
+      const { error } = await supabase.auth.updateUser({ password });
 
       if (error) throw error;
 
-      // Mark staff as active & ensure row exists
-      await supabase.from('users').upsert(
-        {
-          email: user.email,
-          auth_user_id: user.id,
-          name: user.user_metadata?.name || user.email,
-          status: 'active',
-        },
-        { onConflict: 'email' }
-      );
-
       toast({
         title: t('common.success', 'Success'),
-        description: t('auth.passwordSetSuccess', 'Password set successfully'),
+        description: t('auth.passwordSet', 'Your password has been set successfully'),
       });
 
-      // Redirect to next or default to /admin
+      // Redirect to next
       const next = searchParams.get('next') || '/admin';
       window.location.replace(next);
     } catch (error: any) {

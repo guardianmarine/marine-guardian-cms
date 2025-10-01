@@ -28,29 +28,26 @@ export default function Callback() {
           return;
         }
 
-        // Ensure staff row exists; default to pending
-        const { data: staff } = await supabase
+        // Check for staff row - NO AUTO-UPSERT
+        let { data: staff } = await supabase
           .from('users')
           .select('id, status')
-          .eq('email', user.email!)
+          .eq('auth_user_id', user.id)
           .maybeSingle();
 
-        if (!staff) {
-          await supabase.from('users').upsert(
-            {
-              email: user.email,
-              auth_user_id: user.id,
-              name: user.user_metadata?.name || user.email,
-              status: 'pending',
-            },
-            { onConflict: 'email' }
-          );
+        // Fallback by email
+        if (!staff && user.email) {
+          const res = await supabase
+            .from('users')
+            .select('id, status')
+            .eq('email', user.email)
+            .maybeSingle();
+          staff = res.data || null;
         }
 
-        // If not active, force password setup
-        const status = staff?.status ?? 'pending';
-        if (status !== 'active') {
-          window.location.replace('/auth/set-password?next=/admin');
+        // If no staff or not active → /no-access
+        if (!staff || staff.status !== 'active') {
+          window.location.replace(`/no-access?email=${encodeURIComponent(user.email || '')}`);
           return;
         }
 

@@ -77,26 +77,46 @@ export default function Reset() {
     setLoading(true);
 
     try {
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      if (!user) {
+        toast({
+          title: t('common.error', 'Error'),
+          description: t('auth.sessionExpired', 'Session expired. Please try again.'),
+          variant: 'destructive',
+        });
+        return;
+      }
+
+      // Check for staff row - NO AUTO-UPSERT
+      let { data: staff } = await supabase
+        .from('users')
+        .select('id, status')
+        .eq('auth_user_id', user.id)
+        .maybeSingle();
+
+      // Fallback by email
+      if (!staff && user.email) {
+        const res = await supabase
+          .from('users')
+          .select('id, status')
+          .eq('email', user.email)
+          .maybeSingle();
+        staff = res.data || null;
+      }
+
+      // If no staff or not active → /no-access
+      if (!staff || staff.status !== 'active') {
+        window.location.replace(`/no-access?email=${encodeURIComponent(user.email || '')}`);
+        return;
+      }
+
+      // Update password only
       const { error } = await supabase.auth.updateUser({
         password: password,
       });
 
       if (error) throw error;
-
-      // Self-provision / activate staff row
-      const { data: { user } } = await supabase.auth.getUser();
-      
-      if (user) {
-        await supabase.from('users').upsert(
-          {
-            email: user.email,
-            auth_user_id: user.id,
-            name: user.user_metadata?.name || user.email,
-            status: 'active',
-          },
-          { onConflict: 'email' }
-        );
-      }
 
       toast({
         title: t('common.success', 'Success'),
