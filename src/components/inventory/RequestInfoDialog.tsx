@@ -27,12 +27,17 @@ interface RequestInfoDialogProps {
 const requestSchema = z.object({
   name: z.string().trim().min(1, { message: 'Name is required' }).max(100),
   email: z.string().trim().email({ message: 'Invalid email' }).max(255),
-  phone: z.string().trim().min(10, { message: 'Phone number is required' }).max(20),
-  preferred_contact: z.enum(['phone', 'email', 'whatsapp']),
+  phone: z.string().trim().max(50).optional(),
+  preferred_contact: z.enum(['phone', 'email', 'whatsapp']).optional(),
   message: z.string().trim().max(1000).optional(),
 });
 
 type RequestFormData = z.infer<typeof requestSchema>;
+
+// Helper: check if string is a valid UUID
+function isValidUUID(str: string): boolean {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(str);
+}
 
 export function RequestInfoDialog({ open, onOpenChange, unit }: RequestInfoDialogProps) {
   const { t } = useTranslation();
@@ -52,50 +57,71 @@ export function RequestInfoDialog({ open, onOpenChange, unit }: RequestInfoDialo
     e.preventDefault();
     setErrors({});
 
+    // Basic validation
+    if (!formData.name?.trim() || !formData.email?.trim()) {
+      toast({
+        title: t('common.error', 'Error'),
+        description: t('public.fillRequired', 'Please fill in all required fields'),
+        variant: 'destructive',
+      });
+      return;
+    }
+
     try {
-      requestSchema.parse(formData);
       setLoading(true);
 
-      // Insert into Supabase
-      const { error } = await supabase.from('buyer_requests').insert({
-        unit_id: unit.id,
-        request_type: 'info',
-        name: formData.name,
-        email: formData.email,
-        phone: formData.phone,
-        preferred_contact: formData.preferred_contact,
-        message: formData.message || null,
+      // Normalize preferred_contact
+      const preferred = (formData.preferred_contact || '').toString().trim().toLowerCase();
+      const allowed = new Set(['phone', 'email', 'whatsapp']);
+      const preferred_contact = allowed.has(preferred) ? preferred : null;
+
+      // Build normalized payload
+      const payload = {
+        unit_id: unit?.id && isValidUUID(unit.id) ? unit.id : null, // Only send valid UUID
+        request_type: 'info' as const,
+        name: formData.name?.trim(),
+        email: formData.email?.trim(),
+        phone: formData.phone?.trim() || null,
+        preferred_contact,
+        message: formData.message?.trim() || null,
         page_url: window.location.href,
         user_agent: navigator.userAgent,
-        honey: '', // honeypot (empty)
-      });
+        // DO NOT send honey field - let it be null/empty
+      };
 
-      if (error) throw error;
+      const { error } = await supabase.from('buyer_requests').insert(payload);
+
+      setLoading(false);
+
+      if (error) {
+        console.error('buyer_requests insert error:', error);
+        toast({
+          title: t('common.error', 'Error'),
+          description: error.message || (t('i18n.language') === 'es' 
+            ? 'No se pudo enviar la solicitud.' 
+            : 'Failed to submit request.'),
+          variant: 'destructive',
+        });
+        return;
+      }
 
       setSubmitted(true);
       toast({
-        title: t('public.requestSent', 'Request Sent'),
-        description: t('public.requestSentDesc', 'We will contact you shortly'),
+        title: t('public.requestSent', 'Success!'),
+        description: t('i18n.language') === 'es'
+          ? '¡Gracias! Nuestro equipo te contactará en 1 día hábil.'
+          : 'Thanks! Our team will contact you within 1 business day.',
       });
-    } catch (error) {
-      if (error instanceof z.ZodError) {
-        const fieldErrors: Record<string, string> = {};
-        error.errors.forEach((err) => {
-          if (err.path[0]) {
-            fieldErrors[err.path[0] as string] = err.message;
-          }
-        });
-        setErrors(fieldErrors);
-      } else {
-        console.error('Error submitting request:', error);
-        toast({
-          title: t('common.error'),
-          description: 'Failed to submit request. Please try again.',
-          variant: 'destructive',
-        });
-      }
-    } finally {
+    } catch (error: any) {
       setLoading(false);
+      console.error('Error submitting request:', error);
+      toast({
+        title: t('common.error', 'Error'),
+        description: error?.message || (t('i18n.language') === 'es' 
+          ? 'No se pudo enviar la solicitud.' 
+          : 'Failed to submit request.'),
+        variant: 'destructive',
+      });
     }
   };
 
@@ -179,7 +205,7 @@ export function RequestInfoDialog({ open, onOpenChange, unit }: RequestInfoDialo
 
           <div className="space-y-2">
             <Label htmlFor="phone">
-              {t('public.phone', 'Phone')} *
+              {t('public.phone', 'Phone')}
             </Label>
             <Input
               id="phone"
@@ -187,7 +213,7 @@ export function RequestInfoDialog({ open, onOpenChange, unit }: RequestInfoDialo
               value={formData.phone}
               onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
               placeholder="(214) 613-8521"
-              required
+              maxLength={50}
             />
             {errors.phone && <p className="text-sm text-destructive">{errors.phone}</p>}
           </div>

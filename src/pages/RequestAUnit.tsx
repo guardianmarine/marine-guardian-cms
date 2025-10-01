@@ -26,7 +26,7 @@ export default function RequestAUnit() {
     e.preventDefault();
 
     // Basic validation
-    if (!formData.name || !formData.email) {
+    if (!formData.name?.trim() || !formData.email?.trim()) {
       toast.error(
         i18n.language === 'es'
           ? 'Por favor completa todos los campos requeridos'
@@ -35,32 +35,58 @@ export default function RequestAUnit() {
       return;
     }
 
+    // Honeypot check
+    if (formData.honey && formData.honey.trim() !== '') {
+      console.warn('Honeypot triggered');
+      setSubmitted(true); // Fake success
+      return;
+    }
+
     setLoading(true);
 
     try {
-      const { error } = await supabase.from('buyer_requests').insert({
-        request_type: 'wish',
-        name: formData.name,
-        email: formData.email,
-        phone: formData.phone || null,
-        message: formData.message || null,
+      // Build normalized payload
+      const payload = {
+        unit_id: null, // wish requests don't have a unit
+        request_type: 'wish' as const,
+        name: formData.name?.trim(),
+        email: formData.email?.trim(),
+        phone: formData.phone?.trim() || null,
+        preferred_contact: null, // not collected in this form
+        message: formData.message?.trim() || null,
         page_url: window.location.href,
         user_agent: navigator.userAgent,
-        honey: formData.honey, // should be empty
-      });
+        // DO NOT send honey field
+      };
 
-      if (error) throw error;
+      const { error } = await supabase.from('buyer_requests').insert(payload);
 
+      setLoading(false);
+
+      if (error) {
+        console.error('buyer_requests insert error:', error);
+        toast.error(
+          error.message || (i18n.language === 'es'
+            ? 'No se pudo enviar la solicitud.'
+            : 'Failed to submit request.')
+        );
+        return;
+      }
+
+      toast.success(
+        i18n.language === 'es'
+          ? '¡Gracias! Nuestro equipo te contactará en 1 día hábil.'
+          : 'Thanks! Our team will contact you within 1 business day.'
+      );
       setSubmitted(true);
     } catch (error: any) {
+      setLoading(false);
       console.error('Error submitting request:', error);
       toast.error(
-        i18n.language === 'es'
-          ? 'Error al enviar la solicitud. Por favor intenta de nuevo.'
-          : 'Failed to submit request. Please try again.'
+        error?.message || (i18n.language === 'es'
+          ? 'No se pudo enviar la solicitud.'
+          : 'Failed to submit request.')
       );
-    } finally {
-      setLoading(false);
     }
   };
 
