@@ -1,5 +1,5 @@
 import { ReactNode } from 'react';
-import { Navigate } from 'react-router-dom';
+import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 
 interface ProtectedRouteProps {
@@ -7,7 +7,8 @@ interface ProtectedRouteProps {
 }
 
 export function ProtectedRoute({ children }: ProtectedRouteProps) {
-  const { isAuthenticated, loading } = useAuth();
+  const { isAuthenticated, loading, user, session } = useAuth();
+  const location = useLocation();
 
   if (loading) {
     return (
@@ -17,8 +18,15 @@ export function ProtectedRoute({ children }: ProtectedRouteProps) {
     );
   }
 
+  // If not authenticated, redirect to login
   if (!isAuthenticated) {
     return <Navigate to="/login" replace />;
+  }
+
+  // If authenticated but no user record (inactive or no staff record), redirect to no-access
+  if (session && !user) {
+    const email = session.user?.email || '';
+    return <Navigate to={`/no-access?email=${encodeURIComponent(email)}`} replace />;
   }
 
   return <>{children}</>;
