@@ -35,11 +35,26 @@ export class InventoryService {
     return filtered.map(serializeForPublic);
   }
 
-  static async getPublicUnit(id: string, _lang: Locale = 'en'): Promise<Unit | null> {
+  static async getPublicUnit(idOrSlug: string, _lang: Locale = 'en'): Promise<Unit | null> {
     await new Promise((resolve) => setTimeout(resolve, 200));
 
-    // Use flexible publishing logic
-    const unit = mockUnits.find((u) => u.id === id && isUnitPublished(u));
+    // Check if it looks like a UUID
+    const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(idOrSlug);
+    
+    let unit: Unit | undefined;
+    
+    if (isUUID) {
+      // Try ID lookup first if it's a UUID
+      unit = mockUnits.find((u) => u.id === idOrSlug && isUnitPublished(u));
+    } else {
+      // Try slug lookup first if not a UUID
+      unit = mockUnits.find((u) => u.slug === idOrSlug && isUnitPublished(u));
+      // Fallback to ID if slug not found
+      if (!unit) {
+        unit = mockUnits.find((u) => u.id === idOrSlug && isUnitPublished(u));
+      }
+    }
+    
     if (!unit) return null;
 
     // Strip internal fields using serializer

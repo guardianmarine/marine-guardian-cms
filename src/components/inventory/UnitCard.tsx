@@ -18,8 +18,10 @@ export function UnitCard({ unit }: UnitCardProps) {
   const slug = generateUnitSlug(unit);
   const typeLabel = getUnitTypeLabel(unit.type, unit.category, t);
 
+  const href = unit.slug ? `/unit/${unit.slug}` : `/unit/${unit.id}`;
+
   return (
-    <Link to={slug}>
+    <Link to={href}>
       <Card className="group overflow-hidden hover:shadow-lg transition-all duration-300 h-full">
         {/* Image */}
         <div className="relative aspect-[4/3] overflow-hidden bg-muted">

@@ -39,6 +39,7 @@ export interface Location {
 
 export interface Unit {
   id: string;
+  slug?: string;
   category: UnitCategory;
   make: string;
   year: number;

@@ -332,18 +332,24 @@ export default function Inventory() {
                   <Card>
                     <CardContent className="p-12 text-center">
                       <Truck className="h-16 w-16 mx-auto mb-4 text-muted-foreground" />
-                      <h3 className="text-2xl font-semibold mb-2">No Units Found</h3>
+                      <h3 className="text-2xl font-semibold mb-2">
+                        {i18n.language === 'es' ? 'No se encontraron unidades' : 'No Units Found'}
+                      </h3>
                       <p className="text-muted-foreground mb-6 max-w-md mx-auto">
-                        We couldn't find any units matching your criteria. Try adjusting your filters or request a specific unit.
+                        {i18n.language === 'es' 
+                          ? 'No hay unidades disponibles en este momento que coincidan con sus criterios. Intente ajustar sus filtros o solicite una unidad específica.'
+                          : 'No units available at the moment matching your criteria. Try adjusting your filters or request a specific unit.'}
                       </p>
                       <div className="flex items-center justify-center gap-4">
                         {hasActiveFilters && (
                           <Button onClick={clearFilters} variant="outline">
-                            Clear Filters
+                            {i18n.language === 'es' ? 'Limpiar Filtros' : 'Clear Filters'}
                           </Button>
                         )}
                         <Button asChild>
-                          <a href="/request-unit">Request a Unit</a>
+                          <a href="/request-unit">
+                            {i18n.language === 'es' ? 'Solicitar una Unidad' : 'Request a Unit'}
+                          </a>
                         </Button>
                       </div>
                     </CardContent>
