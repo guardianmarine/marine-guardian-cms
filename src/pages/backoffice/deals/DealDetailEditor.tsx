@@ -13,8 +13,11 @@ import { useDeals, Deal } from '@/hooks/useDeals';
 import { useDealUnits } from '@/hooks/useDealUnits';
 import { useDealFees } from '@/hooks/useDealFees';
 import { useTaxPresets } from '@/hooks/useTaxPresets';
+import { useInvoiceGeneration } from '@/hooks/useInvoiceGeneration';
 import { supabase } from '@/integrations/supabase/client';
 import { Unit } from '@/types';
+import { InvoicePDF } from '@/components/deals/InvoicePDF';
+import { PDFViewer, pdf } from '@react-pdf/renderer';
 import {
   ArrowLeft,
   Save,
@@ -22,6 +25,10 @@ import {
   Trash2,
   FileText,
   DollarSign,
+  Download,
+  Eye,
+  Copy,
+  Link as LinkIcon,
 } from 'lucide-react';
 import {
   Select,
@@ -49,6 +56,7 @@ export default function DealDetailEditor() {
   const { units, addUnit, updateUnitPrice, removeUnit } = useDealUnits(id);
   const { fees, addFee, updateFee, removeFee } = useDealFees(id);
   const { presets } = useTaxPresets();
+  const { invoice, generating, fetchInvoice, generateInvoice, downloadInvoice, copyInvoiceLink } = useInvoiceGeneration();
 
   const isNew = id === 'new';
   const currentDeal = useMemo(() => deals.find(d => d.id === id), [deals, id]);
@@ -81,6 +89,9 @@ export default function DealDetailEditor() {
   // Tax preset dialog
   const [presetDialogOpen, setPresetDialogOpen] = useState(false);
 
+  // Invoice preview dialog
+  const [invoicePreviewOpen, setInvoicePreviewOpen] = useState(false);
+
   useEffect(() => {
     if (currentDeal && !isNew) {
       setStatus(currentDeal.status as DealStatus);
@@ -88,6 +99,8 @@ export default function DealDetailEditor() {
       if (currentDeal.bill_to) {
         setBillTo(currentDeal.bill_to as any);
       }
+      // Fetch invoice if exists
+      fetchInvoice(id!);
     }
   }, [currentDeal, isNew]);
 
@@ -227,6 +240,45 @@ export default function DealDetailEditor() {
       setPresetDialogOpen(false);
     } catch (error) {
       console.error('Error adding preset:', error);
+    }
+  };
+
+  const handleGenerateInvoice = async () => {
+    if (!currentDeal || !id || isNew) return;
+
+    try {
+      // Generate PDF blob
+      const blob = await pdf(
+        <InvoicePDF
+          deal={currentDeal}
+          units={units}
+          fees={fees}
+          invoiceNumber={invoice?.number || 'DRAFT'}
+          issuedDate={invoice?.issued_at || new Date().toISOString().split('T')[0]}
+          dueDate={invoice?.due_date || undefined}
+        />
+      ).toBlob();
+
+      await generateInvoice(currentDeal, units, fees, blob);
+    } catch (error) {
+      console.error('Error generating invoice:', error);
+    }
+  };
+
+  const handlePreviewInvoice = () => {
+    if (!currentDeal) return;
+    setInvoicePreviewOpen(true);
+  };
+
+  const handleDownloadInvoice = () => {
+    if (invoice) {
+      downloadInvoice(invoice.id);
+    }
+  };
+
+  const handleCopyLink = () => {
+    if (invoice?.pdf_url) {
+      copyInvoiceLink(invoice.pdf_url);
     }
   };
 
@@ -520,20 +572,59 @@ export default function DealDetailEditor() {
               </CardContent>
             </Card>
 
-            {!isNew && status !== 'draft' && (
+            {!isNew && (
               <Card>
                 <CardHeader>
-                  <CardTitle>Actions</CardTitle>
+                  <CardTitle>Invoice Actions</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-2">
-                  <Button className="w-full" variant="outline">
+                  <Button
+                    className="w-full"
+                    variant="outline"
+                    onClick={handlePreviewInvoice}
+                    disabled={units.length === 0}
+                  >
+                    <Eye className="h-4 w-4 mr-2" />
+                    Preview Invoice
+                  </Button>
+                  
+                  <Button
+                    className="w-full"
+                    onClick={handleGenerateInvoice}
+                    disabled={generating || units.length === 0}
+                  >
                     <FileText className="h-4 w-4 mr-2" />
-                    Create Invoice
+                    {generating ? 'Generating...' : invoice ? 'Regenerate Invoice' : 'Generate & Save'}
                   </Button>
-                  <Button className="w-full" variant="outline">
-                    <DollarSign className="h-4 w-4 mr-2" />
-                    Record Payment
-                  </Button>
+
+                  {invoice && invoice.pdf_url && (
+                    <>
+                      <Button
+                        className="w-full"
+                        variant="outline"
+                        onClick={handleDownloadInvoice}
+                      >
+                        <Download className="h-4 w-4 mr-2" />
+                        Download PDF
+                      </Button>
+
+                      <Button
+                        className="w-full"
+                        variant="outline"
+                        onClick={handleCopyLink}
+                      >
+                        <Copy className="h-4 w-4 mr-2" />
+                        Copy Link
+                      </Button>
+                    </>
+                  )}
+
+                  {status !== 'draft' && (
+                    <Button className="w-full" variant="outline">
+                      <DollarSign className="h-4 w-4 mr-2" />
+                      Record Payment
+                    </Button>
+                  )}
                 </CardContent>
               </Card>
             )}
@@ -688,6 +779,29 @@ export default function DealDetailEditor() {
                   </div>
                 </div>
               ))}
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        {/* Invoice Preview Dialog */}
+        <Dialog open={invoicePreviewOpen} onOpenChange={setInvoicePreviewOpen}>
+          <DialogContent className="max-w-5xl max-h-[90vh] overflow-hidden">
+            <DialogHeader>
+              <DialogTitle>Invoice Preview</DialogTitle>
+            </DialogHeader>
+            <div className="h-[70vh] overflow-auto">
+              {currentDeal && (
+                <PDFViewer width="100%" height="100%" showToolbar={false}>
+                  <InvoicePDF
+                    deal={currentDeal}
+                    units={units}
+                    fees={fees}
+                    invoiceNumber={invoice?.number || 'DRAFT'}
+                    issuedDate={invoice?.issued_at || new Date().toISOString().split('T')[0]}
+                    dueDate={invoice?.due_date || undefined}
+                  />
+                </PDFViewer>
+              )}
             </div>
           </DialogContent>
         </Dialog>
