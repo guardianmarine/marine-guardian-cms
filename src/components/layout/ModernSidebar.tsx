@@ -1,19 +1,8 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import * as Icons from 'lucide-react';
-import { 
-  ChevronLeft, 
-  ChevronRight, 
-  ChevronDown, 
-  User, 
-  LogOut, 
-  Sun, 
-  Moon,
-  Lock,
-  Unlock,
-  MousePointer,
-} from 'lucide-react';
+import { ChevronDown, User, LogOut, Sun, Moon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { NavItem, filterNavByRole, Role } from '@/nav/config';
 import { Button } from '@/components/ui/button';
@@ -25,7 +14,6 @@ import {
   DropdownMenuTrigger,
   DropdownMenuLabel,
 } from '@/components/ui/dropdown-menu';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { useAuth } from '@/contexts/AuthContext';
 import gmLogoDark from '@/assets/brand/gm-logo-dark.png';
 import gmLogoLight from '@/assets/brand/gm-logo-light.png';
@@ -45,22 +33,25 @@ export function ModernSidebar({ items, userRole, getBadge }: ModernSidebarProps)
   const navigate = useNavigate();
   const locale = (i18n.language === 'es' ? 'es' : 'en') as 'en' | 'es';
   
-  // Sidebar mode: 'auto' | 'locked-open' | 'locked-collapsed'
-  const [sidebarMode, setSidebarMode] = useState<'auto' | 'locked-open' | 'locked-collapsed'>(() => {
-    const saved = localStorage.getItem('gm:sb:mode');
-    return (saved as any) || 'auto';
+  // Hover state (always collapsed by default, expands on hover)
+  const [isHoverOpen, setIsHoverOpen] = useState(false);
+  
+  // Timers for hover intent
+  const openTimer = useRef<number | null>(null);
+  const closeTimer = useRef<number | null>(null);
+  
+  // Check if device has fine pointer (desktop with mouse)
+  const allowHover = useMemo(
+    () => window.matchMedia?.('(pointer: fine)').matches ?? true,
+    []
+  );
+
+  // Sidebar-only theme state
+  const [sidebarTheme, setSidebarTheme] = useState<'light' | 'dark'>(() => {
+    return (localStorage.getItem('gm:sb:sidebarTheme') as any) || 'dark';
   });
 
-  // Hover state for auto mode
-  const [hoverOpen, setHoverOpen] = useState(false);
-
-  // Check if device has fine pointer (desktop with mouse)
-  const allowHover = window.matchMedia?.('(pointer: fine)').matches ?? true;
-
-  // Derive collapsed state from mode
-  const collapsed = sidebarMode === 'locked-collapsed' || (sidebarMode === 'auto' && !hoverOpen);
-
-  // Expanded groups state
+  // Expanded groups state (for when expanded)
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(() => {
     const saved = localStorage.getItem('gm:sb:expanded');
     if (saved) {
@@ -73,21 +64,14 @@ export function ModernSidebar({ items, userRole, getBadge }: ModernSidebarProps)
     return new Set();
   });
 
-  // Flyout state for collapsed sidebar
-  const [flyoutGroup, setFlyoutGroup] = useState<string | null>(null);
-
-  // Sidebar-only theme state
-  const [sidebarTheme, setSidebarTheme] = useState<'light' | 'dark'>(() => {
-    return (localStorage.getItem('gm:sb:sidebarTheme') as any) || 'dark';
-  });
-
   // Filter items by role
   const visibleItems = filterNavByRole(items, userRole);
 
-  // Save mode state
+  // Cleanup legacy localStorage
   useEffect(() => {
-    localStorage.setItem('gm:sb:mode', sidebarMode);
-  }, [sidebarMode]);
+    localStorage.removeItem('gm:sb:mode');
+    localStorage.removeItem('gm:sb:collapsed');
+  }, []);
 
   // Save expanded groups
   useEffect(() => {
@@ -96,7 +80,7 @@ export function ModernSidebar({ items, userRole, getBadge }: ModernSidebarProps)
 
   // Auto-expand group containing current route
   useEffect(() => {
-    if (!collapsed) {
+    if (isHoverOpen) {
       visibleItems.forEach(item => {
         if (item.children && item.children.some(child => 
           location.pathname.startsWith(child.route)
@@ -105,21 +89,15 @@ export function ModernSidebar({ items, userRole, getBadge }: ModernSidebarProps)
         }
       });
     }
-  }, [location.pathname, collapsed]);
+  }, [location.pathname, isHoverOpen]);
 
-  const toggleLock = () => {
-    if (sidebarMode === 'locked-open') {
-      setSidebarMode('locked-collapsed');
-    } else if (sidebarMode === 'locked-collapsed') {
-      setSidebarMode('auto');
-    } else {
-      setSidebarMode('locked-open');
-    }
-  };
-
-  const setAutoMode = () => {
-    setSidebarMode('auto');
-  };
+  // Cleanup timers on unmount
+  useEffect(() => {
+    return () => {
+      if (openTimer.current) clearTimeout(openTimer.current);
+      if (closeTimer.current) clearTimeout(closeTimer.current);
+    };
+  }, []);
 
   const toggleGroup = (id: string) => {
     setExpandedGroups(prev => {
@@ -149,7 +127,7 @@ export function ModernSidebar({ items, userRole, getBadge }: ModernSidebarProps)
   };
 
   const getBrandAsset = () => {
-    if (collapsed) {
+    if (!isHoverOpen && allowHover) {
       return sidebarTheme === 'dark' ? gmMarkDark : gmMarkLight;
     }
     return sidebarTheme === 'dark' ? gmLogoDark : gmLogoLight;
@@ -167,84 +145,49 @@ export function ModernSidebar({ items, userRole, getBadge }: ModernSidebarProps)
     const isExpanded = expandedGroups.has(item.id);
     const active = isActive(item.route);
     const badgeCount = getBadge?.(item) ?? null;
+    const collapsed = !isHoverOpen && allowHover;
 
     if (hasChildren) {
       return (
         <div key={item.id}>
-          <TooltipProvider delayDuration={0}>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <button
-                  onClick={() => collapsed ? setFlyoutGroup(item.id) : toggleGroup(item.id)}
-                  onMouseEnter={() => collapsed && setFlyoutGroup(item.id)}
-                  onMouseLeave={() => collapsed && setFlyoutGroup(null)}
-                  className={cn(
-                    'group relative flex items-center w-full rounded-xl transition-all duration-200',
-                    'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[hsl(var(--sb-active-border))] focus-visible:ring-offset-2 focus-visible:ring-offset-[hsl(var(--sb-bg))]',
-                    collapsed ? 'justify-center p-3' : 'justify-between px-3 py-2.5',
-                    active
-                      ? 'bg-[hsl(var(--sb-active-bg))] text-[hsl(var(--sb-active-text))] border-l-2 border-[hsl(var(--sb-active-border))]'
-                      : 'text-[hsl(var(--sb-text))] hover:bg-[hsl(var(--sb-bg-hover))]'
+          <button
+            onClick={() => toggleGroup(item.id)}
+            className={cn(
+              'group relative flex items-center w-full rounded-xl transition-all duration-200',
+              'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[hsl(var(--sb-active-border))] focus-visible:ring-offset-2 focus-visible:ring-offset-[hsl(var(--sb-bg))]',
+              collapsed ? 'justify-center p-3' : 'justify-between px-3 py-2.5',
+              active
+                ? 'bg-[hsl(var(--sb-active-bg))] text-[hsl(var(--sb-active-text))] border-l-2 border-[hsl(var(--sb-active-border))]'
+                : 'text-[hsl(var(--sb-text))] hover:bg-[hsl(var(--sb-bg-hover))]'
+            )}
+            aria-expanded={!collapsed && isExpanded}
+            aria-label={item.label[locale]}
+          >
+            <div className="flex items-center gap-3">
+              {getIcon(item.icon, cn(
+                'transition-colors',
+                active ? 'text-[hsl(var(--sb-active-text))]' : 'text-[hsl(var(--sb-icon))] group-hover:text-[hsl(var(--sb-active-border))]'
+              ))}
+              {!collapsed && (
+                <>
+                  <span className="font-medium text-sm">{item.label[locale]}</span>
+                  {badgeCount && badgeCount > 0 && (
+                    <span className="ml-auto inline-flex items-center justify-center h-5 min-w-5 px-1.5 text-[10px] font-semibold rounded-full bg-[hsl(var(--sb-accent))] text-white">
+                      {badgeCount > 99 ? '99+' : badgeCount}
+                    </span>
                   )}
-                  aria-expanded={!collapsed && isExpanded}
-                >
-                  <div className="flex items-center gap-3">
-                    {getIcon(item.icon, cn(
-                      'transition-colors',
-                      active ? 'text-[hsl(var(--sb-active-text))]' : 'text-[hsl(var(--sb-icon))] group-hover:text-[hsl(var(--sb-active-border))]'
-                    ))}
-                    {!collapsed && (
-                      <>
-                        <span className="font-medium text-sm">{item.label[locale]}</span>
-                        {badgeCount && badgeCount > 0 && (
-                          <span className="ml-auto inline-flex items-center justify-center h-5 min-w-5 px-1.5 text-[10px] font-semibold rounded-full bg-[hsl(var(--sb-accent))] text-white">
-                            {badgeCount > 99 ? '99+' : badgeCount}
-                          </span>
-                        )}
-                      </>
-                    )}
-                  </div>
-                  {!collapsed && (
-                    <ChevronDown
-                      className={cn(
-                        'h-4 w-4 transition-transform duration-200',
-                        isExpanded && 'rotate-180'
-                      )}
-                    />
-                  )}
-                  
-                  {/* Flyout for collapsed state */}
-                  {collapsed && flyoutGroup === item.id && (
-                    <div 
-                      className="absolute left-full ml-2 top-0 z-50 min-w-[200px] rounded-xl border border-[hsla(var(--sb-border))] bg-[hsl(var(--sb-bg))] shadow-lg p-2 animate-scale-in"
-                      onMouseEnter={() => setFlyoutGroup(item.id)}
-                      onMouseLeave={() => setFlyoutGroup(null)}
-                    >
-                      <div className="px-2 py-1.5 text-xs font-semibold text-[hsl(var(--sb-text))] opacity-60 mb-1">
-                        {item.label[locale]}
-                      </div>
-                      {item.children?.map(child => (
-                        <Link
-                          key={child.id}
-                          to={child.route}
-                          className={cn(
-                            'flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-colors',
-                            isActive(child.route)
-                              ? 'bg-[hsl(var(--sb-active-bg))] text-[hsl(var(--sb-active-text))]'
-                              : 'text-[hsl(var(--sb-text))] hover:bg-[hsl(var(--sb-bg-hover))]'
-                          )}
-                        >
-                          {getIcon(child.icon, 'h-4 w-4')}
-                          <span>{child.label[locale]}</span>
-                        </Link>
-                      ))}
-                    </div>
-                  )}
-                </button>
-              </TooltipTrigger>
-              {collapsed && <TooltipContent side="right">{item.label[locale]}</TooltipContent>}
-            </Tooltip>
-          </TooltipProvider>
+                </>
+              )}
+            </div>
+            {!collapsed && (
+              <ChevronDown
+                className={cn(
+                  'h-4 w-4 transition-transform duration-200',
+                  isExpanded && 'rotate-180'
+                )}
+              />
+            )}
+          </button>
           
           {!collapsed && isExpanded && (
             <div className="ml-8 mt-1 space-y-0.5 animate-fade-in">
@@ -260,6 +203,7 @@ export function ModernSidebar({ items, userRole, getBadge }: ModernSidebarProps)
                       : 'text-[hsl(var(--sb-text))] hover:bg-[hsl(var(--sb-bg-hover))]'
                   )}
                   aria-current={isActive(child.route) ? 'page' : undefined}
+                  aria-label={child.label[locale]}
                 >
                   {child.label[locale]}
                 </Link>
@@ -271,36 +215,31 @@ export function ModernSidebar({ items, userRole, getBadge }: ModernSidebarProps)
     }
 
     return (
-      <TooltipProvider key={item.id} delayDuration={0}>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Link
-              to={item.route}
-              className={cn(
-                'group relative flex items-center gap-3 rounded-xl transition-all duration-200',
-                'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[hsl(var(--sb-active-border))] focus-visible:ring-offset-2 focus-visible:ring-offset-[hsl(var(--sb-bg))]',
-                collapsed ? 'justify-center p-3' : 'px-3 py-2.5',
-                active
-                  ? 'bg-[hsl(var(--sb-active-bg))] text-[hsl(var(--sb-active-text))] font-medium border-l-2 border-[hsl(var(--sb-active-border))]'
-                  : 'text-[hsl(var(--sb-text))] hover:bg-[hsl(var(--sb-bg-hover))]'
-              )}
-              aria-current={active ? 'page' : undefined}
-            >
-              {getIcon(item.icon, cn(
-                'transition-colors',
-                active ? 'text-[hsl(var(--sb-active-text))]' : 'text-[hsl(var(--sb-icon))] group-hover:text-[hsl(var(--sb-active-border))]'
-              ))}
-              {!collapsed && <span className="font-medium text-sm">{item.label[locale]}</span>}
-              {!collapsed && badgeCount && badgeCount > 0 && (
-                <span className="ml-auto inline-flex items-center justify-center h-5 min-w-5 px-1.5 text-[10px] font-semibold rounded-full bg-[hsl(var(--sb-accent))] text-white">
-                  {badgeCount > 99 ? '99+' : badgeCount}
-                </span>
-              )}
-            </Link>
-          </TooltipTrigger>
-          {collapsed && <TooltipContent side="right">{item.label[locale]}</TooltipContent>}
-        </Tooltip>
-      </TooltipProvider>
+      <Link
+        key={item.id}
+        to={item.route}
+        className={cn(
+          'group relative flex items-center gap-3 rounded-xl transition-all duration-200',
+          'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[hsl(var(--sb-active-border))] focus-visible:ring-offset-2 focus-visible:ring-offset-[hsl(var(--sb-bg))]',
+          collapsed ? 'justify-center p-3' : 'px-3 py-2.5',
+          active
+            ? 'bg-[hsl(var(--sb-active-bg))] text-[hsl(var(--sb-active-text))] font-medium border-l-2 border-[hsl(var(--sb-active-border))]'
+            : 'text-[hsl(var(--sb-text))] hover:bg-[hsl(var(--sb-bg-hover))]'
+        )}
+        aria-current={active ? 'page' : undefined}
+        aria-label={item.label[locale]}
+      >
+        {getIcon(item.icon, cn(
+          'transition-colors',
+          active ? 'text-[hsl(var(--sb-active-text))]' : 'text-[hsl(var(--sb-icon))] group-hover:text-[hsl(var(--sb-active-border))]'
+        ))}
+        {!collapsed && <span className="font-medium text-sm">{item.label[locale]}</span>}
+        {!collapsed && badgeCount && badgeCount > 0 && (
+          <span className="ml-auto inline-flex items-center justify-center h-5 min-w-5 px-1.5 text-[10px] font-semibold rounded-full bg-[hsl(var(--sb-accent))] text-white">
+            {badgeCount > 99 ? '99+' : badgeCount}
+          </span>
+        )}
+      </Link>
     );
   };
 
@@ -314,125 +253,57 @@ export function ModernSidebar({ items, userRole, getBadge }: ModernSidebarProps)
       .slice(0, 2);
   };
 
+  const collapsed = !isHoverOpen && allowHover;
+
   return (
     <aside
-      onMouseEnter={() => allowHover && sidebarMode === 'auto' && setHoverOpen(true)}
-      onMouseLeave={() => allowHover && sidebarMode === 'auto' && setHoverOpen(false)}
+      onMouseEnter={() => {
+        if (!allowHover) return;
+        if (closeTimer.current) {
+          clearTimeout(closeTimer.current);
+          closeTimer.current = null;
+        }
+        if (!isHoverOpen) {
+          openTimer.current = window.setTimeout(() => setIsHoverOpen(true), 80);
+        }
+      }}
+      onMouseLeave={() => {
+        if (!allowHover) return;
+        if (openTimer.current) {
+          clearTimeout(openTimer.current);
+          openTimer.current = null;
+        }
+        closeTimer.current = window.setTimeout(() => setIsHoverOpen(false), 120);
+      }}
+      onFocusCapture={() => {
+        if (openTimer.current) {
+          clearTimeout(openTimer.current);
+          openTimer.current = null;
+        }
+        setIsHoverOpen(true);
+      }}
+      onBlurCapture={(e) => {
+        if (allowHover) return;
+        const stillInside = (e.currentTarget as HTMLElement).contains(document.activeElement);
+        if (!stillInside) setIsHoverOpen(false);
+      }}
       className={cn(
-        'fixed left-0 top-0 h-screen bg-[hsl(var(--sb-bg))] text-[hsl(var(--sb-text))] border-r border-[hsla(var(--sb-border))] transition-[width] duration-200 z-50',
-        collapsed ? 'w-16' : 'w-64',
+        'fixed left-0 top-0 h-screen bg-[hsl(var(--sb-bg))] text-[hsl(var(--sb-text))] border-r border-[hsla(var(--sb-border))] transition-[width] duration-200 ease-out z-50',
+        allowHover ? (collapsed ? 'w-16' : 'w-64') : 'w-64',
         sidebarTheme === 'dark' ? 'sidebar-dark' : 'sidebar-light'
       )}
     >
       <div className="flex flex-col h-full">
-        {/* Top: Logo + Collapse Toggle */}
-        <div className="h-16 flex items-center justify-between px-4 border-b border-[hsla(var(--sb-border))]">
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <div className={cn('flex items-center', collapsed && 'w-full justify-center')}>
-                  <img 
-                    src={getBrandAsset()} 
-                    alt="Guardian Marine" 
-                    className={cn(
-                      collapsed ? 'h-8 w-8' : 'h-10 md:h-11 w-auto object-contain',
-                    )} 
-                  />
-                </div>
-              </TooltipTrigger>
-              {collapsed && <TooltipContent side="right">Guardian Marine</TooltipContent>}
-            </Tooltip>
-          </TooltipProvider>
-          {!collapsed && (
-            <div className="flex gap-1">
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={setAutoMode}
-                      className={cn(
-                        'h-8 w-8 text-[hsl(var(--sb-text))] hover:bg-[hsl(var(--sb-bg-hover))]',
-                        sidebarMode === 'auto' && 'bg-[hsl(var(--sb-bg-hover))]'
-                      )}
-                      aria-label={locale === 'es' ? 'Automático' : 'Auto'}
-                      aria-pressed={sidebarMode === 'auto'}
-                    >
-                      <MousePointer className="h-4 w-4" />
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent>{locale === 'es' ? 'Automático (abre al pasar el mouse)' : 'Auto (opens on hover)'}</TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
-
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={toggleLock}
-                      className="h-8 w-8 text-[hsl(var(--sb-text))] hover:bg-[hsl(var(--sb-bg-hover))]"
-                      aria-label={
-                        sidebarMode === 'locked-open' 
-                          ? (locale === 'es' ? 'Fijar colapsado' : 'Lock collapsed')
-                          : (locale === 'es' ? 'Fijar abierto' : 'Lock open')
-                      }
-                    >
-                      {sidebarMode === 'locked-open' ? (
-                        <ChevronLeft className="h-4 w-4" />
-                      ) : (
-                        <Lock className="h-4 w-4" />
-                      )}
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    {sidebarMode === 'locked-open' 
-                      ? (locale === 'es' ? 'Fijar colapsado' : 'Lock collapsed')
-                      : (locale === 'es' ? 'Fijar abierto' : 'Lock open')
-                    }
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
-            </div>
-          )}
+        {/* Top: Logo */}
+        <div className="h-16 flex items-center justify-center px-3 border-b border-[hsla(var(--sb-border))]">
+          <img 
+            src={getBrandAsset()} 
+            alt="Guardian Marine" 
+            className={cn(
+              collapsed ? 'h-8 w-8' : 'h-10 md:h-11 w-auto object-contain',
+            )} 
+          />
         </div>
-
-        {/* Lock toggle when collapsed */}
-        {collapsed && (
-          <div className="px-2 py-2">
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={toggleLock}
-                    className="w-full h-10 text-[hsl(var(--sb-text))] hover:bg-[hsl(var(--sb-bg-hover))]"
-                    aria-label={
-                      sidebarMode === 'locked-collapsed'
-                        ? (locale === 'es' ? 'Automático' : 'Auto')
-                        : (locale === 'es' ? 'Fijar abierto' : 'Lock open')
-                    }
-                  >
-                    {sidebarMode === 'locked-collapsed' ? (
-                      <Unlock className="h-4 w-4" />
-                    ) : (
-                      <Lock className="h-4 w-4" />
-                    )}
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent side="right">
-                  {sidebarMode === 'locked-collapsed'
-                    ? (locale === 'es' ? 'Automático' : 'Auto')
-                    : (locale === 'es' ? 'Fijar abierto' : 'Lock open')
-                  }
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-          </div>
-        )}
 
         {/* Navigation */}
         <nav className="flex-1 p-3 space-y-1 overflow-y-auto scrollbar-thin">
@@ -440,28 +311,21 @@ export function ModernSidebar({ items, userRole, getBadge }: ModernSidebarProps)
         </nav>
 
         {/* Bottom Rail: Compact Footer */}
-        <div className="border-t border-[hsla(var(--sb-border))] px-3 py-2 space-y-1.5">
+        <div className="border-t border-[hsla(var(--sb-border))] bg-[hsl(var(--sb-bg))] px-3 py-2 space-y-1.5">
           {/* Sidebar Theme Toggle */}
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size={collapsed ? 'icon' : 'sm'}
-                  onClick={handleSidebarThemeToggle}
-                  className={cn(
-                    'text-[hsl(var(--sb-text))] hover:bg-[hsl(var(--sb-bg-hover))]',
-                    collapsed ? 'w-full' : 'w-full justify-start'
-                  )}
-                  aria-label={locale === 'es' ? 'Tema del sidebar' : 'Sidebar theme'}
-                >
-                  {sidebarTheme === 'light' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
-                  {!collapsed && <span className="ml-2 text-xs">{locale === 'es' ? 'Tema' : 'Theme'}</span>}
-                </Button>
-              </TooltipTrigger>
-              {collapsed && <TooltipContent side="right">{locale === 'es' ? 'Tema del sidebar' : 'Sidebar theme'}</TooltipContent>}
-            </Tooltip>
-          </TooltipProvider>
+          <Button
+            variant="ghost"
+            size={collapsed ? 'icon' : 'sm'}
+            onClick={handleSidebarThemeToggle}
+            className={cn(
+              'text-[hsl(var(--sb-text))] hover:bg-[hsl(var(--sb-bg-hover))]',
+              collapsed ? 'w-full' : 'w-full justify-start'
+            )}
+            aria-label={locale === 'es' ? 'Tema del sidebar' : 'Sidebar theme'}
+          >
+            {sidebarTheme === 'light' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+            {!collapsed && <span className="ml-2 text-xs">{locale === 'es' ? 'Tema' : 'Theme'}</span>}
+          </Button>
 
           {/* User Menu */}
           <DropdownMenu>
