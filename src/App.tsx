@@ -110,6 +110,18 @@ const App = () => (
               }
             />
             <Route
+              path="/unit/:idOrSlug"
+              element={
+                <div className="flex flex-col min-h-screen">
+                  <Header />
+                  <main className="flex-1">
+                    <UnitDetail />
+                  </main>
+                  <Footer />
+                </div>
+              }
+            />
+            <Route
               path="/sell-trade"
               element={<SellTrade />}
             />

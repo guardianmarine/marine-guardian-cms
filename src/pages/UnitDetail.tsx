@@ -15,7 +15,7 @@ import { generateVehicleSchema, shortenVin } from '@/lib/seo';
 import { getUnitTypeLabel } from '@/lib/i18n-helpers';
 
 export default function UnitDetail() {
-  const { id, slug } = useParams<{ id?: string; slug?: string }>();
+  const { id, slug, idOrSlug } = useParams<{ id?: string; slug?: string; idOrSlug?: string }>();
   const { t } = useTranslation();
   const [unit, setUnit] = useState<Unit | null>(null);
   const [similarUnits, setSimilarUnits] = useState<Unit[]>([]);
@@ -23,14 +23,25 @@ export default function UnitDetail() {
   const [currentPhotoIndex, setCurrentPhotoIndex] = useState(0);
   const [requestDialogOpen, setRequestDialogOpen] = useState(false);
 
-  // Extract ID from slug if using slug-based route
-  const unitId = id || (slug ? slug.split('-').pop() : null);
+  // Support multiple route patterns: /unit/:idOrSlug, /inventory/:id, /inventory/:category/:slug
+  const identifier = idOrSlug || id || (slug ? slug.split('-').pop() : null);
 
   useEffect(() => {
     const loadUnit = async () => {
-      if (!unitId) return;
+      if (!identifier) return;
       setLoading(true);
-      const data = await InventoryService.getPublicUnit(unitId);
+      
+      // Log for dev debugging
+      if (process.env.NODE_ENV !== 'production') {
+        console.log('[UnitDetail] Loading unit with identifier:', identifier);
+      }
+      
+      const data = await InventoryService.getPublicUnit(identifier);
+      
+      if (process.env.NODE_ENV !== 'production') {
+        console.log('[UnitDetail] Loaded unit:', data ? `${data.year} ${data.make} ${data.model}` : 'not found');
+      }
+      
       if (data) {
         setUnit(data);
         const similar = await InventoryService.getSimilarUnits(data);
@@ -39,7 +50,7 @@ export default function UnitDetail() {
       setLoading(false);
     };
     loadUnit();
-  }, [unitId]);
+  }, [identifier]);
 
   if (loading) {
     return (
@@ -55,11 +66,27 @@ export default function UnitDetail() {
 
   if (!unit) {
     return (
-      <div className="container px-4 py-12 text-center">
-        <h1 className="text-2xl font-bold mb-4">Unit not found</h1>
-        <Button asChild>
-          <Link to="/inventory">Back to Inventory</Link>
-        </Button>
+      <div className="flex flex-col min-h-screen">
+        <div className="container px-4 py-12 text-center space-y-6">
+          <h1 className="text-3xl font-bold">
+            {t('inventory.unitNotFound', 'Unit not available')}
+          </h1>
+          <p className="text-muted-foreground">
+            {t('inventory.unitNotFoundDesc', 'The unit you are looking for may no longer be available or does not exist.')}
+          </p>
+          <div className="flex gap-4 justify-center">
+            <Button asChild>
+              <Link to="/inventory">
+                {t('inventory.backToInventory', 'Back to Inventory')}
+              </Link>
+            </Button>
+            <Button variant="outline" asChild>
+              <Link to="/">
+                {t('common.backToHome', 'Back to Home')}
+              </Link>
+            </Button>
+          </div>
+        </div>
       </div>
     );
   }
