@@ -2,9 +2,65 @@ import { Unit, InventoryFilters, Locale } from '@/types';
 import { supabase } from '@/integrations/supabase/client';
 import { isUnitPublished } from '@/lib/publishing-utils';
 
-// Public API serializer - strips internal-only fields
+// Public API serializer - strips internal-only fields and normalizes data
 function serializeForPublic(unit: any): Unit {
   const { hours, cost_purchase, cost_transport_in, cost_reconditioning, ...publicFields } = unit;
+  
+  // Normalize photos: ensure array of objects with id, url, and is_main
+  if (publicFields.photos) {
+    if (typeof publicFields.photos === 'string') {
+      try {
+        publicFields.photos = JSON.parse(publicFields.photos);
+      } catch (e) {
+        publicFields.photos = [];
+      }
+    }
+    
+    // Transform photos to expected format
+    if (Array.isArray(publicFields.photos)) {
+      publicFields.photos = publicFields.photos.map((p: any, idx: number) => {
+        if (typeof p === 'string') {
+          return { id: `photo-${idx}`, url: p, is_main: idx === 0 };
+        }
+        return { 
+          id: p.id || `photo-${idx}`, 
+          url: p.url || p,
+          is_main: p.is_main || idx === 0
+        };
+      });
+    } else {
+      publicFields.photos = [];
+    }
+  } else {
+    publicFields.photos = [];
+  }
+  
+  // Add main photo as first photo if no photos exist
+  if (publicFields.photos.length === 0 && publicFields.main_photo_url) {
+    publicFields.photos = [{ id: 'main', url: publicFields.main_photo_url, is_main: true }];
+  }
+  
+  // Ensure at least one photo is marked as main
+  if (publicFields.photos.length > 0 && !publicFields.photos.some((p: any) => p.is_main)) {
+    publicFields.photos[0].is_main = true;
+  }
+  
+  // Normalize display_price: prefer numeric price, fallback to display_price text
+  if (publicFields.price && typeof publicFields.price === 'number') {
+    publicFields.display_price = publicFields.price;
+  } else if (publicFields.display_price && typeof publicFields.display_price === 'string') {
+    // Parse display_price if it's a formatted string like "$65,000"
+    const parsed = parseFloat(publicFields.display_price.replace(/[$,]/g, ''));
+    if (!isNaN(parsed)) {
+      publicFields.display_price = parsed;
+    }
+  }
+  
+  // Normalize VIN: prefer vin over vin_or_serial
+  if (!publicFields.vin_or_serial && publicFields.vin) {
+    publicFields.vin_or_serial = publicFields.vin;
+  }
+  
   return publicFields as Unit;
 }
 
