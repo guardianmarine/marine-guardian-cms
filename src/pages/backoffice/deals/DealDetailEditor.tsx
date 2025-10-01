@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
+import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import { useDeals, Deal } from '@/hooks/useDeals';
@@ -275,8 +276,18 @@ export default function DealDetailEditor() {
   if (dealsLoading && !isNew) {
     return (
       <BackofficeLayout>
-        <div className="p-6">
-          <p className="text-muted-foreground">Loading...</p>
+        <div className="p-6 space-y-6">
+          <div className="flex items-center gap-4">
+            <Skeleton className="h-10 w-10" />
+            <Skeleton className="h-8 w-64" />
+          </div>
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div className="lg:col-span-2 space-y-6">
+              <Skeleton className="h-48 w-full" />
+              <Skeleton className="h-64 w-full" />
+            </div>
+            <Skeleton className="h-96 w-full" />
+          </div>
         </div>
       </BackofficeLayout>
     );
@@ -289,7 +300,7 @@ export default function DealDetailEditor() {
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
             <Link to="/backoffice/deals-v2">
-              <Button variant="ghost" size="icon">
+              <Button variant="ghost" size="icon" type="button">
                 <ArrowLeft className="h-4 w-4" />
               </Button>
             </Link>
@@ -300,7 +311,7 @@ export default function DealDetailEditor() {
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <Button onClick={handleSave} disabled={isNew && units.length === 0}>
+            <Button type="button" onClick={handleSave} disabled={isNew && units.length === 0}>
               <Save className="h-4 w-4 mr-2" />
               Save
             </Button>
@@ -396,6 +407,7 @@ export default function DealDetailEditor() {
                 <div className="flex items-center justify-between">
                   <CardTitle>Units ({units.length})</CardTitle>
                   <Button
+                    type="button"
                     onClick={() => setUnitDialogOpen(true)}
                     disabled={isNew}
                     size="sm"
@@ -433,6 +445,7 @@ export default function DealDetailEditor() {
                             />
                           </div>
                           <Button
+                            type="button"
                             variant="ghost"
                             size="icon"
                             onClick={() => removeUnit(unit.id)}
@@ -454,6 +467,7 @@ export default function DealDetailEditor() {
                   <CardTitle>Fees & Taxes</CardTitle>
                   <div className="flex gap-2">
                     <Button
+                      type="button"
                       onClick={() => setPresetDialogOpen(true)}
                       disabled={isNew}
                       size="sm"
@@ -462,6 +476,7 @@ export default function DealDetailEditor() {
                       Add from Preset
                     </Button>
                     <Button
+                      type="button"
                       onClick={() => setFeeDialogOpen(true)}
                       disabled={isNew}
                       size="sm"
@@ -499,6 +514,7 @@ export default function DealDetailEditor() {
                             ${fee.amount.toLocaleString('en-US', { minimumFractionDigits: 2 })}
                           </span>
                           <Button
+                            type="button"
                             variant="ghost"
                             size="icon"
                             onClick={() => removeFee(fee.id)}
@@ -569,6 +585,7 @@ export default function DealDetailEditor() {
                 </CardHeader>
                 <CardContent className="space-y-2">
                   <Button
+                    type="button"
                     className="w-full"
                     variant="outline"
                     onClick={handlePreviewInvoice}
@@ -579,6 +596,7 @@ export default function DealDetailEditor() {
                   </Button>
                   
                   <Button
+                    type="button"
                     className="w-full"
                     onClick={handleGenerateInvoice}
                     disabled={generating || units.length === 0}
@@ -590,6 +608,7 @@ export default function DealDetailEditor() {
                   {invoice && invoice.pdf_url && (
                     <>
                       <Button
+                        type="button"
                         className="w-full"
                         variant="outline"
                         onClick={handleDownloadInvoice}
@@ -599,6 +618,7 @@ export default function DealDetailEditor() {
                       </Button>
 
                       <Button
+                        type="button"
                         className="w-full"
                         variant="outline"
                         onClick={handleCopyLink}
@@ -610,7 +630,7 @@ export default function DealDetailEditor() {
                   )}
 
                   {status !== 'draft' && (
-                    <Button className="w-full" variant="outline">
+                    <Button type="button" className="w-full" variant="outline">
                       <DollarSign className="h-4 w-4 mr-2" />
                       Record Payment
                     </Button>
@@ -665,10 +685,10 @@ export default function DealDetailEditor() {
               )}
             </div>
             <DialogFooter>
-              <Button variant="outline" onClick={() => setUnitDialogOpen(false)}>
+              <Button type="button" variant="outline" onClick={() => setUnitDialogOpen(false)}>
                 Cancel
               </Button>
-              <Button onClick={handleAddUnit} disabled={!selectedUnit || !unitPrice}>
+              <Button type="button" onClick={handleAddUnit} disabled={!selectedUnit || !unitPrice}>
                 Add Unit
               </Button>
             </DialogFooter>
@@ -733,10 +753,10 @@ export default function DealDetailEditor() {
               </div>
             </div>
             <DialogFooter>
-              <Button variant="outline" onClick={() => setFeeDialogOpen(false)}>
+              <Button type="button" variant="outline" onClick={() => setFeeDialogOpen(false)}>
                 Cancel
               </Button>
-              <Button onClick={handleAddFee} disabled={!feeForm.label || !feeForm.amount}>
+              <Button type="button" onClick={handleAddFee} disabled={!feeForm.label || !feeForm.amount}>
                 Add Fee
               </Button>
             </DialogFooter>

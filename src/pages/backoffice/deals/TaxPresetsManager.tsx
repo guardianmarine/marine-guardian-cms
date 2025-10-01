@@ -7,6 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
+import { Skeleton } from '@/components/ui/skeleton';
 import { useTaxPresets } from '@/hooks/useTaxPresets';
 import { Plus, Pencil, Trash2, Save, X } from 'lucide-react';
 import {
@@ -102,8 +103,16 @@ export default function TaxPresetsManager() {
   if (loading) {
     return (
       <BackofficeLayout>
-        <div className="p-6">
-          <p className="text-muted-foreground">Loading tax presets...</p>
+        <div className="p-6 space-y-6">
+          <div className="flex items-center justify-between">
+            <Skeleton className="h-10 w-64" />
+            <Skeleton className="h-10 w-32" />
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {[...Array(6)].map((_, i) => (
+              <Skeleton key={i} className="h-48 w-full" />
+            ))}
+          </div>
         </div>
       </BackofficeLayout>
     );
@@ -120,7 +129,7 @@ export default function TaxPresetsManager() {
               Manage tax rates, fees, and discounts for deals
             </p>
           </div>
-          <Button onClick={() => handleOpenDialog()}>
+          <Button type="button" onClick={() => handleOpenDialog()}>
             <Plus className="h-4 w-4 mr-2" />
             New Preset
           </Button>
@@ -151,6 +160,7 @@ export default function TaxPresetsManager() {
                   </div>
                   <div className="flex gap-1">
                     <Button
+                      type="button"
                       variant="ghost"
                       size="icon"
                       onClick={() => handleOpenDialog(preset)}
@@ -158,6 +168,7 @@ export default function TaxPresetsManager() {
                       <Pencil className="h-4 w-4" />
                     </Button>
                     <Button
+                      type="button"
                       variant="ghost"
                       size="icon"
                       onClick={() => setDeleteId(preset.id)}
@@ -194,7 +205,7 @@ export default function TaxPresetsManager() {
           <Card>
             <CardContent className="flex flex-col items-center justify-center py-12">
               <p className="text-muted-foreground mb-4">No tax presets found</p>
-              <Button onClick={() => handleOpenDialog()}>
+              <Button type="button" onClick={() => handleOpenDialog()}>
                 <Plus className="h-4 w-4 mr-2" />
                 Create First Preset
               </Button>
@@ -298,11 +309,11 @@ export default function TaxPresetsManager() {
               </div>
             </div>
             <DialogFooter>
-              <Button variant="outline" onClick={() => setDialogOpen(false)}>
+              <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>
                 <X className="h-4 w-4 mr-2" />
                 Cancel
               </Button>
-              <Button onClick={handleSave}>
+              <Button type="button" onClick={handleSave}>
                 <Save className="h-4 w-4 mr-2" />
                 Save
               </Button>

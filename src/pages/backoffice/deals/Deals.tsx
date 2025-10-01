@@ -64,7 +64,7 @@ export default function Deals() {
         <div className="flex items-center justify-between">
           <h1 className="text-3xl font-bold">Deals</h1>
           <Link to="/backoffice/deals/new">
-            <Button>
+            <Button type="button">
               <Plus className="h-4 w-4 mr-2" />
               Add Deal
             </Button>
@@ -118,7 +118,7 @@ export default function Deals() {
                 </p>
                 {!searchTerm && statusFilter === 'all' && (
                   <Link to="/backoffice/deals/new">
-                    <Button>
+                    <Button type="button">
                       <Plus className="h-4 w-4 mr-2" />
                       Create Deal
                     </Button>
