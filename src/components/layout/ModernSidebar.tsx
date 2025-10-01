@@ -24,7 +24,10 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { useAuth } from '@/contexts/AuthContext';
-import logo from '@/assets/logo.png';
+import gmLogoDark from '@/assets/brand/gm-logo-dark.png';
+import gmLogoLight from '@/assets/brand/gm-logo-light.png';
+import gmMarkDark from '@/assets/brand/gm-mark-dark.png';
+import gmMarkLight from '@/assets/brand/gm-mark-light.png';
 
 interface ModernSidebarProps {
   items: NavItem[];
@@ -121,6 +124,13 @@ export function ModernSidebar({ items, userRole, getBadge }: ModernSidebarProps)
     return Icon ? <Icon className={cn('h-5 w-5', className)} /> : null;
   };
 
+  const getBrandAsset = () => {
+    if (collapsed) {
+      return sidebarTheme === 'dark' ? gmMarkDark : gmMarkLight;
+    }
+    return sidebarTheme === 'dark' ? gmLogoDark : gmLogoLight;
+  };
+
   const handleSidebarThemeToggle = () => {
     const newTheme = sidebarTheme === 'dark' ? 'light' : 'dark';
     setSidebarTheme(newTheme);
@@ -146,18 +156,18 @@ export function ModernSidebar({ items, userRole, getBadge }: ModernSidebarProps)
                   onMouseLeave={() => collapsed && setFlyoutGroup(null)}
                   className={cn(
                     'group relative flex items-center w-full rounded-xl transition-all duration-200',
-                    'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[hsl(var(--sb-accent))] focus-visible:ring-offset-2 focus-visible:ring-offset-[hsl(var(--sb-bg))]',
+                    'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[hsl(var(--sb-active-border))] focus-visible:ring-offset-2 focus-visible:ring-offset-[hsl(var(--sb-bg))]',
                     collapsed ? 'justify-center p-3' : 'justify-between px-3 py-2.5',
                     active
-                      ? 'bg-[hsl(var(--sb-bg-hover))] text-white border-l-2 border-[hsl(var(--sb-accent))]'
-                      : 'text-[hsl(var(--sb-text))] hover:bg-[hsl(var(--sb-bg-hover))] hover:text-white'
+                      ? 'bg-[hsl(var(--sb-active-bg))] text-[hsl(var(--sb-active-text))] border-l-2 border-[hsl(var(--sb-active-border))]'
+                      : 'text-[hsl(var(--sb-text))] hover:bg-[hsl(var(--sb-bg-hover))]'
                   )}
                   aria-expanded={!collapsed && isExpanded}
                 >
                   <div className="flex items-center gap-3">
                     {getIcon(item.icon, cn(
                       'transition-colors',
-                      active ? 'text-white' : 'text-[hsl(var(--sb-text))] group-hover:text-white'
+                      active ? 'text-[hsl(var(--sb-active-text))]' : 'text-[hsl(var(--sb-icon))] group-hover:text-[hsl(var(--sb-active-border))]'
                     ))}
                     {!collapsed && (
                       <>
@@ -196,8 +206,8 @@ export function ModernSidebar({ items, userRole, getBadge }: ModernSidebarProps)
                           className={cn(
                             'flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-colors',
                             isActive(child.route)
-                              ? 'bg-[hsl(var(--sb-bg-hover))] text-white'
-                              : 'text-[hsl(var(--sb-text))] hover:bg-[hsl(var(--sb-bg-hover))] hover:text-white'
+                              ? 'bg-[hsl(var(--sb-active-bg))] text-[hsl(var(--sb-active-text))]'
+                              : 'text-[hsl(var(--sb-text))] hover:bg-[hsl(var(--sb-bg-hover))]'
                           )}
                         >
                           {getIcon(child.icon, 'h-4 w-4')}
@@ -220,10 +230,10 @@ export function ModernSidebar({ items, userRole, getBadge }: ModernSidebarProps)
                   to={child.route}
                   className={cn(
                     'block px-3 py-2 rounded-lg text-sm transition-all duration-200',
-                    'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[hsl(var(--sb-accent))] focus-visible:ring-offset-2 focus-visible:ring-offset-[hsl(var(--sb-bg))]',
+                    'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[hsl(var(--sb-active-border))] focus-visible:ring-offset-2 focus-visible:ring-offset-[hsl(var(--sb-bg))]',
                     isActive(child.route)
-                      ? 'bg-[hsl(var(--sb-bg-hover))] text-white font-medium border-l-2 border-[hsl(var(--sb-accent))]'
-                      : 'text-[hsl(var(--sb-text))] hover:bg-[hsl(var(--sb-bg-hover))] hover:text-white'
+                      ? 'bg-[hsl(var(--sb-active-bg))] text-[hsl(var(--sb-active-text))] font-medium border-l-2 border-[hsl(var(--sb-active-border))]'
+                      : 'text-[hsl(var(--sb-text))] hover:bg-[hsl(var(--sb-bg-hover))]'
                   )}
                   aria-current={isActive(child.route) ? 'page' : undefined}
                 >
@@ -244,17 +254,17 @@ export function ModernSidebar({ items, userRole, getBadge }: ModernSidebarProps)
               to={item.route}
               className={cn(
                 'group relative flex items-center gap-3 rounded-xl transition-all duration-200',
-                'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[hsl(var(--sb-accent))] focus-visible:ring-offset-2 focus-visible:ring-offset-[hsl(var(--sb-bg))]',
+                'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[hsl(var(--sb-active-border))] focus-visible:ring-offset-2 focus-visible:ring-offset-[hsl(var(--sb-bg))]',
                 collapsed ? 'justify-center p-3' : 'px-3 py-2.5',
                 active
-                  ? 'bg-[hsl(var(--sb-bg-hover))] text-white font-medium border-l-2 border-[hsl(var(--sb-accent))]'
-                  : 'text-[hsl(var(--sb-text))] hover:bg-[hsl(var(--sb-bg-hover))] hover:text-white'
+                  ? 'bg-[hsl(var(--sb-active-bg))] text-[hsl(var(--sb-active-text))] font-medium border-l-2 border-[hsl(var(--sb-active-border))]'
+                  : 'text-[hsl(var(--sb-text))] hover:bg-[hsl(var(--sb-bg-hover))]'
               )}
               aria-current={active ? 'page' : undefined}
             >
               {getIcon(item.icon, cn(
                 'transition-colors',
-                active ? 'text-white' : 'text-[hsl(var(--sb-text))] group-hover:text-white'
+                active ? 'text-[hsl(var(--sb-active-text))]' : 'text-[hsl(var(--sb-icon))] group-hover:text-[hsl(var(--sb-active-border))]'
               ))}
               {!collapsed && <span className="font-medium text-sm">{item.label[locale]}</span>}
               {!collapsed && badgeCount && badgeCount > 0 && (
@@ -291,15 +301,20 @@ export function ModernSidebar({ items, userRole, getBadge }: ModernSidebarProps)
       <div className="flex flex-col h-full">
         {/* Top: Logo + Collapse Toggle */}
         <div className="h-16 flex items-center justify-between px-4 border-b border-[hsla(var(--sb-border))]">
-          {!collapsed ? (
-            <img src={logo} alt="Guardian Marine" className="h-8" />
-          ) : (
-            <div className="w-full flex justify-center">
-              <div className="h-8 w-8 rounded-lg bg-[hsl(var(--sb-accent))] flex items-center justify-center text-white font-bold text-sm">
-                GM
-              </div>
-            </div>
-          )}
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <div className={cn('flex items-center', collapsed && 'w-full justify-center')}>
+                  <img 
+                    src={getBrandAsset()} 
+                    alt="Guardian Marine" 
+                    className={cn(collapsed ? 'h-8 w-8' : 'h-8')} 
+                  />
+                </div>
+              </TooltipTrigger>
+              {collapsed && <TooltipContent side="right">Guardian Marine</TooltipContent>}
+            </Tooltip>
+          </TooltipProvider>
           {!collapsed && (
             <TooltipProvider>
               <Tooltip>
@@ -308,7 +323,7 @@ export function ModernSidebar({ items, userRole, getBadge }: ModernSidebarProps)
                     variant="ghost"
                     size="icon"
                     onClick={toggleCollapse}
-                    className="h-8 w-8 text-[hsl(var(--sb-text))] hover:text-white hover:bg-[hsl(var(--sb-bg-hover))]"
+                    className="h-8 w-8 text-[hsl(var(--sb-text))] hover:bg-[hsl(var(--sb-bg-hover))]"
                     aria-label={t('sidebar.collapse', 'Collapse')}
                   >
                     <ChevronLeft className="h-4 w-4" />
@@ -330,7 +345,7 @@ export function ModernSidebar({ items, userRole, getBadge }: ModernSidebarProps)
                     variant="ghost"
                     size="icon"
                     onClick={toggleCollapse}
-                    className="w-full h-10 text-[hsl(var(--sb-text))] hover:text-white hover:bg-[hsl(var(--sb-bg-hover))]"
+                    className="w-full h-10 text-[hsl(var(--sb-text))] hover:bg-[hsl(var(--sb-bg-hover))]"
                     aria-label={t('sidebar.expand', 'Expand')}
                   >
                     <ChevronRight className="h-4 w-4" />
@@ -358,7 +373,7 @@ export function ModernSidebar({ items, userRole, getBadge }: ModernSidebarProps)
                   size={collapsed ? 'icon' : 'sm'}
                   onClick={handleSidebarThemeToggle}
                   className={cn(
-                    'text-[hsl(var(--sb-text))] hover:text-white hover:bg-[hsl(var(--sb-bg-hover))]',
+                    'text-[hsl(var(--sb-text))] hover:bg-[hsl(var(--sb-bg-hover))]',
                     collapsed ? 'w-full' : 'w-full justify-start'
                   )}
                   aria-label={locale === 'es' ? 'Tema del sidebar' : 'Sidebar theme'}
@@ -378,7 +393,7 @@ export function ModernSidebar({ items, userRole, getBadge }: ModernSidebarProps)
                 variant="ghost"
                 size={collapsed ? 'icon' : 'sm'}
                 className={cn(
-                  'text-[hsl(var(--sb-text))] hover:text-white hover:bg-[hsl(var(--sb-bg-hover))]',
+                  'text-[hsl(var(--sb-text))] hover:bg-[hsl(var(--sb-bg-hover))]',
                   collapsed ? 'w-full' : 'w-full justify-start'
                 )}
               >
@@ -387,7 +402,7 @@ export function ModernSidebar({ items, userRole, getBadge }: ModernSidebarProps)
                 </div>
                 {!collapsed && (
                   <div className="ml-2 text-left flex-1 min-w-0">
-                    <div className="text-xs font-medium text-white truncate">{user?.name || 'User'}</div>
+                    <div className="text-xs font-medium text-[hsl(var(--sb-active-text))] truncate">{user?.name || 'User'}</div>
                     <div className="text-[10px] text-[hsl(var(--sb-text))] capitalize truncate">{user?.role || 'viewer'}</div>
                   </div>
                 )}

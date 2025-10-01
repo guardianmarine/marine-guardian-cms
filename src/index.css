@@ -170,17 +170,25 @@
 
 /* Sidebar theme variants */
 .sidebar-dark {
-  --sb-bg: 15 21% 12%;
-  --sb-bg-hover: 15 20% 17%;
-  --sb-text: 215 16% 82%;
-  --sb-accent: 217 91% 60%;
+  --sb-bg: 222 47% 11%;            /* deep navy */
+  --sb-bg-hover: 220 40% 15%;      /* slightly lighter navy */
+  --sb-text: 215 16% 82%;          /* slate-300 */
+  --sb-icon: 226 64% 80%;          /* indigo-300 */
   --sb-border: 0 0% 100% / 0.08;
+
+  --sb-active-bg: 218 50% 8%;     /* subtle darker for active */
+  --sb-active-border: 217 91% 60%; /* brand */
+  --sb-active-text: 0 0% 100%;     /* active text on dark */
 }
 
 .sidebar-light {
-  --sb-bg: 220 16% 97%;
-  --sb-bg-hover: 216 14% 93%;
-  --sb-text: 222 47% 11%;
-  --sb-accent: 217 91% 60%;
+  --sb-bg: 210 40% 98%;            /* slate-50-ish */
+  --sb-bg-hover: 214 32% 95%;      /* light hover */
+  --sb-text: 220 39% 11%;          /* gray-800 */
+  --sb-icon: 215 25% 27%;          /* slate-600 */
   --sb-border: 2 6% 9% / 0.08;
+
+  --sb-active-bg: 221 94% 96%;     /* brand-50 like */
+  --sb-active-border: 217 91% 60%;
+  --sb-active-text: 222 47% 11%;   /* dark text on light active */
 }
