@@ -157,26 +157,38 @@ export default function InboundRequests() {
   const handleConvertToLead = async (request: BuyerRequest) => {
     setConverting(request.id);
     try {
-      const payload = {
+      // Normalize preferred_contact
+      const preferred = (request.preferred_contact || '').toString().trim().toLowerCase();
+      const allowed = new Set(['phone','email','whatsapp']);
+      const preferred_contact = allowed.has(preferred) ? preferred : null;
+
+      const leadPayload = {
         source: 'website',
-        account_name: request.name,
-        contact_email: request.email,
-        phone: request.phone ?? null,
+        stage: 'new',
+        account_name: request.name || request.email || 'Website Lead',
+        contact_name: request.name || null,
+        contact_email: request.email || null,
+        contact_phone: request.phone || null,
+        preferred_contact,
         unit_id: request.unit_id ?? null,
-        notes: request.message ?? null,
+        buyer_request_id: request.id,
+        notes: request.message || null,
       };
 
-      const { error: leadErr } = await supabase.from('leads').insert(payload);
+      const { data: leadRows, error: leadErr } = await supabase
+        .from('leads')
+        .insert(leadPayload)
+        .select('id')
+        .single();
 
       if (leadErr) {
-        // Check if table doesn't exist
         const msg = (leadErr.message || '').toLowerCase();
+        // Fallback when leads table doesn't exist yet
         if (
-          leadErr.code === '42P01' ||
-          leadErr.code === 'PGRST205' ||
-          msg.includes('relation') ||
-          msg.includes('schema cache') ||
-          (msg.includes('table') && msg.includes('leads'))
+          leadErr.code === '42P01' || 
+          leadErr.code === 'PGRST205' || 
+          msg.includes('relation') || 
+          msg.includes('schema cache')
         ) {
           await supabase.from('buyer_requests').update({ status: 'processing' }).eq('id', request.id);
           toast.info(
@@ -187,15 +199,19 @@ export default function InboundRequests() {
           await loadRequests();
           return;
         }
-        // Other errors → surface message
         toast.error(leadErr.message);
         return;
       }
 
-      // Success: mark as converted
       await supabase.from('buyer_requests').update({ status: 'converted' }).eq('id', request.id);
       toast.success(i18n.language === 'es' ? 'Convertido a lead.' : 'Converted to lead.');
+
+      // Navigate to the lead detail if the page exists
+      const newId = leadRows?.id;
       await loadRequests();
+      if (newId) {
+        window.location.href = `/backoffice/crm/leads/${newId}`;
+      }
     } catch (error: any) {
       console.error('Error converting to lead:', error);
       toast.error(error?.message ?? (i18n.language === 'es' ? 'Error al crear lead' : 'Failed to create lead'));
