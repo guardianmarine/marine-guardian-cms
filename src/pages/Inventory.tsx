@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useSearchParams, Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { Helmet } from 'react-helmet-async';
 import { UnitCard } from '@/components/inventory/UnitCard';
@@ -342,14 +342,14 @@ export default function Inventory() {
                       </p>
                       <div className="flex items-center justify-center gap-4">
                         {hasActiveFilters && (
-                          <Button onClick={clearFilters} variant="outline">
+                        <Button onClick={clearFilters} variant="outline">
                             {i18n.language === 'es' ? 'Limpiar Filtros' : 'Clear Filters'}
                           </Button>
                         )}
                         <Button asChild>
-                          <a href="/request-unit">
+                          <Link to="/request-unit">
                             {i18n.language === 'es' ? 'Solicitar una Unidad' : 'Request a Unit'}
-                          </a>
+                          </Link>
                         </Button>
                       </div>
                     </CardContent>

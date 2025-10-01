@@ -1,10 +1,9 @@
-import { useLocation } from 'react-router-dom';
+import { useLocation, Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { ChevronRight } from 'lucide-react';
 import {
   Breadcrumb,
   BreadcrumbItem,
-  BreadcrumbLink,
   BreadcrumbList,
   BreadcrumbPage,
   BreadcrumbSeparator,
@@ -37,12 +36,12 @@ export function Breadcrumbs({ items }: BreadcrumbsProps) {
                   {isLast ? (
                     <BreadcrumbPage className="font-medium">{item.label[locale]}</BreadcrumbPage>
                   ) : (
-                    <BreadcrumbLink 
-                      href={item.route}
+                    <Link 
+                      to={item.route}
                       className="transition-all duration-200 hover:text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:rounded-sm"
                     >
                       {item.label[locale]}
-                    </BreadcrumbLink>
+                    </Link>
                   )}
                 </BreadcrumbItem>
                 {!isLast && (
