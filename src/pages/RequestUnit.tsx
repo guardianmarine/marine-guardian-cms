@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useNavigate } from 'react-router-dom';
 import { Helmet } from 'react-helmet-async';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -15,6 +16,7 @@ import { Search, CheckCircle } from 'lucide-react';
 
 export default function RequestUnit() {
   const { t, i18n } = useTranslation();
+  const navigate = useNavigate();
   const { toast } = useToast();
   const { addBuyerRequest } = usePurchasingStore();
   const [submitted, setSubmitted] = useState(false);
@@ -98,7 +100,7 @@ export default function RequestUnit() {
                 Thank you for your request. Our team will review your requirements and contact you
                 soon with matching inventory.
               </p>
-              <Button onClick={() => (window.location.href = '/')}>
+              <Button onClick={() => navigate('/')}>
                 Back to Home
               </Button>
             </CardContent>

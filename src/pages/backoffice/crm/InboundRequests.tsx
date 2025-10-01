@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useNavigate } from 'react-router-dom';
 import { BackofficeLayout } from '@/components/backoffice/Layout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -58,6 +59,7 @@ type Status = 'new' | 'processing' | 'converted' | 'spam' | 'closed' | 'all';
 
 export default function InboundRequests() {
   const { t, i18n } = useTranslation();
+  const navigate = useNavigate();
   const [requests, setRequests] = useState<BuyerRequest[]>([]);
   const [unitsById, setUnitsById] = useState<Record<string, UnitInfo>>({});
   const [loading, setLoading] = useState(true);
@@ -210,7 +212,7 @@ export default function InboundRequests() {
       const newId = leadRows?.id;
       await loadRequests();
       if (newId) {
-        window.location.href = `/backoffice/crm/leads/${newId}`;
+        navigate(`/backoffice/crm/leads/${newId}`);
       }
     } catch (error: any) {
       console.error('Error converting to lead:', error);

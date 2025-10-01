@@ -47,12 +47,12 @@ export default function Callback() {
 
         // If no staff or not active → /no-access
         if (!staff || staff.status !== 'active') {
-          window.location.replace(`/no-access?email=${encodeURIComponent(user.email || '')}`);
+          navigate(`/no-access?email=${encodeURIComponent(user.email || '')}`, { replace: true });
           return;
         }
 
         // Active → go in
-        window.location.replace('/admin');
+        navigate('/admin', { replace: true });
       } catch (error: any) {
         console.error('Callback error:', error);
         setError(error.message || t('auth.callbackError', 'Authentication failed. Please try again.'));

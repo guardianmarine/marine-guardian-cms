@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { User } from '@/types';
 import { supabase } from '@/integrations/supabase/client';
 import type { User as SupabaseUser, Session } from '@supabase/supabase-js';
@@ -10,6 +11,7 @@ interface AuthContextType {
   login: (email: string, password: string) => Promise<void>;
   logout: () => void;
   loading: boolean;
+  setNavigateFn?: (fn: (path: string) => void) => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -19,10 +21,11 @@ if (typeof window !== 'undefined') {
   (window as any).sb = supabase;
 }
 
-export function AuthProvider({ children }: { children: React.ReactNode }) {
+function AuthProviderInternal({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
+  const [navigateFn, setNavigateFn] = useState<((path: string) => void) | null>(null);
 
   useEffect(() => {
     // Set up auth state listener FIRST
@@ -83,7 +86,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               !currentPath.startsWith('/login') && 
               !currentPath.startsWith('/forgot') &&
               !currentPath.startsWith('/no-access')) {
-            window.location.replace(`/no-access?email=${encodeURIComponent(authUser.email || '')}`);
+            if (navigateFn) {
+              navigateFn(`/no-access?email=${encodeURIComponent(authUser.email || '')}`);
+            }
             return;
           }
         }
@@ -101,7 +106,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         const currentPath = window.location.pathname;
         if (currentPath.startsWith('/admin') || currentPath.startsWith('/backoffice')) {
           if (!currentPath.startsWith('/no-access')) {
-            window.location.replace(`/no-access?email=${encodeURIComponent(authUser.email || '')}`);
+            if (navigateFn) {
+              navigateFn(`/no-access?email=${encodeURIComponent(authUser.email || '')}`);
+            }
             return;
           }
         }
@@ -139,11 +146,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         login,
         logout,
         loading,
+        setNavigateFn,
       }}
     >
       {children}
     </AuthContext.Provider>
   );
+}
+
+// Export as AuthProvider
+export function AuthProvider({ children }: { children: React.ReactNode }) {
+  return <AuthProviderInternal>{children}</AuthProviderInternal>;
 }
 
 export function useAuth() {

@@ -107,7 +107,7 @@ export default function Reset() {
 
       // If no staff or not active → /no-access
       if (!staff || staff.status !== 'active') {
-        window.location.replace(`/no-access?email=${encodeURIComponent(user.email || '')}`);
+        navigate(`/no-access?email=${encodeURIComponent(user.email || '')}`, { replace: true });
         return;
       }
 
@@ -124,7 +124,7 @@ export default function Reset() {
       });
 
       // Redirect to admin
-      window.location.replace('/admin');
+      navigate('/admin', { replace: true });
     } catch (error: any) {
       toast({
         title: t('common.error', 'Error'),

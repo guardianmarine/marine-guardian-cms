@@ -103,7 +103,7 @@ export default function SetPassword() {
 
       // If no staff or not active → /no-access
       if (!staff || staff.status !== 'active') {
-        window.location.replace(`/no-access?email=${encodeURIComponent(user.email || '')}`);
+        navigate(`/no-access?email=${encodeURIComponent(user.email || '')}`, { replace: true });
         return;
       }
 
@@ -119,7 +119,7 @@ export default function SetPassword() {
 
       // Redirect to next
       const next = searchParams.get('next') || '/admin';
-      window.location.replace(next);
+      navigate(next, { replace: true });
     } catch (error: any) {
       toast({
         title: t('common.error', 'Error'),

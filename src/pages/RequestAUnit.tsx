@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useNavigate } from 'react-router-dom';
 import { Helmet } from 'react-helmet-async';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -12,6 +13,7 @@ import { Search, CheckCircle, Loader2 } from 'lucide-react';
 
 export default function RequestAUnit() {
   const { t, i18n } = useTranslation();
+  const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [formData, setFormData] = useState({
@@ -110,7 +112,7 @@ export default function RequestAUnit() {
                   ? 'Nuestro equipo te contactará en 1 día hábil.'
                   : 'Our team will contact you within 1 business day.'}
               </p>
-              <Button onClick={() => (window.location.href = '/')}>
+              <Button onClick={() => navigate('/')}>
                 {i18n.language === 'es' ? 'Volver al Inicio' : 'Back to Home'}
               </Button>
             </CardContent>
