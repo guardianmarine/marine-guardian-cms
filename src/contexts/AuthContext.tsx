@@ -75,6 +75,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
 
       if (staff) {
+        // Check if status is not active - redirect to set password
+        if (staff.status !== 'active') {
+          const currentPath = window.location.pathname;
+          // Don't redirect if already on auth pages
+          if (!currentPath.startsWith('/auth/') && !currentPath.startsWith('/login') && !currentPath.startsWith('/forgot')) {
+            window.location.replace(`/auth/set-password?next=${encodeURIComponent(currentPath)}`);
+            return;
+          }
+        }
+
         setUser({
           id: staff.id,
           email: staff.email,

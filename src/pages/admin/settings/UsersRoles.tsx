@@ -259,6 +259,9 @@ export default function UsersRoles() {
 
       if (error) throw error;
 
+      // Set status to pending
+      await supabase.from('users').update({ status: 'pending' }).eq('email', email);
+
       toast({
         title: t('common.success', 'Success'),
         description: t('admin.users.setupLinkSent', 'Setup link sent'),
@@ -283,6 +286,9 @@ export default function UsersRoles() {
       });
 
       if (error) throw error;
+
+      // Set status to pending so callback forces password setup
+      await supabase.from('users').update({ status: 'pending' }).eq('email', email);
 
       toast({
         title: t('common.success', 'Success'),

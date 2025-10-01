@@ -23,23 +23,39 @@ export default function Callback() {
 
         const { data: { user } } = await supabase.auth.getUser();
 
-        if (user) {
-          // Self-provision staff row
+        if (!user) {
+          setError(t('auth.callbackError', 'Authentication failed. Please try again.'));
+          return;
+        }
+
+        // Ensure staff row exists; default to pending
+        const { data: staff } = await supabase
+          .from('users')
+          .select('id, status')
+          .eq('email', user.email!)
+          .maybeSingle();
+
+        if (!staff) {
           await supabase.from('users').upsert(
             {
               email: user.email,
               auth_user_id: user.id,
               name: user.user_metadata?.name || user.email,
-              status: 'active',
+              status: 'pending',
             },
             { onConflict: 'email' }
           );
-
-          // Redirect to admin
-          window.location.replace('/admin');
-        } else {
-          setError(t('auth.callbackError', 'Authentication failed. Please try again.'));
         }
+
+        // If not active, force password setup
+        const status = staff?.status ?? 'pending';
+        if (status !== 'active') {
+          window.location.replace('/auth/set-password?next=/admin');
+          return;
+        }
+
+        // Active → go in
+        window.location.replace('/admin');
       } catch (error: any) {
         console.error('Callback error:', error);
         setError(error.message || t('auth.callbackError', 'Authentication failed. Please try again.'));

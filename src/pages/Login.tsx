@@ -149,6 +149,9 @@ export default function Login() {
                 t('auth.useEmailLink', 'Use email link')
               )}
             </Button>
+            <p className="text-xs text-muted-foreground text-center">
+              {t('auth.magicLinkHelper', 'You\'ll be asked to set a password on first sign-in.')}
+            </p>
 
             <div className="text-center">
               <Button
