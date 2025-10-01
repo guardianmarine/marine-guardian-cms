@@ -70,7 +70,7 @@ export function CompanyCalendarCard() {
       ? activities.filter((a) => a.owner_user_id === user?.id)
       : activities;
 
-  const upcomingActivities = filteredActivities.slice(0, 10);
+  const upcomingActivities = filteredActivities.slice(0, 5);
 
   const getDateLabel = (date: Date) => {
     if (isToday(date)) {
@@ -115,34 +115,36 @@ export function CompanyCalendarCard() {
   };
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <CalendarIcon className="h-5 w-5" />
+    <Card className="rounded-2xl border-slate-200/70 shadow-sm" aria-labelledby="calendar-title">
+      <CardHeader className="pb-3">
+        <CardTitle id="calendar-title" className="flex items-center gap-2 text-lg">
+          <CalendarIcon className="h-5 w-5 text-primary" />
           {t('dashboard.companyCalendar', 'Company Calendar')}
         </CardTitle>
       </CardHeader>
-      <CardContent>
+      <CardContent className="px-5 pb-5">
         <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'all' | 'mine')}>
-          <TabsList className="grid w-full grid-cols-2 mb-4">
-            <TabsTrigger value="all">{t('dashboard.allCompany', 'All Company')}</TabsTrigger>
-            <TabsTrigger value="mine">{t('dashboard.mySchedule', 'My Schedule')}</TabsTrigger>
+          <TabsList className="grid w-full grid-cols-2 mb-3 h-9">
+            <TabsTrigger value="all" className="text-xs">{t('dashboard.allCompany', 'All Company')}</TabsTrigger>
+            <TabsTrigger value="mine" className="text-xs">{t('dashboard.mySchedule', 'My Schedule')}</TabsTrigger>
           </TabsList>
 
-          <TabsContent value={activeTab} className="space-y-3">
+          <TabsContent value={activeTab} className="mt-0">
             {loading ? (
-              <div className="flex items-center justify-center py-8">
-                <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+              <div className="space-y-2">
+                {[1, 2, 3].map((i) => (
+                  <div key={i} className="h-16 bg-slate-100 dark:bg-slate-800 rounded-lg animate-pulse" />
+                ))}
               </div>
             ) : upcomingActivities.length === 0 ? (
-              <p className="text-sm text-muted-foreground text-center py-4">
-                {t('dashboard.noUpcomingEvents', 'No upcoming events or tasks.')}
-              </p>
+              <div className="flex flex-col items-center justify-center py-6 text-center">
+                <CalendarIcon className="h-10 w-10 text-slate-300 dark:text-slate-700 mb-2" />
+                <p className="text-sm text-slate-600 dark:text-slate-400">
+                  {t('dashboard.noUpcomingEvents', 'No upcoming events or tasks.')}
+                </p>
+              </div>
             ) : (
-              <div className="space-y-2">
-                <h4 className="text-xs font-semibold text-muted-foreground uppercase">
-                  {t('dashboard.upcoming', 'Upcoming')}
-                </h4>
+              <div className="space-y-2 max-h-[300px] overflow-y-auto pr-1 scrollbar-thin">
                 {upcomingActivities.map((activity) => {
                   const dueDate = new Date(activity.due_at);
                   const overdue = isOverdue(dueDate);
@@ -151,16 +153,18 @@ export function CompanyCalendarCard() {
                     <div
                       key={activity.id}
                       onClick={() => handleActivityClick(activity)}
-                      className={`p-3 rounded-lg border transition-all duration-200 cursor-pointer hover:shadow-md ${
+                      className={`p-3 rounded-xl border transition-all duration-200 cursor-pointer hover:shadow-md ${
                         overdue
-                          ? 'border-destructive bg-destructive/5'
-                          : 'border-border bg-card hover:bg-accent'
+                          ? 'border-destructive/50 bg-destructive/5'
+                          : 'border-slate-200 dark:border-slate-700 bg-card hover:bg-slate-50 dark:hover:bg-slate-800'
                       }`}
                     >
-                      <div className="flex items-start justify-between gap-2 mb-2">
+                      <div className="flex items-center gap-2 mb-2">
                         <div className="flex items-center gap-2 flex-1 min-w-0">
-                          {getKindIcon(activity.kind)}
-                          <h4 className="font-semibold text-sm truncate">{activity.subject}</h4>
+                          <div className="text-primary">{getKindIcon(activity.kind)}</div>
+                          <h4 className="font-medium text-sm text-slate-900 dark:text-slate-100 truncate">
+                            {activity.subject}
+                          </h4>
                         </div>
                         <Badge
                           variant={overdue ? 'destructive' : 'secondary'}
@@ -169,7 +173,7 @@ export function CompanyCalendarCard() {
                           {getDateLabel(dueDate)}
                         </Badge>
                       </div>
-                      <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                      <div className="flex items-center gap-3 text-xs text-slate-500 dark:text-slate-400 ml-5">
                         <div className="flex items-center gap-1">
                           <Clock className="h-3 w-3" />
                           <span>{format(dueDate, 'h:mm a')}</span>

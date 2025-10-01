@@ -80,60 +80,61 @@ export function AnnouncementsCard() {
   };
 
   return (
-    <Card className="lg:col-span-2">
-      <CardHeader className="flex flex-row items-center justify-between">
-        <CardTitle className="flex items-center gap-2">
-          <Megaphone className="h-5 w-5" />
+    <Card className="rounded-2xl border-slate-200/70 shadow-sm" aria-labelledby="announcements-title">
+      <CardHeader className="flex flex-row items-center justify-between pb-3">
+        <CardTitle id="announcements-title" className="flex items-center gap-2 text-lg">
+          <Megaphone className="h-5 w-5 text-primary" />
           {t('dashboard.announcements', 'Announcements')}
         </CardTitle>
         <Link to="/backoffice/settings/announcements">
-          <Button variant="ghost" size="sm" className="gap-2">
+          <Button variant="ghost" size="sm" className="gap-2 h-8 text-xs" aria-label={t('dashboard.seeAll', 'See all')}>
             {t('dashboard.seeAll', 'See all')}
             <ExternalLink className="h-3 w-3" />
           </Button>
         </Link>
       </CardHeader>
-      <CardContent className="space-y-3">
+      <CardContent className="px-5 pb-5">
         {loading ? (
-          <div className="flex items-center justify-center py-8">
-            <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+          <div className="space-y-2">
+            {[1, 2, 3].map((i) => (
+              <div key={i} className="h-12 bg-slate-100 dark:bg-slate-800 rounded-lg animate-pulse" />
+            ))}
           </div>
         ) : visibleAnnouncements.length === 0 ? (
-          <p className="text-sm text-muted-foreground">
-            {t('dashboard.noAnnouncements', 'No announcements at this time.')}
-          </p>
+          <div className="flex flex-col items-center justify-center py-6 text-center">
+            <Megaphone className="h-10 w-10 text-slate-300 dark:text-slate-700 mb-2" />
+            <p className="text-sm text-slate-600 dark:text-slate-400">
+              {t('dashboard.noAnnouncements', 'No announcements at this time.')}
+            </p>
+          </div>
         ) : (
-          visibleAnnouncements.slice(0, 3).map((announcement) => (
-            <div
-              key={announcement.id}
-              className="p-4 rounded-lg transition-all duration-200 border-l-4 border-primary bg-primary/5"
-            >
-              <div className="flex items-start justify-between gap-3 mb-2">
-                <h4 className="font-semibold text-sm">{announcement.title}</h4>
-                <Badge variant="secondary" className="text-xs shrink-0">
-                  {getAudienceBadge(announcement.audience)}
-                </Badge>
-              </div>
-              <p className="text-sm text-muted-foreground mb-3">{announcement.body}</p>
-              {announcement.media_url && (
-                <img
-                  src={announcement.media_url}
-                  alt={announcement.title}
-                  className="w-full h-32 object-cover rounded-md mb-3"
-                />
-              )}
-              {(announcement.start_at || announcement.end_at) && (
-                <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                  <CalendarIcon className="h-3 w-3" />
-                  <span>
-                    {announcement.start_at && format(new Date(announcement.start_at), 'MMM d')}
-                    {announcement.start_at && announcement.end_at && ' - '}
-                    {announcement.end_at && format(new Date(announcement.end_at), 'MMM d, yyyy')}
-                  </span>
+          <div className="space-y-2 max-h-[240px] md:max-h-[240px] overflow-y-auto pr-1 scrollbar-thin">
+            {visibleAnnouncements.slice(0, 3).map((announcement) => (
+              <div
+                key={announcement.id}
+                className="p-4 rounded-xl transition-all duration-200 border-l-4 border-primary bg-primary/5 hover:shadow-sm"
+              >
+                <div className="flex items-start justify-between gap-3 mb-1">
+                  <h4 className="font-semibold text-sm text-slate-900 dark:text-slate-100 line-clamp-1" title={announcement.title}>
+                    {announcement.title}
+                  </h4>
+                  <Badge variant="secondary" className="text-xs shrink-0">
+                    {getAudienceBadge(announcement.audience)}
+                  </Badge>
                 </div>
-              )}
-            </div>
-          ))
+                {(announcement.start_at || announcement.end_at) && (
+                  <div className="flex items-center gap-1 text-xs text-slate-500 dark:text-slate-400">
+                    <CalendarIcon className="h-3 w-3" />
+                    <span>
+                      {announcement.start_at && format(new Date(announcement.start_at), 'MMM d')}
+                      {announcement.start_at && announcement.end_at && ' - '}
+                      {announcement.end_at && format(new Date(announcement.end_at), 'MMM d, yyyy')}
+                    </span>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
         )}
       </CardContent>
     </Card>

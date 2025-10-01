@@ -57,6 +57,11 @@
     --sidebar-accent-foreground: 240 5.9% 10%;
     --sidebar-border: 220 13% 91%;
     --sidebar-ring: 229 42% 52%;
+    
+    /* Modern dashboard tokens */
+    --brand: 221 83% 33%;
+    --brand-2: 217 91% 60%;
+    --card-muted: 210 20% 97%;
   }
 
   .dark {

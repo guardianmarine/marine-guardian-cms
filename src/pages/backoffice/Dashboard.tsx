@@ -14,31 +14,32 @@ export default function Dashboard() {
   return (
     <BackofficeLayout>
       <div className="p-6 space-y-6 animate-fade-in">
+        {/* Header */}
         <div>
-          <h2 className="text-3xl font-bold">
+          <h2 className="text-3xl font-semibold text-slate-900 dark:text-slate-100">
             {t('dashboard.companyDashboard', 'Company Dashboard')}
           </h2>
-          <p className="text-muted-foreground">
+          <p className="text-slate-600 dark:text-slate-400 mt-1">
             {t('dashboard.welcomeBack', 'Welcome back')}, {user?.name}
           </p>
         </div>
 
-        {/* Main Grid */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Left Column - Announcements (spans 2 columns) */}
-          <AnnouncementsCard />
+        {/* Responsive Grid Layout */}
+        <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
+          {/* Left Content - Announcements & Birthdays */}
+          <div className="md:col-span-8 lg:col-span-9 space-y-6">
+            <AnnouncementsCard />
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <BirthdaysCard />
+              <UpcomingDeliveriesCard />
+            </div>
+          </div>
 
-          {/* Right Column */}
-          <div className="space-y-6">
+          {/* Right Rail - Calendar & Quick Actions */}
+          <div className="md:col-span-4 lg:col-span-3 space-y-6">
             <CompanyCalendarCard />
             <QuickActionsCard />
           </div>
-        </div>
-
-        {/* Optional Tiles Below */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <UpcomingDeliveriesCard />
-          <BirthdaysCard />
         </div>
       </div>
     </BackofficeLayout>
