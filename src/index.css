@@ -72,13 +72,13 @@
   }
 
   .dark {
-    --background: 222 47% 11%;
+    --background: 218 100% 12%;
     --foreground: 0 0% 95%;
     
-    --card: 222 40% 15%;
+    --card: 218 90% 16%;
     --card-foreground: 0 0% 95%;
     
-    --popover: 222 40% 15%;
+    --popover: 218 90% 16%;
     --popover-foreground: 0 0% 95%;
     
     --primary: 229 42% 60%;
@@ -170,13 +170,13 @@
 
 /* Sidebar theme variants */
 .sidebar-dark {
-  --sb-bg: 222 47% 11%;            /* deep navy */
-  --sb-bg-hover: 220 40% 15%;      /* slightly lighter navy */
-  --sb-text: 215 16% 82%;          /* slate-300 */
-  --sb-icon: 226 64% 80%;          /* indigo-300 */
-  --sb-border: 0 0% 100% / 0.08;
+  --sb-bg: 218 100% 12%;           /* #00163b navy */
+  --sb-bg-hover: 218 86% 17%;      /* #06214f lighter hover */
+  --sb-text: 218 100% 90%;         /* #cfe1ff light text */
+  --sb-icon: 218 100% 80%;         /* #9fbaff icon color */
+  --sb-border: 0 0% 100% / 0.10;
 
-  --sb-active-bg: 218 50% 8%;     /* subtle darker for active */
+  --sb-active-bg: 218 90% 15%;     /* #041d48 active bg */
   --sb-active-border: 217 91% 60%; /* brand */
   --sb-active-text: 0 0% 100%;     /* active text on dark */
 }
