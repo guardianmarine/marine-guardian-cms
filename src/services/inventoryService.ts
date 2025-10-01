@@ -1,5 +1,6 @@
 import { Unit, InventoryFilters, Locale } from '@/types';
 import { mockUnits } from './mockData';
+import { isUnitPublished } from '@/lib/publishing-utils';
 
 // Public API serializer - strips internal-only fields
 function serializeForPublic(unit: Unit): Unit {
@@ -26,7 +27,8 @@ export class InventoryService {
     // Simulate API delay
     await new Promise((resolve) => setTimeout(resolve, 300));
 
-    const publishedUnits = mockUnits.filter((unit) => unit.status === 'published');
+    // Use flexible publishing logic to support different schemas
+    const publishedUnits = mockUnits.filter((unit) => isUnitPublished(unit));
     const filtered = this.filterUnits(publishedUnits, filters);
 
     // Strip internal fields using serializer
@@ -36,7 +38,8 @@ export class InventoryService {
   static async getPublicUnit(id: string, _lang: Locale = 'en'): Promise<Unit | null> {
     await new Promise((resolve) => setTimeout(resolve, 200));
 
-    const unit = mockUnits.find((u) => u.id === id && u.status === 'published');
+    // Use flexible publishing logic
+    const unit = mockUnits.find((u) => u.id === id && isUnitPublished(u));
     if (!unit) return null;
 
     // Strip internal fields using serializer
@@ -51,7 +54,7 @@ export class InventoryService {
       .filter(
         (u) =>
           u.id !== unit.id &&
-          u.status === 'published' &&
+          isUnitPublished(u) &&
           u.category === unit.category &&
           u.type === unit.type
       )
@@ -70,7 +73,7 @@ export class InventoryService {
         .filter(
           (u) =>
             u.id !== unit.id &&
-            u.status === 'published' &&
+            isUnitPublished(u) &&
             u.category === unit.category &&
             !similar.find(s => s.id === u.id)
         )
@@ -93,7 +96,7 @@ export class InventoryService {
     };
 
     mockUnits
-      .filter((u) => u.status === 'published')
+      .filter((u) => isUnitPublished(u))
       .forEach((unit) => {
         counts[unit.category]++;
       });
@@ -123,15 +126,15 @@ export class InventoryService {
   // Helper methods for filters - only show published units to public
   static getUniqueMakes(category?: string): string[] {
     const units = category 
-      ? mockUnits.filter((u) => u.category === category && u.status === 'published') 
-      : mockUnits.filter(u => u.status === 'published');
+      ? mockUnits.filter((u) => u.category === category && isUnitPublished(u)) 
+      : mockUnits.filter(u => isUnitPublished(u));
     return [...new Set(units.map((u) => u.make))].sort();
   }
 
   static getUniqueTypes(category?: string): string[] {
     const units = category 
-      ? mockUnits.filter((u) => u.category === category && u.status === 'published') 
-      : mockUnits.filter(u => u.status === 'published');
+      ? mockUnits.filter((u) => u.category === category && isUnitPublished(u)) 
+      : mockUnits.filter(u => isUnitPublished(u));
     return [...new Set(units.map((u) => u.type))].sort();
   }
 }

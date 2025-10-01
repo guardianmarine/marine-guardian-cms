@@ -1,5 +1,6 @@
 import { HeroBlock, FeaturedPick, Locale } from '@/types';
 import { mockHeroBlocks, mockFeaturedPicks } from './mockData';
+import { isUnitPublished } from '@/lib/publishing-utils';
 
 // Simple in-memory cache
 let contentCache: Record<string, { data: any; timestamp: number }> = {};
@@ -34,8 +35,9 @@ export class ContentService {
     }
 
     await new Promise((resolve) => setTimeout(resolve, 100));
+    // Use flexible publishing logic for both featured picks and their units
     const data = mockFeaturedPicks.filter(
-      (pick) => pick.status === 'published' && pick.unit?.status === 'published'
+      (pick) => pick.status === 'published' && pick.unit && isUnitPublished(pick.unit)
     );
     
     contentCache[cacheKey] = { data, timestamp: Date.now() };
