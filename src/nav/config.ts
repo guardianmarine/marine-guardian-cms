@@ -139,6 +139,13 @@ export const NAV_ITEMS: NavItem[] = [
         label: { en: 'My Tasks', es: 'Mis Tareas' }, 
         roles: ['admin', 'sales'] 
       },
+      { 
+        id: 'inbound-requests', 
+        route: '/backoffice/crm/inbound-requests', 
+        icon: 'MessageSquare', 
+        label: { en: 'Inbound Requests', es: 'Solicitudes Entrantes' }, 
+        roles: ['admin', 'sales'] 
+      },
     ]
   },
 
@@ -223,11 +230,62 @@ export const NAV_ITEMS: NavItem[] = [
   },
 
   { 
-    id: 'buyer-requests', 
-    route: '/backoffice/buyer-requests', 
-    icon: 'MessageSquare', 
-    label: { en: 'Buyer Requests', es: 'Solicitudes' }, 
-    roles: ['admin', 'inventory', 'sales'] 
+    id: 'crm', 
+    route: '/backoffice/crm', 
+    icon: 'Users', 
+    label: { en: 'CRM', es: 'CRM' }, 
+    roles: ['admin', 'sales', 'finance', 'inventory', 'viewer'],
+    children: [
+      { 
+        id: 'accounts', 
+        route: '/backoffice/crm/accounts', 
+        icon: 'Building', 
+        label: { en: 'Accounts', es: 'Cuentas' }, 
+        roles: ['admin', 'sales', 'finance', 'inventory', 'viewer'] 
+      },
+      { 
+        id: 'contacts', 
+        route: '/backoffice/crm/contacts', 
+        icon: 'Contact', 
+        label: { en: 'Contacts', es: 'Contactos' }, 
+        roles: ['admin', 'sales', 'finance', 'inventory', 'viewer'] 
+      },
+      { 
+        id: 'leads', 
+        route: '/backoffice/crm/leads', 
+        icon: 'Megaphone', 
+        label: { en: 'Leads', es: 'Leads' }, 
+        roles: ['admin', 'sales'] 
+      },
+      { 
+        id: 'opportunities', 
+        route: '/backoffice/crm/opportunities', 
+        icon: 'Handshake', 
+        label: { en: 'Opportunities', es: 'Oportunidades' }, 
+        roles: ['admin', 'sales'] 
+      },
+      { 
+        id: 'opportunities-kanban', 
+        route: '/backoffice/crm/opportunities/kanban', 
+        icon: 'Kanban', 
+        label: { en: 'Opportunities Kanban', es: 'Oportunidades Kanban' }, 
+        roles: ['admin', 'sales'] 
+      },
+      { 
+        id: 'tasks', 
+        route: '/backoffice/crm/tasks', 
+        icon: 'CheckSquare', 
+        label: { en: 'My Tasks', es: 'Mis Tareas' }, 
+        roles: ['admin', 'sales'] 
+      },
+      { 
+        id: 'inbound-requests', 
+        route: '/backoffice/crm/inbound-requests', 
+        icon: 'MessageSquare', 
+        label: { en: 'Inbound Requests', es: 'Solicitudes Entrantes' }, 
+        roles: ['admin', 'sales'] 
+      },
+    ]
   },
 
   { 

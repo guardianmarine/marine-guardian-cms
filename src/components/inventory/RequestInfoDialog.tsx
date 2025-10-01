@@ -13,6 +13,7 @@ import {
 } from '@/components/ui/dialog';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { useToast } from '@/hooks/use-toast';
+import { supabase } from '@/integrations/supabase/client';
 import { Unit } from '@/types';
 import { Phone, Mail, MessageCircle, CheckCircle, Loader2 } from 'lucide-react';
 import { z } from 'zod';
@@ -55,8 +56,21 @@ export function RequestInfoDialog({ open, onOpenChange, unit }: RequestInfoDialo
       requestSchema.parse(formData);
       setLoading(true);
 
-      // Simulate API call
-      await new Promise((resolve) => setTimeout(resolve, 1000));
+      // Insert into Supabase
+      const { error } = await supabase.from('buyer_requests').insert({
+        unit_id: unit.id,
+        request_type: 'info',
+        name: formData.name,
+        email: formData.email,
+        phone: formData.phone,
+        preferred_contact: formData.preferred_contact,
+        message: formData.message || null,
+        page_url: window.location.href,
+        user_agent: navigator.userAgent,
+        honey: '', // honeypot (empty)
+      });
+
+      if (error) throw error;
 
       setSubmitted(true);
       toast({
@@ -72,6 +86,13 @@ export function RequestInfoDialog({ open, onOpenChange, unit }: RequestInfoDialo
           }
         });
         setErrors(fieldErrors);
+      } else {
+        console.error('Error submitting request:', error);
+        toast({
+          title: t('common.error'),
+          description: 'Failed to submit request. Please try again.',
+          variant: 'destructive',
+        });
       }
     } finally {
       setLoading(false);
