@@ -41,7 +41,9 @@ import Opportunities from "./pages/backoffice/crm/Opportunities";
 import OpportunityDetail from "./pages/backoffice/crm/OpportunityDetail";
 import OpportunityKanban from "./pages/backoffice/crm/OpportunityKanban";
 import MyTasks from "./pages/backoffice/crm/MyTasks";
+import MyTasksV2 from "./pages/backoffice/crm/MyTasksV2";
 import Deals from "./pages/backoffice/deals/Deals";
+import NewDeal from "./pages/backoffice/deals/NewDeal";
 import DealDetail from "./pages/backoffice/deals/DealDetail";
 import TaxRegimes from "./pages/backoffice/deals/TaxRegimes";
 import DealsV2 from "./pages/backoffice/deals/DealsV2";
@@ -283,11 +285,12 @@ const App = () => (
             <Route path="/backoffice/crm/opportunities/kanban" element={<ProtectedRoute><RoleGuard allowedRoles={['admin','sales']}><OpportunityKanban /></RoleGuard></ProtectedRoute>} />
             <Route path="/backoffice/crm/opportunities/:id" element={<ProtectedRoute><RoleGuard allowedRoles={['admin','sales']}><OpportunityDetail /></RoleGuard></ProtectedRoute>} />
             <Route path="/backoffice/crm/tasks" element={<ProtectedRoute><RoleGuard allowedRoles={['admin','sales']}><MyTasks /></RoleGuard></ProtectedRoute>} />
+            <Route path="/backoffice/crm/my-tasks-v2" element={<ProtectedRoute><RoleGuard allowedRoles={['admin','sales']}><MyTasksV2 /></RoleGuard></ProtectedRoute>} />
             <Route path="/backoffice/crm/inbound-requests" element={<ProtectedRoute><RoleGuard allowedRoles={['admin','sales']}><InboundRequests /></RoleGuard></ProtectedRoute>} />
 
             {/* Deals & Finance Routes */}
             <Route path="/backoffice/deals" element={<ProtectedRoute><RoleGuard allowedRoles={['admin','sales','finance']}><Deals /></RoleGuard></ProtectedRoute>} />
-            <Route path="/backoffice/deals/new" element={<ProtectedRoute><RoleGuard allowedRoles={['admin','sales']}><DealDetail /></RoleGuard></ProtectedRoute>} />
+            <Route path="/backoffice/deals/new" element={<ProtectedRoute><RoleGuard allowedRoles={['admin','sales']}><NewDeal /></RoleGuard></ProtectedRoute>} />
             <Route path="/backoffice/deals/:id" element={<ProtectedRoute><RoleGuard allowedRoles={['admin','sales','finance']}><DealDetail /></RoleGuard></ProtectedRoute>} />
             <Route path="/backoffice/deals/tax-regimes" element={<ProtectedRoute><RoleGuard allowedRoles={['admin','finance']}><TaxRegimes /></RoleGuard></ProtectedRoute>} />
             

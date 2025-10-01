@@ -159,64 +159,40 @@ export default function InboundRequests() {
   const handleConvertToLead = async (request: BuyerRequest) => {
     setConverting(request.id);
     try {
-      // Normalize preferred_contact
-      const preferred = (request.preferred_contact || '').toString().trim().toLowerCase();
-      const allowed = new Set(['phone','email','whatsapp']);
-      const preferred_contact = allowed.has(preferred) ? preferred : null;
-
-      const leadPayload = {
-        source: 'website',
-        stage: 'new',
-        account_name: request.name || request.email || 'Website Lead',
-        contact_name: request.name || null,
-        contact_email: request.email || null,
-        contact_phone: request.phone || null,
-        preferred_contact,
-        unit_id: request.unit_id ?? null,
-        buyer_request_id: request.id,
-        notes: request.message || null,
-      };
-
-      const { data: leadRows, error: leadErr } = await supabase
-        .from('leads')
-        .insert(leadPayload)
-        .select('id')
-        .single();
-
-      if (leadErr) {
-        const msg = (leadErr.message || '').toLowerCase();
-        // Fallback when leads table doesn't exist yet
-        if (
-          leadErr.code === '42P01' || 
-          leadErr.code === 'PGRST205' || 
-          msg.includes('relation') || 
-          msg.includes('schema cache')
-        ) {
-          await supabase.from('buyer_requests').update({ status: 'processing' }).eq('id', request.id);
-          toast.info(
-            i18n.language === 'es'
-              ? 'Tabla "leads" no encontrada. Marcado como En proceso.'
-              : 'Leads table not found. Marked as Processing.'
-          );
-          await loadRequests();
-          return;
-        }
-        toast.error(leadErr.message);
+      const { useAuth } = await import('@/contexts/AuthContext');
+      const authModule = useAuth();
+      const currentUserId = authModule?.user?.id;
+      
+      if (!currentUserId) {
+        toast.error('User not authenticated');
         return;
       }
 
-      await supabase.from('buyer_requests').update({ status: 'converted' }).eq('id', request.id);
-      toast.success(i18n.language === 'es' ? 'Convertido a lead.' : 'Converted to lead.');
+      const { convertBuyerRequestToLead } = await import('@/services/crmFlow');
+      
+      const result = await convertBuyerRequestToLead({
+        buyerRequestId: request.id,
+        name: request.name,
+        email: request.email,
+        phone: request.phone || undefined,
+        message: request.message || undefined,
+        unitId: request.unit_id || undefined,
+        currentUserId,
+      });
 
-      // Navigate to the lead detail if the page exists
-      const newId = leadRows?.id;
+      toast.success(
+        i18n.language === 'es'
+          ? 'Lead creado con cuenta, contacto, oportunidad y tarea!'
+          : 'Lead created with account, contact, opportunity, and task!'
+      );
+
       await loadRequests();
-      if (newId) {
-        navigate(`/backoffice/crm/leads/${newId}`);
-      }
+      navigate(`/backoffice/crm/leads/${result.leadId}`);
     } catch (error: any) {
       console.error('Error converting to lead:', error);
-      toast.error(error?.message ?? (i18n.language === 'es' ? 'Error al crear lead' : 'Failed to create lead'));
+      toast.error(
+        error?.message ?? (i18n.language === 'es' ? 'Error al crear lead' : 'Failed to create lead')
+      );
     } finally {
       setConverting(null);
     }
