@@ -15,6 +15,7 @@ import { useDealFees } from '@/hooks/useDealFees';
 import { useTaxPresets } from '@/hooks/useTaxPresets';
 import { useInvoiceGeneration } from '@/hooks/useInvoiceGeneration';
 import { supabase } from '@/integrations/supabase/client';
+import { calculateDealTotals } from '@/lib/deal-calculations';
 import { Unit } from '@/types';
 import { InvoicePDF } from '@/components/deals/InvoicePDF';
 import { PDFViewer, pdf } from '@react-pdf/renderer';
@@ -118,34 +119,23 @@ export default function DealDetailEditor() {
     loadUnits();
   }, []);
 
-  // Calculate totals
+  // Calculate totals using pure helper
   const totals = useMemo(() => {
-    const subtotal = units.reduce((sum, u) => sum + u.price, 0);
+    const unitPrices = units.map(u => u.price || 0);
     
-    const discounts = fees
-      .filter(f => f.kind === 'discount')
-      .reduce((sum, f) => sum + f.amount, 0);
-    
-    const regularFees = fees
-      .filter(f => f.kind !== 'discount' && f.kind !== 'tax')
-      .reduce((sum, f) => sum + f.amount, 0);
-    
-    const taxBase = subtotal - Math.abs(discounts) + fees.filter(f => f.taxable && f.kind !== 'tax').reduce((s, f) => s + f.amount, 0);
-    
-    const taxes = fees
-      .filter(f => f.kind === 'tax')
-      .reduce((sum, f) => sum + f.amount, 0);
-    
-    const total = subtotal + regularFees + taxes - Math.abs(discounts);
+    const feeInputs = fees.map(f => ({
+      kind: f.kind,
+      amount: f.amount,
+      taxable: f.taxable,
+    }));
 
-    return {
-      subtotal,
-      discounts_total: -Math.abs(discounts),
-      fees_total: regularFees,
-      tax_total: taxes,
-      total_due: total,
-      commission_base: total,
-    };
+    // Tax presets are applied as fees, so we pass empty arrays here
+    return calculateDealTotals({
+      unitPrices,
+      fees: feeInputs,
+      taxPercentPresets: [],
+      taxFixedPresets: [],
+    });
   }, [units, fees]);
 
   const handleSave = async () => {
