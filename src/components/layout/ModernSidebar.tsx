@@ -9,10 +9,7 @@ import {
   User, 
   LogOut, 
   Sun, 
-  Moon, 
-  Monitor,
-  Globe,
-  HelpCircle,
+  Moon,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { NavItem, filterNavByRole, Role } from '@/nav/config';
@@ -64,9 +61,9 @@ export function ModernSidebar({ items, userRole, getBadge }: ModernSidebarProps)
   // Flyout state for collapsed sidebar
   const [flyoutGroup, setFlyoutGroup] = useState<string | null>(null);
 
-  // Theme state
-  const [theme, setTheme] = useState<'light' | 'dark' | 'system'>(() => {
-    return (localStorage.getItem('theme') as any) || 'system';
+  // Sidebar-only theme state
+  const [sidebarTheme, setSidebarTheme] = useState<'light' | 'dark'>(() => {
+    return (localStorage.getItem('gm:sb:sidebarTheme') as any) || 'dark';
   });
 
   // Filter items by role
@@ -124,22 +121,12 @@ export function ModernSidebar({ items, userRole, getBadge }: ModernSidebarProps)
     return Icon ? <Icon className={cn('h-5 w-5', className)} /> : null;
   };
 
-  const handleThemeChange = (newTheme: 'light' | 'dark' | 'system') => {
-    setTheme(newTheme);
-    localStorage.setItem('theme', newTheme);
-    
-    if (newTheme === 'system') {
-      const isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-      document.documentElement.classList.toggle('dark', isDark);
-    } else {
-      document.documentElement.classList.toggle('dark', newTheme === 'dark');
-    }
+  const handleSidebarThemeToggle = () => {
+    const newTheme = sidebarTheme === 'dark' ? 'light' : 'dark';
+    setSidebarTheme(newTheme);
+    localStorage.setItem('gm:sb:sidebarTheme', newTheme);
   };
 
-  const handleLanguageToggle = () => {
-    const newLang = i18n.language === 'en' ? 'es' : 'en';
-    i18n.changeLanguage(newLang);
-  };
 
   const renderNavItem = (item: NavItem) => {
     const hasChildren = item.children && item.children.length > 0;
@@ -297,11 +284,9 @@ export function ModernSidebar({ items, userRole, getBadge }: ModernSidebarProps)
     <aside
       className={cn(
         'fixed left-0 top-0 h-screen bg-[hsl(var(--sb-bg))] text-[hsl(var(--sb-text))] border-r border-[hsla(var(--sb-border))] transition-all duration-300 z-50',
-        collapsed ? 'w-16' : 'w-64'
+        collapsed ? 'w-16' : 'w-64',
+        sidebarTheme === 'dark' ? 'sidebar-dark' : 'sidebar-light'
       )}
-      style={{
-        background: 'linear-gradient(180deg, hsl(var(--sb-bg)) 0%, hsl(var(--sb-bg)) 98%, rgba(255,255,255,0.02) 100%)'
-      }}
     >
       <div className="flex flex-col h-full">
         {/* Top: Logo + Collapse Toggle */}
@@ -362,85 +347,27 @@ export function ModernSidebar({ items, userRole, getBadge }: ModernSidebarProps)
           {visibleItems.map(item => renderNavItem(item))}
         </nav>
 
-        {/* Bottom Rail: User + Settings */}
-        <div className="border-t border-[hsla(var(--sb-border))] p-3 space-y-2">
-          {/* Theme Toggle */}
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button
-                      variant="ghost"
-                      size={collapsed ? 'icon' : 'sm'}
-                      className={cn(
-                        'text-[hsl(var(--sb-text))] hover:text-white hover:bg-[hsl(var(--sb-bg-hover))]',
-                        collapsed ? 'w-full' : 'w-full justify-start'
-                      )}
-                    >
-                      {theme === 'light' ? <Sun className="h-4 w-4" /> : theme === 'dark' ? <Moon className="h-4 w-4" /> : <Monitor className="h-4 w-4" />}
-                      {!collapsed && <span className="ml-2 text-xs">{locale === 'es' ? 'Tema' : 'Theme'}</span>}
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent side="right" align="end">
-                    <DropdownMenuItem onClick={() => handleThemeChange('light')}>
-                      <Sun className="mr-2 h-4 w-4" />
-                      {locale === 'es' ? 'Claro' : 'Light'}
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => handleThemeChange('dark')}>
-                      <Moon className="mr-2 h-4 w-4" />
-                      {locale === 'es' ? 'Oscuro' : 'Dark'}
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => handleThemeChange('system')}>
-                      <Monitor className="mr-2 h-4 w-4" />
-                      {locale === 'es' ? 'Sistema' : 'System'}
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </TooltipTrigger>
-              {collapsed && <TooltipContent side="right">{locale === 'es' ? 'Tema' : 'Theme'}</TooltipContent>}
-            </Tooltip>
-          </TooltipProvider>
-
-          {/* Language Toggle */}
+        {/* Bottom Rail: Compact Footer */}
+        <div className="border-t border-[hsla(var(--sb-border))] px-3 py-2 space-y-1.5">
+          {/* Sidebar Theme Toggle */}
           <TooltipProvider>
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button
                   variant="ghost"
                   size={collapsed ? 'icon' : 'sm'}
-                  onClick={handleLanguageToggle}
+                  onClick={handleSidebarThemeToggle}
                   className={cn(
                     'text-[hsl(var(--sb-text))] hover:text-white hover:bg-[hsl(var(--sb-bg-hover))]',
                     collapsed ? 'w-full' : 'w-full justify-start'
                   )}
+                  aria-label={locale === 'es' ? 'Tema del sidebar' : 'Sidebar theme'}
                 >
-                  <Globe className="h-4 w-4" />
-                  {!collapsed && <span className="ml-2 text-xs">{i18n.language === 'en' ? 'English' : 'Español'}</span>}
+                  {sidebarTheme === 'light' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+                  {!collapsed && <span className="ml-2 text-xs">{locale === 'es' ? 'Tema' : 'Theme'}</span>}
                 </Button>
               </TooltipTrigger>
-              {collapsed && <TooltipContent side="right">{locale === 'es' ? 'Idioma' : 'Language'}</TooltipContent>}
-            </Tooltip>
-          </TooltipProvider>
-
-          {/* Help/Shortcuts */}
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size={collapsed ? 'icon' : 'sm'}
-                  onClick={() => {/* Could open shortcuts modal */}}
-                  className={cn(
-                    'text-[hsl(var(--sb-text))] hover:text-white hover:bg-[hsl(var(--sb-bg-hover))]',
-                    collapsed ? 'w-full' : 'w-full justify-start'
-                  )}
-                >
-                  <HelpCircle className="h-4 w-4" />
-                  {!collapsed && <span className="ml-2 text-xs">{locale === 'es' ? 'Atajos ?' : 'Shortcuts ?'}</span>}
-                </Button>
-              </TooltipTrigger>
-              {collapsed && <TooltipContent side="right">{locale === 'es' ? 'Atajos' : 'Shortcuts'}</TooltipContent>}
+              {collapsed && <TooltipContent side="right">{locale === 'es' ? 'Tema del sidebar' : 'Sidebar theme'}</TooltipContent>}
             </Tooltip>
           </TooltipProvider>
 
@@ -455,21 +382,21 @@ export function ModernSidebar({ items, userRole, getBadge }: ModernSidebarProps)
                   collapsed ? 'w-full' : 'w-full justify-start'
                 )}
               >
-                <div className="h-8 w-8 rounded-full bg-[hsl(var(--sb-accent))] flex items-center justify-center text-white text-xs font-semibold">
+                <div className="h-8 w-8 rounded-full bg-[hsl(var(--sb-accent))] flex items-center justify-center text-white text-xs font-semibold shrink-0">
                   {getUserInitials()}
                 </div>
                 {!collapsed && (
                   <div className="ml-2 text-left flex-1 min-w-0">
                     <div className="text-xs font-medium text-white truncate">{user?.name || 'User'}</div>
-                    <div className="text-[10px] text-[hsl(var(--sb-text))] capitalize">{user?.role || 'viewer'}</div>
+                    <div className="text-[10px] text-[hsl(var(--sb-text))] capitalize truncate">{user?.role || 'viewer'}</div>
                   </div>
                 )}
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent side="right" align="end" className="w-48">
-              <DropdownMenuLabel>{user?.email}</DropdownMenuLabel>
+              <DropdownMenuLabel className="truncate">{user?.email}</DropdownMenuLabel>
               <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={() => navigate('/admin/profile')}>
+              <DropdownMenuItem onClick={() => navigate('/backoffice/profile')}>
                 <User className="mr-2 h-4 w-4" />
                 {locale === 'es' ? 'Perfil' : 'Profile'}
               </DropdownMenuItem>

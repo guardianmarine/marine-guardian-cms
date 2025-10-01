@@ -63,10 +63,10 @@
     --brand-2: 217 91% 60%;
     --card-muted: 210 20% 97%;
     
-    /* Modern sidebar tokens */
-    --sb-bg: 221 53% 8%;
-    --sb-bg-hover: 221 45% 12%;
-    --sb-text: 226 100% 88%;
+    /* Modern sidebar tokens - dark mode default */
+    --sb-bg: 15 21% 12%;
+    --sb-bg-hover: 15 20% 17%;
+    --sb-text: 215 16% 82%;
     --sb-accent: 217 91% 60%;
     --sb-border: 0 0% 100% / 0.08;
   }
@@ -166,4 +166,21 @@
       transform: none;
     }
   }
+}
+
+/* Sidebar theme variants */
+.sidebar-dark {
+  --sb-bg: 15 21% 12%;
+  --sb-bg-hover: 15 20% 17%;
+  --sb-text: 215 16% 82%;
+  --sb-accent: 217 91% 60%;
+  --sb-border: 0 0% 100% / 0.08;
+}
+
+.sidebar-light {
+  --sb-bg: 220 16% 97%;
+  --sb-bg-hover: 216 14% 93%;
+  --sb-text: 222 47% 11%;
+  --sb-accent: 217 91% 60%;
+  --sb-border: 2 6% 9% / 0.08;
 }

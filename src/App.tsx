@@ -49,6 +49,7 @@ import Commissions from "./pages/backoffice/finance/Commissions";
 import CommissionsReport from "./pages/backoffice/finance/CommissionsReport";
 import Insights from "./pages/backoffice/Insights";
 import UsersRoles from "./pages/admin/settings/UsersRoles";
+import Profile from "./pages/backoffice/Profile";
 import NotFound from "./pages/NotFound";
 import "@/i18n/config";
 
@@ -294,6 +295,9 @@ const App = () => (
 
             {/* Admin Settings Routes */}
             <Route path="/admin/settings/users" element={<ProtectedRoute><RoleGuard allowedRoles={['admin']}><UsersRoles /></RoleGuard></ProtectedRoute>} />
+
+            {/* Profile Route */}
+            <Route path="/backoffice/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
 
             {/* 404 */}
             <Route path="*" element={<NotFound />} />
