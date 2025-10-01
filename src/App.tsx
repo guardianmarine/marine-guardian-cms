@@ -44,6 +44,8 @@ import MyTasks from "./pages/backoffice/crm/MyTasks";
 import Deals from "./pages/backoffice/deals/Deals";
 import DealDetail from "./pages/backoffice/deals/DealDetail";
 import TaxRegimes from "./pages/backoffice/deals/TaxRegimes";
+import DealsV2 from "./pages/backoffice/deals/DealsV2";
+import TaxPresetsManager from "./pages/backoffice/deals/TaxPresetsManager";
 import FinanceDashboard from "./pages/backoffice/finance/FinanceDashboard";
 import FinanceOverview from "./pages/backoffice/finance/FinanceOverview";
 import Commissions from "./pages/backoffice/finance/Commissions";
@@ -287,6 +289,12 @@ const App = () => (
             <Route path="/backoffice/deals/new" element={<ProtectedRoute><RoleGuard allowedRoles={['admin','sales']}><DealDetail /></RoleGuard></ProtectedRoute>} />
             <Route path="/backoffice/deals/:id" element={<ProtectedRoute><RoleGuard allowedRoles={['admin','sales','finance']}><DealDetail /></RoleGuard></ProtectedRoute>} />
             <Route path="/backoffice/deals/tax-regimes" element={<ProtectedRoute><RoleGuard allowedRoles={['admin','finance']}><TaxRegimes /></RoleGuard></ProtectedRoute>} />
+            
+            {/* Deals V2 (Supabase) */}
+            <Route path="/backoffice/deals-v2" element={<ProtectedRoute><RoleGuard allowedRoles={['admin','sales','finance']}><DealsV2 /></RoleGuard></ProtectedRoute>} />
+            <Route path="/backoffice/deals-v2/new" element={<ProtectedRoute><RoleGuard allowedRoles={['admin','sales']}><DealsV2 /></RoleGuard></ProtectedRoute>} />
+            <Route path="/backoffice/deals-v2/:id" element={<ProtectedRoute><RoleGuard allowedRoles={['admin','sales','finance']}><DealsV2 /></RoleGuard></ProtectedRoute>} />
+            <Route path="/backoffice/deals-v2/tax-presets" element={<ProtectedRoute><RoleGuard allowedRoles={['admin','finance']}><TaxPresetsManager /></RoleGuard></ProtectedRoute>} />
             <Route path="/backoffice/finance/dashboard" element={<ProtectedRoute><RoleGuard allowedRoles={['admin','finance']}><FinanceDashboard /></RoleGuard></ProtectedRoute>} />
             <Route path="/backoffice/finance/overview" element={<ProtectedRoute><RoleGuard allowedRoles={['admin','finance']}><FinanceOverview /></RoleGuard></ProtectedRoute>} />
             <Route path="/backoffice/finance/commissions" element={<ProtectedRoute><RoleGuard allowedRoles={['admin','finance','sales']}><Commissions /></RoleGuard></ProtectedRoute>} />
