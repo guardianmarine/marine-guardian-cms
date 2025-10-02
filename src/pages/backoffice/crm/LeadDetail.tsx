@@ -215,17 +215,26 @@ export default function LeadDetail() {
                 {unit && (
                   <div>
                     <Label>{i18n.language === 'es' ? 'Unidad de Interés' : 'Unit of Interest'}</Label>
-                    <Link
-                      to={unit.slug ? `/inventory/${unit.year || 'unit'}/${unit.slug}` : `/unit/${unit.id}`}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="flex items-center gap-2 mt-1 text-primary hover:underline"
-                    >
-                      <span>
-                        {[unit.year, unit.make, unit.model].filter(Boolean).join(' ')}
-                      </span>
-                      <ExternalLink className="h-4 w-4" />
-                    </Link>
+                    <div className="mt-2 border rounded-lg p-4 bg-card hover:bg-accent/50 transition-colors">
+                      <Link
+                        to={unit.slug ? `/inventory/${unit.year || 'unit'}/${unit.slug}` : `/unit/${unit.id}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="flex items-start gap-4"
+                      >
+                        <div className="flex-1">
+                          <p className="font-semibold text-lg">
+                            {[unit.year, unit.make, unit.model].filter(Boolean).join(' ')}
+                          </p>
+                          <div className="flex items-center gap-2 mt-1">
+                            <ExternalLink className="h-3 w-3 text-muted-foreground" />
+                            <span className="text-sm text-muted-foreground">
+                              {i18n.language === 'es' ? 'Ver detalles' : 'View details'}
+                            </span>
+                          </div>
+                        </div>
+                      </Link>
+                    </div>
                   </div>
                 )}
 

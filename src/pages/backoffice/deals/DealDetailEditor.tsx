@@ -189,6 +189,37 @@ export default function DealDetailEditor() {
     }
   };
 
+  const handleReserveUnit = async (unitId: string) => {
+    if (!id || isNew) return;
+
+    try {
+      const expiresAt = new Date();
+      expiresAt.setDate(expiresAt.getDate() + 7);
+
+      const { error } = await supabase
+        .from('units')
+        .update({
+          status: 'reserved',
+          reserved_until: expiresAt.toISOString(),
+        })
+        .eq('id', unitId);
+
+      if (error) throw error;
+
+      toast({
+        title: 'Success',
+        description: 'Unit reserved for 7 days',
+      });
+    } catch (error) {
+      console.error('Error reserving unit:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to reserve unit',
+        variant: 'destructive',
+      });
+    }
+  };
+
   const handleAddFee = async () => {
     if (!id || isNew) return;
 
@@ -434,7 +465,7 @@ export default function DealDetailEditor() {
                             VIN: {unit.unit_snapshot.vin_or_serial}
                           </p>
                         </div>
-                        <div className="flex items-center gap-4">
+                        <div className="flex items-center gap-2">
                           <div>
                             <Label className="text-xs">Price</Label>
                             <Input
@@ -444,6 +475,15 @@ export default function DealDetailEditor() {
                               className="w-32"
                             />
                           </div>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleReserveUnit(unit.unit_id)}
+                            title="Reserve unit for 7 days"
+                          >
+                            Reserve
+                          </Button>
                           <Button
                             type="button"
                             variant="ghost"

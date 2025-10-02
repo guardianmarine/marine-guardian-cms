@@ -168,6 +168,27 @@ export default function InboundRequests() {
         return;
       }
 
+      // Check for duplicate email
+      const { data: existingContacts } = await supabase
+        .from('contacts')
+        .select('id, first_name, last_name, email, account_id')
+        .eq('email', request.email)
+        .limit(1);
+
+      if (existingContacts && existingContacts.length > 0) {
+        const existing = existingContacts[0];
+        const shouldMerge = confirm(
+          i18n.language === 'es'
+            ? `Ya existe un contacto con email ${request.email} (${existing.first_name} ${existing.last_name}). ¿Deseas continuar y crear un nuevo lead para este contacto existente?`
+            : `A contact with email ${request.email} already exists (${existing.first_name} ${existing.last_name}). Do you want to continue and create a new lead for this existing contact?`
+        );
+        
+        if (!shouldMerge) {
+          setConverting(null);
+          return;
+        }
+      }
+
       const { convertBuyerRequestToLead } = await import('@/services/crmFlow');
       
       const result = await convertBuyerRequestToLead({
