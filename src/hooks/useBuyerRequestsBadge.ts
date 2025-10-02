@@ -9,7 +9,8 @@ export function useBuyerRequestsBadge() {
       const { count: newCount, error } = await supabase
         .from('buyer_requests')
         .select('id', { count: 'exact', head: true })
-        .eq('status', 'new');
+        .eq('status', 'new')
+        .is('deleted_at', null);
 
       if (error) {
         console.error('Error fetching buyer requests badge count:', error);

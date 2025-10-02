@@ -28,9 +28,26 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { Card, CardContent } from '@/components/ui/card';
+import { Checkbox } from '@/components/ui/checkbox';
 import { supabase } from '@/integrations/supabase/client';
-import { Search, ExternalLink, UserPlus } from 'lucide-react';
+import { Search, ExternalLink, UserPlus, MoreVertical, Trash2, RotateCcw, XCircle } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { toast } from 'sonner';
 
@@ -46,6 +63,7 @@ type BuyerRequest = {
   page_url: string | null;
   status: 'new' | 'processing' | 'converted' | 'spam' | 'closed';
   created_at: string;
+  deleted_at: string | null;
 };
 
 type UnitInfo = {
@@ -57,6 +75,7 @@ type UnitInfo = {
 };
 
 type Status = 'new' | 'processing' | 'converted' | 'spam' | 'closed' | 'all';
+type ViewFilter = 'active' | 'trash' | 'all';
 
 export default function InboundRequests() {
   const { t, i18n } = useTranslation();
@@ -69,7 +88,11 @@ export default function InboundRequests() {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<Status>('all');
   const [typeFilter, setTypeFilter] = useState<'all' | 'info' | 'wish'>('all');
+  const [viewFilter, setViewFilter] = useState<ViewFilter>('active');
   const [selectedRequest, setSelectedRequest] = useState<BuyerRequest | null>(null);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
+  const [bulkDeleteConfirm, setBulkDeleteConfirm] = useState(false);
 
   useEffect(() => {
     loadRequests();
@@ -116,7 +139,14 @@ export default function InboundRequests() {
       (req.message && req.message.toLowerCase().includes(searchTerm.toLowerCase()));
     const matchesStatus = statusFilter === 'all' || req.status === statusFilter;
     const matchesType = typeFilter === 'all' || req.request_type === typeFilter;
-    return matchesSearch && matchesStatus && matchesType;
+    
+    // View filter (active/trash/all)
+    const matchesView =
+      viewFilter === 'all' ||
+      (viewFilter === 'active' && !req.deleted_at) ||
+      (viewFilter === 'trash' && req.deleted_at);
+    
+    return matchesSearch && matchesStatus && matchesType && matchesView;
   });
 
   const getStatusVariant = (status: string): 'default' | 'secondary' | 'destructive' | 'outline' => {
@@ -156,6 +186,163 @@ export default function InboundRequests() {
       console.error('Error updating status:', error);
       toast.error(error?.message ?? (i18n.language === 'es' ? 'Error al actualizar' : 'Failed to update'));
     }
+  };
+
+  const handleMoveToTrash = async (id: string) => {
+    try {
+      const { error } = await supabase
+        .from('buyer_requests')
+        .update({ deleted_at: new Date().toISOString() })
+        .eq('id', id);
+
+      if (error) throw error;
+
+      toast.success(i18n.language === 'es' ? 'Movido a papelera' : 'Moved to trash');
+      await loadRequests();
+      setSelectedIds(prev => {
+        const next = new Set(prev);
+        next.delete(id);
+        return next;
+      });
+    } catch (error: any) {
+      console.error('Error moving to trash:', error);
+      toast.error(error?.message ?? (i18n.language === 'es' ? 'Error al mover' : 'Failed to move'));
+    }
+  };
+
+  const handleRestore = async (id: string) => {
+    try {
+      const { error } = await supabase
+        .from('buyer_requests')
+        .update({ deleted_at: null })
+        .eq('id', id);
+
+      if (error) throw error;
+
+      toast.success(i18n.language === 'es' ? 'Restaurado' : 'Restored');
+      await loadRequests();
+      setSelectedIds(prev => {
+        const next = new Set(prev);
+        next.delete(id);
+        return next;
+      });
+    } catch (error: any) {
+      console.error('Error restoring:', error);
+      toast.error(error?.message ?? (i18n.language === 'es' ? 'Error al restaurar' : 'Failed to restore'));
+    }
+  };
+
+  const handleDeletePermanently = async (id: string) => {
+    try {
+      const { error } = await supabase
+        .from('buyer_requests')
+        .delete()
+        .eq('id', id);
+
+      if (error) throw error;
+
+      toast.success(i18n.language === 'es' ? 'Eliminado permanentemente' : 'Deleted permanently');
+      await loadRequests();
+      setSelectedIds(prev => {
+        const next = new Set(prev);
+        next.delete(id);
+        return next;
+      });
+      setDeleteConfirmId(null);
+    } catch (error: any) {
+      console.error('Error deleting permanently:', error);
+      toast.error(error?.message ?? (i18n.language === 'es' ? 'Error al eliminar' : 'Failed to delete'));
+    }
+  };
+
+  const handleBulkMoveToTrash = async () => {
+    try {
+      const ids = Array.from(selectedIds);
+      const { error } = await supabase
+        .from('buyer_requests')
+        .update({ deleted_at: new Date().toISOString() })
+        .in('id', ids);
+
+      if (error) throw error;
+
+      toast.success(
+        i18n.language === 'es'
+          ? `${ids.length} elementos movidos a papelera`
+          : `${ids.length} items moved to trash`
+      );
+      await loadRequests();
+      setSelectedIds(new Set());
+    } catch (error: any) {
+      console.error('Error bulk moving to trash:', error);
+      toast.error(error?.message ?? (i18n.language === 'es' ? 'Error al mover' : 'Failed to move'));
+    }
+  };
+
+  const handleBulkRestore = async () => {
+    try {
+      const ids = Array.from(selectedIds);
+      const { error } = await supabase
+        .from('buyer_requests')
+        .update({ deleted_at: null })
+        .in('id', ids);
+
+      if (error) throw error;
+
+      toast.success(
+        i18n.language === 'es'
+          ? `${ids.length} elementos restaurados`
+          : `${ids.length} items restored`
+      );
+      await loadRequests();
+      setSelectedIds(new Set());
+    } catch (error: any) {
+      console.error('Error bulk restoring:', error);
+      toast.error(error?.message ?? (i18n.language === 'es' ? 'Error al restaurar' : 'Failed to restore'));
+    }
+  };
+
+  const handleBulkDeletePermanently = async () => {
+    try {
+      const ids = Array.from(selectedIds);
+      const { error } = await supabase
+        .from('buyer_requests')
+        .delete()
+        .in('id', ids);
+
+      if (error) throw error;
+
+      toast.success(
+        i18n.language === 'es'
+          ? `${ids.length} elementos eliminados permanentemente`
+          : `${ids.length} items deleted permanently`
+      );
+      await loadRequests();
+      setSelectedIds(new Set());
+      setBulkDeleteConfirm(false);
+    } catch (error: any) {
+      console.error('Error bulk deleting:', error);
+      toast.error(error?.message ?? (i18n.language === 'es' ? 'Error al eliminar' : 'Failed to delete'));
+    }
+  };
+
+  const toggleSelectAll = () => {
+    if (selectedIds.size === filteredRequests.length) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(filteredRequests.map(r => r.id)));
+    }
+  };
+
+  const toggleSelect = (id: string) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
   };
 
   const handleConvertToLead = async (request: BuyerRequest) => {
@@ -235,6 +422,16 @@ export default function InboundRequests() {
               className="pl-10"
             />
           </div>
+          <Select value={viewFilter} onValueChange={(v: ViewFilter) => setViewFilter(v)}>
+            <SelectTrigger className="w-32">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="active">{i18n.language === 'es' ? 'Activo' : 'Active'}</SelectItem>
+              <SelectItem value="trash">{i18n.language === 'es' ? 'Papelera' : 'Trash'}</SelectItem>
+              <SelectItem value="all">{i18n.language === 'es' ? 'Todos' : 'All'}</SelectItem>
+            </SelectContent>
+          </Select>
           <Select value={typeFilter} onValueChange={(v: any) => setTypeFilter(v)}>
             <SelectTrigger className="w-40">
               <SelectValue />
@@ -260,12 +457,46 @@ export default function InboundRequests() {
           </Select>
         </div>
 
+        {/* Bulk Actions */}
+        {selectedIds.size > 0 && (
+          <div className="flex items-center gap-2 p-3 bg-muted rounded-lg">
+            <span className="text-sm font-medium">
+              {selectedIds.size} {i18n.language === 'es' ? 'seleccionados' : 'selected'}
+            </span>
+            <div className="flex gap-2 ml-auto">
+              {viewFilter !== 'trash' ? (
+                <Button size="sm" variant="outline" onClick={handleBulkMoveToTrash}>
+                  <Trash2 className="h-4 w-4 mr-2" />
+                  {i18n.language === 'es' ? 'Mover a papelera' : 'Move to Trash'}
+                </Button>
+              ) : (
+                <>
+                  <Button size="sm" variant="outline" onClick={handleBulkRestore}>
+                    <RotateCcw className="h-4 w-4 mr-2" />
+                    {i18n.language === 'es' ? 'Restaurar' : 'Restore'}
+                  </Button>
+                  <Button size="sm" variant="destructive" onClick={() => setBulkDeleteConfirm(true)}>
+                    <XCircle className="h-4 w-4 mr-2" />
+                    {i18n.language === 'es' ? 'Eliminar permanentemente' : 'Delete Permanently'}
+                  </Button>
+                </>
+              )}
+            </div>
+          </div>
+        )}
+
         {/* Requests Table */}
         <Card>
           <CardContent className="p-0">
             <Table>
               <TableHeader>
                 <TableRow>
+                  <TableHead className="w-12">
+                    <Checkbox
+                      checked={selectedIds.size === filteredRequests.length && filteredRequests.length > 0}
+                      onCheckedChange={toggleSelectAll}
+                    />
+                  </TableHead>
                   <TableHead>{i18n.language === 'es' ? 'Creado' : 'Created'}</TableHead>
                   <TableHead>{i18n.language === 'es' ? 'Tipo' : 'Type'}</TableHead>
                   <TableHead>{i18n.language === 'es' ? 'Unidad' : 'Unit'}</TableHead>
@@ -280,7 +511,7 @@ export default function InboundRequests() {
               <TableBody>
                 {filteredRequests.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
+                    <TableCell colSpan={10} className="text-center py-8 text-muted-foreground">
                       {i18n.language === 'es' ? 'Aún no hay solicitudes.' : 'No inbound requests yet.'}
                     </TableCell>
                   </TableRow>
@@ -288,20 +519,34 @@ export default function InboundRequests() {
                   filteredRequests.map((request) => (
                     <TableRow
                       key={request.id}
-                      className="cursor-pointer hover:bg-muted/50"
-                      onClick={() => setSelectedRequest(request)}
+                      className="hover:bg-muted/50"
                     >
-                      <TableCell className="text-sm text-muted-foreground">
+                      <TableCell onClick={(e) => e.stopPropagation()}>
+                        <Checkbox
+                          checked={selectedIds.has(request.id)}
+                          onCheckedChange={() => toggleSelect(request.id)}
+                        />
+                      </TableCell>
+                      <TableCell
+                        className="text-sm text-muted-foreground cursor-pointer"
+                        onClick={() => setSelectedRequest(request)}
+                      >
                         <span title={new Date(request.created_at).toLocaleString()}>
                           {formatDistanceToNow(new Date(request.created_at), { addSuffix: true })}
                         </span>
                       </TableCell>
-                      <TableCell>
+                      <TableCell
+                        className="cursor-pointer"
+                        onClick={() => setSelectedRequest(request)}
+                      >
                         <Badge variant={request.request_type === 'info' ? 'default' : 'secondary'}>
                           {request.request_type}
                         </Badge>
                       </TableCell>
-                      <TableCell>
+                      <TableCell
+                        className="cursor-pointer"
+                        onClick={() => setSelectedRequest(request)}
+                      >
                         {request.unit_id && unitsById[request.unit_id] ? (
                           <a
                             href={
@@ -340,26 +585,99 @@ export default function InboundRequests() {
                           <span className="text-muted-foreground text-sm">—</span>
                         )}
                       </TableCell>
-                      <TableCell className="font-medium">{request.name}</TableCell>
-                      <TableCell className="text-sm">{request.email}</TableCell>
-                      <TableCell className="text-sm">{request.phone || '-'}</TableCell>
-                      <TableCell className="text-sm capitalize">{request.preferred_contact || '-'}</TableCell>
-                      <TableCell>
+                      <TableCell
+                        className="font-medium cursor-pointer"
+                        onClick={() => setSelectedRequest(request)}
+                      >
+                        {request.name}
+                      </TableCell>
+                      <TableCell
+                        className="text-sm cursor-pointer"
+                        onClick={() => setSelectedRequest(request)}
+                      >
+                        {request.email}
+                      </TableCell>
+                      <TableCell
+                        className="text-sm cursor-pointer"
+                        onClick={() => setSelectedRequest(request)}
+                      >
+                        {request.phone || '-'}
+                      </TableCell>
+                      <TableCell
+                        className="text-sm capitalize cursor-pointer"
+                        onClick={() => setSelectedRequest(request)}
+                      >
+                        {request.preferred_contact || '-'}
+                      </TableCell>
+                      <TableCell
+                        className="cursor-pointer"
+                        onClick={() => setSelectedRequest(request)}
+                      >
                         <Badge variant={getStatusVariant(request.status)}>{request.status}</Badge>
                       </TableCell>
                       <TableCell>
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleConvertToLead(request);
-                          }}
-                          disabled={converting === request.id}
-                          title={i18n.language === 'es' ? 'Convertir a Lead' : 'Convert to Lead'}
-                        >
-                          <UserPlus className="h-4 w-4" />
-                        </Button>
+                        <div className="flex items-center gap-1">
+                          {!request.deleted_at && (
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleConvertToLead(request);
+                              }}
+                              disabled={converting === request.id}
+                              title={i18n.language === 'es' ? 'Convertir a Lead' : 'Convert to Lead'}
+                            >
+                              <UserPlus className="h-4 w-4" />
+                            </Button>
+                          )}
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={(e) => e.stopPropagation()}
+                              >
+                                <MoreVertical className="h-4 w-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              {!request.deleted_at ? (
+                                <DropdownMenuItem
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleMoveToTrash(request.id);
+                                  }}
+                                >
+                                  <Trash2 className="h-4 w-4 mr-2" />
+                                  {i18n.language === 'es' ? 'Mover a papelera' : 'Move to Trash'}
+                                </DropdownMenuItem>
+                              ) : (
+                                <>
+                                  <DropdownMenuItem
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleRestore(request.id);
+                                    }}
+                                  >
+                                    <RotateCcw className="h-4 w-4 mr-2" />
+                                    {i18n.language === 'es' ? 'Restaurar' : 'Restore'}
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setDeleteConfirmId(request.id);
+                                    }}
+                                    className="text-destructive"
+                                  >
+                                    <XCircle className="h-4 w-4 mr-2" />
+                                    {i18n.language === 'es' ? 'Eliminar permanentemente' : 'Delete Permanently'}
+                                  </DropdownMenuItem>
+                                </>
+                              )}
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </div>
                       </TableCell>
                     </TableRow>
                   ))
@@ -475,6 +793,56 @@ export default function InboundRequests() {
             )}
           </DialogContent>
         </Dialog>
+
+        {/* Delete Confirmation Dialog */}
+        <AlertDialog open={!!deleteConfirmId} onOpenChange={() => setDeleteConfirmId(null)}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>
+                {i18n.language === 'es' ? '¿Eliminar permanentemente?' : 'Delete Permanently?'}
+              </AlertDialogTitle>
+              <AlertDialogDescription>
+                {i18n.language === 'es'
+                  ? 'Esta acción no se puede deshacer. La solicitud será eliminada permanentemente.'
+                  : 'This action cannot be undone. The request will be permanently deleted.'}
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>{i18n.language === 'es' ? 'Cancelar' : 'Cancel'}</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={() => deleteConfirmId && handleDeletePermanently(deleteConfirmId)}
+                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              >
+                {i18n.language === 'es' ? 'Eliminar' : 'Delete'}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+
+        {/* Bulk Delete Confirmation Dialog */}
+        <AlertDialog open={bulkDeleteConfirm} onOpenChange={setBulkDeleteConfirm}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>
+                {i18n.language === 'es' ? '¿Eliminar permanentemente?' : 'Delete Permanently?'}
+              </AlertDialogTitle>
+              <AlertDialogDescription>
+                {i18n.language === 'es'
+                  ? `Esta acción no se puede deshacer. ${selectedIds.size} solicitudes serán eliminadas permanentemente.`
+                  : `This action cannot be undone. ${selectedIds.size} requests will be permanently deleted.`}
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>{i18n.language === 'es' ? 'Cancelar' : 'Cancel'}</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={handleBulkDeletePermanently}
+                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              >
+                {i18n.language === 'es' ? 'Eliminar' : 'Delete'}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
     </BackofficeLayout>
   );
