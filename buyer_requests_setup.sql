@@ -21,6 +21,7 @@ CREATE TABLE IF NOT EXISTS public.buyer_requests (
   user_agent text NULL,
   honey text NULL, -- honeypot field (should be empty)
   status text NOT NULL DEFAULT 'new' CHECK (status IN ('new', 'processing', 'converted', 'spam', 'closed')),
+  converted_to_lead_id uuid NULL REFERENCES public.leads(id) ON DELETE SET NULL,
   created_at timestamptz NOT NULL DEFAULT now(),
   created_by_auth uuid NULL -- if logged-in staff submits on behalf of customer
 );
