@@ -224,51 +224,83 @@ export default function InboundRequests() {
           })
           .eq('id', contactId);
       } else {
-        // 2. Create new Account (individual)
-        const { data: account, error: accountError } = await supabase
+        // 2. Create or reuse Account (upsert by name for individuals)
+        // Check if an individual account with this name exists
+        const { data: existingAccount } = await supabase
           .from('accounts')
-          .insert({
-            kind: 'individual',
-            name: request.name,
-          })
           .select('id')
-          .single();
+          .eq('kind', 'individual')
+          .eq('name', request.name)
+          .maybeSingle();
 
-        if (accountError) {
-          toast.error(
-            i18n.language === 'es'
-              ? `Error al crear cuenta: ${accountError.message}`
-              : `Failed to create account: ${accountError.message}`
-          );
-          throw accountError;
+        if (existingAccount) {
+          accountId = existingAccount.id;
+        } else {
+          // Create new Account - DO NOT send created_by (trigger will fill it)
+          const { data: account, error: accountError } = await supabase
+            .from('accounts')
+            .insert({
+              kind: 'individual',
+              name: request.name,
+            })
+            .select('id')
+            .single();
+
+          if (accountError) {
+            // Handle RLS errors specifically
+            if (accountError.message?.includes('row-level security')) {
+              toast.error(
+                i18n.language === 'es'
+                  ? 'Error de permisos al crear cuenta. Verifica que tienes acceso de escritura a la tabla accounts.'
+                  : 'Permission error creating account. Verify you have write access to the accounts table.'
+              );
+            } else {
+              toast.error(
+                i18n.language === 'es'
+                  ? `Error al crear cuenta: ${accountError.message}`
+                  : `Failed to create account: ${accountError.message}`
+              );
+            }
+            throw accountError;
+          }
+          accountId = account.id;
         }
-        accountId = account.id;
 
-        // 3. Create new Contact
+        // 3. Create new Contact (upsert by email)
         const { data: contact, error: contactError } = await supabase
           .from('contacts')
-          .insert({
+          .upsert({
             account_id: accountId,
             first_name: firstName,
             last_name: lastName,
             email: request.email,
             phone: request.phone || null,
+          }, {
+            onConflict: 'email',
           })
           .select('id')
           .single();
 
         if (contactError) {
-          toast.error(
-            i18n.language === 'es'
-              ? `Error al crear contacto: ${contactError.message}`
-              : `Failed to create contact: ${contactError.message}`
-          );
+          if (contactError.message?.includes('row-level security')) {
+            toast.error(
+              i18n.language === 'es'
+                ? 'Error de permisos al crear contacto. Verifica que tienes acceso de escritura a la tabla contacts.'
+                : 'Permission error creating contact. Verify you have write access to the contacts table.'
+            );
+          } else {
+            toast.error(
+              i18n.language === 'es'
+                ? `Error al crear contacto: ${contactError.message}`
+                : `Failed to create contact: ${contactError.message}`
+            );
+          }
           throw contactError;
         }
         contactId = contact.id;
       }
 
-      // 4. Create Lead
+      // 4. Create Lead - DO NOT send owner_user_id (DB will auto-fill it)
       const { data: lead, error: leadError } = await supabase
         .from('leads')
         .insert({
@@ -283,11 +315,19 @@ export default function InboundRequests() {
         .single();
 
       if (leadError) {
-        toast.error(
-          i18n.language === 'es'
-            ? `Error al crear lead: ${leadError.message}`
-            : `Failed to create lead: ${leadError.message}`
-        );
+        if (leadError.message?.includes('row-level security')) {
+          toast.error(
+            i18n.language === 'es'
+              ? 'Error de permisos al crear lead. Verifica que tienes acceso de escritura a la tabla leads.'
+              : 'Permission error creating lead. Verify you have write access to the leads table.'
+          );
+        } else {
+          toast.error(
+            i18n.language === 'es'
+              ? `Error al crear lead: ${leadError.message}`
+              : `Failed to create lead: ${leadError.message}`
+          );
+        }
         throw leadError;
       }
 

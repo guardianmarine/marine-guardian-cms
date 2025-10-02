@@ -5,7 +5,7 @@ import { ModernSidebar } from '@/components/layout/ModernSidebar';
 import { CommandPalette } from '@/components/layout/CommandPalette';
 import { Topbar } from '@/nav/Topbar';
 import { Breadcrumbs } from '@/nav/Breadcrumbs';
-import { useInboundRequestsCount } from '@/hooks/useInboundRequestsCount';
+import { useBuyerRequestsBadge } from '@/hooks/useBuyerRequestsBadge';
 
 interface BackofficeLayoutProps {
   children: ReactNode;
@@ -13,11 +13,11 @@ interface BackofficeLayoutProps {
 
 export function BackofficeLayout({ children }: BackofficeLayoutProps) {
   const { user } = useAuth();
-  const inboundRequestsCount = useInboundRequestsCount();
+  const buyerRequestsBadgeCount = useBuyerRequestsBadge();
 
   const getBadge = (item: NavItem): number | null => {
     if (item.id === 'inbound-requests') {
-      return inboundRequestsCount;
+      return buyerRequestsBadgeCount;
     }
     return null;
   };

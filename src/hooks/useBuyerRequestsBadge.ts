@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 
-export function useInboundRequestsCount() {
+export function useBuyerRequestsBadge() {
   const [count, setCount] = useState<number>(0);
 
   const fetchCount = async () => {
@@ -12,14 +12,13 @@ export function useInboundRequestsCount() {
         .eq('status', 'new');
 
       if (error) {
-        console.error('Error fetching inbound requests count:', error);
+        console.error('Error fetching buyer requests badge count:', error);
         return;
       }
 
       setCount(newCount ?? 0);
     } catch (err) {
-      console.error('Failed to fetch inbound requests count:', err);
-      // Fail-safe: don't show badge on error
+      console.error('Failed to fetch buyer requests badge count:', err);
       setCount(0);
     }
   };
