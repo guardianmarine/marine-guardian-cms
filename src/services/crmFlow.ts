@@ -7,6 +7,7 @@ interface ConvertToLeadInput {
   phone?: string;
   message?: string;
   unitId?: string;
+  pageUrl?: string;
   currentUserId: string;
 }
 
@@ -32,135 +33,231 @@ function parseName(fullName: string): { firstName: string; lastName: string } {
 }
 
 /**
+ * Parse unit ID or slug from URL
+ * Supports URLs like:
+ * - /unit/<id>
+ * - /unit/<slug>
+ * - https://domain/unit/<id>
+ * - https://domain/unit/<slug>
+ */
+function parseUnitIdOrSlugFromUrl(url: string): { by: 'id' | 'slug'; value: string } | null {
+  if (!url) return null;
+  
+  try {
+    // Handle both relative and absolute URLs
+    const urlObj = url.startsWith('http') ? new URL(url) : new URL(url, 'http://dummy.com');
+    const pathMatch = urlObj.pathname.match(/\/unit\/([^/?#]+)/);
+    
+    if (!pathMatch || !pathMatch[1]) return null;
+    
+    const value = pathMatch[1];
+    
+    // Check if it's a UUID (rough check)
+    const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    if (uuidPattern.test(value)) {
+      return { by: 'id', value };
+    }
+    
+    // Otherwise, assume it's a slug
+    return { by: 'slug', value };
+  } catch (err) {
+    console.error('Error parsing unit URL:', err);
+    return null;
+  }
+}
+
+/**
+ * Resolve unit ID from either direct unit_id or page_url
+ */
+async function resolveUnitId(unitId?: string, pageUrl?: string): Promise<string | null> {
+  // If we already have a unit_id, use it
+  if (unitId) return unitId;
+  
+  // Try to parse from page_url
+  if (!pageUrl) return null;
+  
+  const parsed = parseUnitIdOrSlugFromUrl(pageUrl);
+  if (!parsed) return null;
+  
+  try {
+    if (parsed.by === 'id') {
+      // Verify the unit exists
+      const { data } = await supabase
+        .from('units')
+        .select('id')
+        .eq('id', parsed.value)
+        .maybeSingle();
+      
+      return data?.id || null;
+    } else {
+      // Look up by slug
+      const { data } = await supabase
+        .from('units')
+        .select('id')
+        .eq('slug', parsed.value)
+        .maybeSingle();
+      
+      return data?.id || null;
+    }
+  } catch (err) {
+    console.error('Error resolving unit:', err);
+    return null;
+  }
+}
+
+/**
  * Convert a buyer request into a full CRM lead with account, contact, opportunity, and task
+ * This function is idempotent and tolerant to duplicates
  */
 export async function convertBuyerRequestToLead(
   input: ConvertToLeadInput
 ): Promise<ConvertToLeadResult> {
-  const { buyerRequestId, name, email, phone, message, unitId, currentUserId } = input;
-  const { firstName, lastName } = parseName(name);
+  const { buyerRequestId, name, email, phone, message, unitId, pageUrl, currentUserId } = input;
+  
+  try {
+    const { firstName, lastName } = parseName(name);
 
-  // 1. Check if contact exists by email
-  let accountId: string;
-  let contactId: string;
+    // 1. Resolve unit_id (from direct unitId or parsed from pageUrl)
+    const resolvedUnitId = await resolveUnitId(unitId, pageUrl);
 
-  const { data: existingContact } = await supabase
-    .from('contacts')
-    .select('id, account_id')
-    .eq('email', email)
-    .maybeSingle();
+    // 2. Check if contact exists by email (upsert logic)
+    let accountId: string;
+    let contactId: string;
 
-  if (existingContact) {
-    // Reuse existing contact and account
-    contactId = existingContact.id;
-    accountId = existingContact.account_id!;
-  } else {
-    // 2. Create new account
-    const { data: newAccount, error: accountError } = await supabase
-      .from('accounts')
-      .insert({
-        name: name,
-        kind: 'individual',
-        email: email,
-        phone: phone,
-        owner_user_id: currentUserId,
-      })
-      .select()
-      .single();
-
-    if (accountError) throw accountError;
-    accountId = newAccount.id;
-
-    // 3. Create new contact
-    const { data: newContact, error: contactError } = await supabase
+    const { data: existingContact } = await supabase
       .from('contacts')
+      .select('id, account_id, phone')
+      .eq('email', email)
+      .maybeSingle();
+
+    if (existingContact) {
+      // Reuse existing contact and account
+      contactId = existingContact.id;
+      accountId = existingContact.account_id!;
+      
+      // Update phone if it's empty and we have a new phone
+      if (phone && !existingContact.phone) {
+        await supabase
+          .from('contacts')
+          .update({ phone })
+          .eq('id', contactId);
+      }
+    } else {
+      // 3. Create new account
+      const { data: newAccount, error: accountError } = await supabase
+        .from('accounts')
+        .insert({
+          name: name,
+          kind: 'individual',
+          email: email,
+          phone: phone,
+          owner_user_id: currentUserId,
+        })
+        .select()
+        .single();
+
+      if (accountError) throw new Error(`Failed to create account: ${accountError.message}`);
+      accountId = newAccount.id;
+
+      // 4. Create new contact
+      const { data: newContact, error: contactError } = await supabase
+        .from('contacts')
+        .insert({
+          account_id: accountId,
+          first_name: firstName,
+          last_name: lastName,
+          email: email,
+          phone: phone,
+        })
+        .select()
+        .single();
+
+      if (contactError) throw new Error(`Failed to create contact: ${contactError.message}`);
+      contactId = newContact.id;
+    }
+
+    // 5. Create lead
+    const { data: lead, error: leadError } = await supabase
+      .from('leads')
       .insert({
         account_id: accountId,
-        first_name: firstName,
-        last_name: lastName,
-        email: email,
-        phone: phone,
+        contact_id: contactId,
+        unit_id: resolvedUnitId,
+        stage: 'new',
+        source: 'website',
+        owner_user_id: currentUserId,
+        notes: message,
       })
       .select()
       .single();
 
-    if (contactError) throw contactError;
-    contactId = newContact.id;
+    if (leadError) throw new Error(`Failed to create lead: ${leadError.message}`);
+
+    // 6. Create opportunity
+    const expectedCloseDate = new Date();
+    expectedCloseDate.setDate(expectedCloseDate.getDate() + 21); // 21 days from now
+
+    const { data: opportunity, error: opportunityError } = await supabase
+      .from('opportunities')
+      .insert({
+        lead_id: lead.id,
+        account_id: accountId,
+        contact_id: contactId,
+        unit_id: resolvedUnitId,
+        stage: 'new',
+        expected_close_date: expectedCloseDate.toISOString().split('T')[0],
+        created_by: currentUserId,
+      })
+      .select()
+      .single();
+
+    if (opportunityError) throw new Error(`Failed to create opportunity: ${opportunityError.message}`);
+
+    // 7. Create first contact task (SLA 24h)
+    const dueAt = new Date();
+    dueAt.setHours(dueAt.getHours() + 24); // 24 hours from now
+
+    const { data: task, error: taskError } = await supabase
+      .from('tasks')
+      .insert({
+        related_type: 'lead',
+        related_id: lead.id,
+        title: 'First contact (SLA 24h)',
+        due_at: dueAt.toISOString(),
+        assigned_to: currentUserId,
+        status: 'open',
+        created_by: currentUserId,
+      })
+      .select()
+      .single();
+
+    if (taskError) throw new Error(`Failed to create task: ${taskError.message}`);
+
+    // 8. Mark buyer request as converted
+    const { error: updateError } = await supabase
+      .from('buyer_requests')
+      .update({
+        status: 'converted',
+        converted_to_lead_id: lead.id,
+      })
+      .eq('id', buyerRequestId);
+
+    if (updateError) {
+      console.error('Warning: Failed to update buyer request status:', updateError);
+      // Don't throw - the conversion was successful even if this update failed
+    }
+
+    return {
+      accountId,
+      contactId,
+      leadId: lead.id,
+      opportunityId: opportunity.id,
+      taskId: task.id,
+    };
+  } catch (error: any) {
+    console.error('Error in convertBuyerRequestToLead:', error);
+    throw new Error(error?.message || 'Failed to convert buyer request to lead');
   }
-
-  // 4. Create lead
-  const { data: lead, error: leadError } = await supabase
-    .from('leads')
-    .insert({
-      account_id: accountId,
-      contact_id: contactId,
-      unit_id: unitId,
-      stage: 'new',
-      source: 'website',
-      owner_user_id: currentUserId,
-      notes: message,
-    })
-    .select()
-    .single();
-
-  if (leadError) throw leadError;
-
-  // 5. Create opportunity
-  const expectedCloseDate = new Date();
-  expectedCloseDate.setDate(expectedCloseDate.getDate() + 21); // 21 days from now
-
-  const { data: opportunity, error: opportunityError } = await supabase
-    .from('opportunities')
-    .insert({
-      lead_id: lead.id,
-      account_id: accountId,
-      contact_id: contactId,
-      unit_id: unitId,
-      stage: 'new',
-      expected_close_date: expectedCloseDate.toISOString().split('T')[0],
-      created_by: currentUserId,
-    })
-    .select()
-    .single();
-
-  if (opportunityError) throw opportunityError;
-
-  // 6. Create first contact task (SLA 24h)
-  const dueAt = new Date();
-  dueAt.setHours(dueAt.getHours() + 24); // 24 hours from now
-
-  const { data: task, error: taskError } = await supabase
-    .from('tasks')
-    .insert({
-      related_type: 'lead',
-      related_id: lead.id,
-      title: 'First contact (SLA 24h)',
-      due_at: dueAt.toISOString(),
-      assigned_to: currentUserId,
-      status: 'open',
-      created_by: currentUserId,
-    })
-    .select()
-    .single();
-
-  if (taskError) throw taskError;
-
-  // 7. Mark buyer request as converted
-  await supabase
-    .from('buyer_requests')
-    .update({
-      status: 'converted',
-      converted_to_lead_id: lead.id,
-    })
-    .eq('id', buyerRequestId);
-
-  return {
-    accountId,
-    contactId,
-    leadId: lead.id,
-    opportunityId: opportunity.id,
-    taskId: task.id,
-  };
 }
 
 /**

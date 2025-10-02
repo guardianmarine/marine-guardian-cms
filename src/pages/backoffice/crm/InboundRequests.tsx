@@ -5,6 +5,7 @@ import { BackofficeLayout } from '@/components/backoffice/Layout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
+import { useAuth } from '@/contexts/AuthContext';
 import {
   Table,
   TableBody,
@@ -60,6 +61,7 @@ type Status = 'new' | 'processing' | 'converted' | 'spam' | 'closed' | 'all';
 export default function InboundRequests() {
   const { t, i18n } = useTranslation();
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [requests, setRequests] = useState<BuyerRequest[]>([]);
   const [unitsById, setUnitsById] = useState<Record<string, UnitInfo>>({});
   const [loading, setLoading] = useState(true);
@@ -157,17 +159,13 @@ export default function InboundRequests() {
   };
 
   const handleConvertToLead = async (request: BuyerRequest) => {
+    if (!user?.id) {
+      toast.error(i18n.language === 'es' ? 'Usuario no autenticado' : 'User not authenticated');
+      return;
+    }
+
     setConverting(request.id);
     try {
-      const { useAuth } = await import('@/contexts/AuthContext');
-      const authModule = useAuth();
-      const currentUserId = authModule?.user?.id;
-      
-      if (!currentUserId) {
-        toast.error('User not authenticated');
-        return;
-      }
-
       // Check for duplicate email
       const { data: existingContacts } = await supabase
         .from('contacts')
@@ -198,21 +196,25 @@ export default function InboundRequests() {
         phone: request.phone || undefined,
         message: request.message || undefined,
         unitId: request.unit_id || undefined,
-        currentUserId,
+        pageUrl: request.page_url || undefined,
+        currentUserId: user.id,
       });
 
       toast.success(
         i18n.language === 'es'
-          ? 'Lead creado con cuenta, contacto, oportunidad y tarea!'
-          : 'Lead created with account, contact, opportunity, and task!'
+          ? 'Lead creado → Oportunidad + Tarea añadidos'
+          : 'Lead created → Opportunity + Task added'
       );
 
       await loadRequests();
       navigate(`/backoffice/crm/leads/${result.leadId}`);
     } catch (error: any) {
       console.error('Error converting to lead:', error);
+      const errorMsg = error?.message || JSON.stringify(error);
       toast.error(
-        error?.message ?? (i18n.language === 'es' ? 'Error al crear lead' : 'Failed to create lead')
+        i18n.language === 'es' 
+          ? `Error al crear lead: ${errorMsg}` 
+          : `Failed to create lead: ${errorMsg}`
       );
     } finally {
       setConverting(null);
