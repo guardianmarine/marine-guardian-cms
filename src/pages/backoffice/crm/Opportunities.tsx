@@ -7,18 +7,57 @@ import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useOpportunities } from '@/hooks/useOpportunities';
-import { Plus, TrendingUp, Filter, X, Maximize2, Minimize2, Kanban } from 'lucide-react';
+import { Plus, TrendingUp, Filter, X, Maximize2, Minimize2, Kanban, Trash2, RotateCcw } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { format } from 'date-fns';
+import { supabase } from '@/integrations/supabase/client';
+import { toast } from 'sonner';
+import { useTranslation } from 'react-i18next';
 
 type OpportunityStage = 'new' | 'qualified' | 'quote' | 'negotiation' | 'won' | 'lost';
 
 export default function Opportunities() {
-  const { opportunities, loading } = useOpportunities();
+  const { opportunities, loading, refetch } = useOpportunities();
+  const { i18n } = useTranslation();
   const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState('');
   const [stageFilter, setStageFilter] = useState<OpportunityStage | 'all'>('all');
   const [compactView, setCompactView] = useState(false);
+  const [viewFilter, setViewFilter] = useState<'active' | 'trash' | 'all'>('active');
+
+  const handleMoveToTrash = async (id: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    try {
+      const { error } = await supabase
+        .from('opportunities')
+        .update({ deleted_at: new Date().toISOString() })
+        .eq('id', id);
+
+      if (error) throw error;
+      toast.success(i18n.language === 'es' ? 'Movido a papelera' : 'Moved to trash');
+      await refetch();
+    } catch (error: any) {
+      console.error('Error moving to trash:', error);
+      toast.error(error?.message ?? (i18n.language === 'es' ? 'Error al mover' : 'Failed to move'));
+    }
+  };
+
+  const handleRestore = async (id: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    try {
+      const { error } = await supabase
+        .from('opportunities')
+        .update({ deleted_at: null })
+        .eq('id', id);
+
+      if (error) throw error;
+      toast.success(i18n.language === 'es' ? 'Restaurado' : 'Restored');
+      await refetch();
+    } catch (error: any) {
+      console.error('Error restoring:', error);
+      toast.error(error?.message ?? (i18n.language === 'es' ? 'Error al restaurar' : 'Failed to restore'));
+    }
+  };
 
   const getStageColor = (stage: string) => {
     const colors = {
@@ -55,7 +94,12 @@ export default function Opportunities() {
     
     const matchesStage = stageFilter === 'all' || opp.stage === stageFilter;
 
-    return matchesSearch && matchesStage;
+    // Apply viewFilter
+    const matchesView = viewFilter === 'all' || 
+      (viewFilter === 'active' && !opp.deleted_at) ||
+      (viewFilter === 'trash' && opp.deleted_at);
+
+    return matchesSearch && matchesStage && matchesView;
   });
 
   const hasActiveFilters = stageFilter !== 'all' || searchTerm !== '';
@@ -140,7 +184,7 @@ export default function Opportunities() {
             </div>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div className="space-y-2">
                 <label className="text-sm font-medium text-muted-foreground">
                   Search
@@ -151,6 +195,22 @@ export default function Opportunities() {
                   onChange={(e) => setSearchTerm(e.target.value)}
                   className="bg-background border-input"
                 />
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-muted-foreground">
+                  Filter by View
+                </label>
+                <Select value={viewFilter} onValueChange={(v: any) => setViewFilter(v)}>
+                  <SelectTrigger className="bg-background border-input">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent className="bg-popover border-border">
+                    <SelectItem value="active">{i18n.language === 'es' ? 'Activos' : 'Active'}</SelectItem>
+                    <SelectItem value="trash">{i18n.language === 'es' ? 'Papelera' : 'Trash'}</SelectItem>
+                    <SelectItem value="all">{i18n.language === 'es' ? 'Todos' : 'All'}</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
 
               <div className="space-y-2">
@@ -215,6 +275,25 @@ export default function Opportunities() {
                       <Badge className={getStageColor(opp.stage)}>
                         {getStageLabel(opp.stage)}
                       </Badge>
+                      {viewFilter === 'trash' ? (
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={(e) => handleRestore(opp.id, e)}
+                          title={i18n.language === 'es' ? 'Restaurar' : 'Restore'}
+                        >
+                          <RotateCcw className="h-4 w-4" />
+                        </Button>
+                      ) : (
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={(e) => handleMoveToTrash(opp.id, e)}
+                          title={i18n.language === 'es' ? 'Mover a Papelera' : 'Move to Trash'}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      )}
                     </div>
                   </div>
                 </CardHeader>

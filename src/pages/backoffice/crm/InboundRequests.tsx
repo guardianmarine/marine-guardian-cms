@@ -166,176 +166,13 @@ export default function InboundRequests() {
 
     setConverting(request.id);
     try {
-      // Parse unit ID from page_url if available
-      let resolvedUnitId = request.unit_id;
-      if (!resolvedUnitId && request.page_url) {
-        const urlSegments = request.page_url.split('/').filter(Boolean);
-        const lastSegment = urlSegments[urlSegments.length - 1];
-        
-        if (lastSegment) {
-          // Try to look up by ID first (UUID pattern)
-          const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-          if (uuidRegex.test(lastSegment)) {
-            const { data } = await supabase
-              .from('units')
-              .select('id')
-              .eq('id', lastSegment)
-              .maybeSingle();
-            if (data) resolvedUnitId = data.id;
-          } else {
-            // Try slug lookup
-            const { data } = await supabase
-              .from('units')
-              .select('id')
-              .eq('slug', lastSegment)
-              .maybeSingle();
-            if (data) resolvedUnitId = data.id;
-          }
-        }
+      const { data, error } = await supabase.rpc('convert_buyer_request_to_lead', {
+        p_request_id: request.id,
+      });
+
+      if (error) {
+        throw error;
       }
-
-      // Split name into first/last
-      const nameParts = request.name.trim().split(/\s+/);
-      const firstName = nameParts[0] || '';
-      const lastName = nameParts.slice(1).join(' ') || '';
-
-      // 1. Check if contact exists by email
-      const { data: existingContact } = await supabase
-        .from('contacts')
-        .select('id, account_id, accounts(id, name)')
-        .eq('email', request.email)
-        .maybeSingle();
-
-      let accountId: string;
-      let contactId: string;
-
-      if (existingContact) {
-        // Reuse existing contact and account
-        accountId = existingContact.account_id;
-        contactId = existingContact.id;
-        
-        // Update contact info if needed
-        await supabase
-          .from('contacts')
-          .update({
-            first_name: firstName,
-            last_name: lastName,
-            phone: request.phone || null,
-          })
-          .eq('id', contactId);
-      } else {
-        // 2. Create or reuse Account (upsert by name for individuals)
-        // Check if an individual account with this name exists
-        const { data: existingAccount } = await supabase
-          .from('accounts')
-          .select('id')
-          .eq('kind', 'individual')
-          .eq('name', request.name)
-          .maybeSingle();
-
-        if (existingAccount) {
-          accountId = existingAccount.id;
-        } else {
-          // Create new Account - DO NOT send created_by (trigger will fill it)
-          const { data: account, error: accountError } = await supabase
-            .from('accounts')
-            .insert({
-              kind: 'individual',
-              name: request.name,
-            })
-            .select('id')
-            .single();
-
-          if (accountError) {
-            // Handle RLS errors specifically
-            if (accountError.message?.includes('row-level security')) {
-              toast.error(
-                i18n.language === 'es'
-                  ? 'Error de permisos al crear cuenta. Verifica que tienes acceso de escritura a la tabla accounts.'
-                  : 'Permission error creating account. Verify you have write access to the accounts table.'
-              );
-            } else {
-              toast.error(
-                i18n.language === 'es'
-                  ? `Error al crear cuenta: ${accountError.message}`
-                  : `Failed to create account: ${accountError.message}`
-              );
-            }
-            throw accountError;
-          }
-          accountId = account.id;
-        }
-
-        // 3. Create new Contact (upsert by email)
-        const { data: contact, error: contactError } = await supabase
-          .from('contacts')
-          .upsert({
-            account_id: accountId,
-            first_name: firstName,
-            last_name: lastName,
-            email: request.email,
-            phone: request.phone || null,
-          }, {
-            onConflict: 'email',
-          })
-          .select('id')
-          .single();
-
-        if (contactError) {
-          if (contactError.message?.includes('row-level security')) {
-            toast.error(
-              i18n.language === 'es'
-                ? 'Error de permisos al crear contacto. Verifica que tienes acceso de escritura a la tabla contacts.'
-                : 'Permission error creating contact. Verify you have write access to the contacts table.'
-            );
-          } else {
-            toast.error(
-              i18n.language === 'es'
-                ? `Error al crear contacto: ${contactError.message}`
-                : `Failed to create contact: ${contactError.message}`
-            );
-          }
-          throw contactError;
-        }
-        contactId = contact.id;
-      }
-
-      // 4. Create Lead - DO NOT send owner_user_id (DB will auto-fill it)
-      const { data: lead, error: leadError } = await supabase
-        .from('leads')
-        .insert({
-          account_id: accountId,
-          contact_id: contactId,
-          unit_id: resolvedUnitId || null,
-          source: 'website',
-          stage: 'new',
-          notes: request.message || null,
-        })
-        .select('id')
-        .single();
-
-      if (leadError) {
-        if (leadError.message?.includes('row-level security')) {
-          toast.error(
-            i18n.language === 'es'
-              ? 'Error de permisos al crear lead. Verifica que tienes acceso de escritura a la tabla leads.'
-              : 'Permission error creating lead. Verify you have write access to the leads table.'
-          );
-        } else {
-          toast.error(
-            i18n.language === 'es'
-              ? `Error al crear lead: ${leadError.message}`
-              : `Failed to create lead: ${leadError.message}`
-          );
-        }
-        throw leadError;
-      }
-
-      // 5. Mark request as converted
-      await supabase
-        .from('buyer_requests')
-        .update({ status: 'converted' })
-        .eq('id', request.id);
 
       toast.success(
         i18n.language === 'es'
@@ -344,25 +181,16 @@ export default function InboundRequests() {
       );
 
       await loadRequests();
-      navigate(`/backoffice/crm/leads/${lead.id}`);
+      if (data?.lead_id) {
+        navigate(`/backoffice/crm/leads/${data.lead_id}`);
+      }
     } catch (error: any) {
       console.error('Error converting to lead:', error);
-      
-      // Handle specific RLS errors
-      if (error?.message?.includes('row-level security')) {
-        toast.error(
-          i18n.language === 'es'
-            ? 'Error de permisos: verifica que tienes los permisos necesarios para crear cuentas, contactos y leads.'
-            : 'Permission error: verify you have the necessary permissions to create accounts, contacts and leads.'
-        );
-      } else {
-        const errorMsg = error?.message || 'Unknown error';
-        toast.error(
-          i18n.language === 'es' 
-            ? `Error al crear lead: ${errorMsg}` 
-            : `Failed to create lead: ${errorMsg}`
-        );
-      }
+      toast.error(
+        i18n.language === 'es' 
+          ? `Error al crear lead: ${error?.message || 'Error desconocido'}` 
+          : `Failed to create lead: ${error?.message || 'Unknown error'}`
+      );
     } finally {
       setConverting(null);
     }

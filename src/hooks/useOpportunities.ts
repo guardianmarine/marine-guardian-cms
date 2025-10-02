@@ -14,6 +14,7 @@ export interface Opportunity {
   created_by?: string;
   created_at: string;
   updated_at: string;
+  deleted_at?: string | null;
   // Joined data
   account?: {
     id: string;
@@ -102,6 +103,7 @@ export function useOpportunities() {
     opportunities,
     loading,
     fetchOpportunities,
+    refetch: fetchOpportunities,
     updateOpportunityStage,
   };
 }

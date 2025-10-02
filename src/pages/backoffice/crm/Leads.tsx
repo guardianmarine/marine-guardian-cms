@@ -22,7 +22,7 @@ import {
 } from '@/components/ui/select';
 import { Card, CardContent } from '@/components/ui/card';
 import { supabase } from '@/integrations/supabase/client';
-import { Search, ExternalLink, Eye } from 'lucide-react';
+import { Search, ExternalLink, Eye, Trash2, RotateCcw } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { toast } from 'sonner';
 
@@ -55,18 +55,28 @@ export default function Leads() {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [stageFilter, setStageFilter] = useState<Stage>('all');
+  const [viewFilter, setViewFilter] = useState<'active' | 'trash' | 'all'>('active');
 
   useEffect(() => {
     loadLeads();
-  }, []);
+  }, [viewFilter]);
 
   const loadLeads = async () => {
     try {
-      const { data, error } = await supabase
+      let query = supabase
         .from('leads')
-        .select('id, source, stage, account_name, contact_email, contact_phone, unit_id, created_at')
+        .select('id, source, stage, account_name, contact_email, contact_phone, unit_id, created_at, deleted_at')
         .order('created_at', { ascending: false })
         .limit(50);
+
+      // Apply deleted_at filter based on viewFilter
+      if (viewFilter === 'active') {
+        query = query.is('deleted_at', null);
+      } else if (viewFilter === 'trash') {
+        query = query.not('deleted_at', 'is', null);
+      }
+
+      const { data, error } = await query;
 
       if (error) throw error;
       setLeads(data || []);
@@ -138,6 +148,42 @@ export default function Leads() {
     }
   };
 
+  const handleMoveToTrash = async (id: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    try {
+      const { error } = await supabase
+        .from('leads')
+        .update({ deleted_at: new Date().toISOString() })
+        .eq('id', id);
+
+      if (error) throw error;
+
+      toast.success(i18n.language === 'es' ? 'Movido a papelera' : 'Moved to trash');
+      await loadLeads();
+    } catch (error: any) {
+      console.error('Error moving to trash:', error);
+      toast.error(error?.message ?? (i18n.language === 'es' ? 'Error al mover' : 'Failed to move'));
+    }
+  };
+
+  const handleRestore = async (id: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    try {
+      const { error } = await supabase
+        .from('leads')
+        .update({ deleted_at: null })
+        .eq('id', id);
+
+      if (error) throw error;
+
+      toast.success(i18n.language === 'es' ? 'Restaurado' : 'Restored');
+      await loadLeads();
+    } catch (error: any) {
+      console.error('Error restoring:', error);
+      toast.error(error?.message ?? (i18n.language === 'es' ? 'Error al restaurar' : 'Failed to restore'));
+    }
+  };
+
   if (loading) {
     return (
       <BackofficeLayout>
@@ -177,6 +223,16 @@ export default function Leads() {
               className="pl-10"
             />
           </div>
+          <Select value={viewFilter} onValueChange={(v: any) => setViewFilter(v)}>
+            <SelectTrigger className="w-32">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="active">{i18n.language === 'es' ? 'Activos' : 'Active'}</SelectItem>
+              <SelectItem value="trash">{i18n.language === 'es' ? 'Papelera' : 'Trash'}</SelectItem>
+              <SelectItem value="all">{i18n.language === 'es' ? 'Todos' : 'All'}</SelectItem>
+            </SelectContent>
+          </Select>
           <Select value={stageFilter} onValueChange={(v: Stage) => setStageFilter(v)}>
             <SelectTrigger className="w-48">
               <SelectValue />
@@ -279,18 +335,41 @@ export default function Leads() {
                         )}
                       </TableCell>
                       <TableCell>
-                        <Button
-                          type="button"
-                          size="sm"
-                          variant="ghost"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            navigate(`/backoffice/crm/leads/${lead.id}`);
-                          }}
-                          title={i18n.language === 'es' ? 'Ver Detalles' : 'View Details'}
-                        >
-                          <Eye className="h-4 w-4" />
-                        </Button>
+                        <div className="flex items-center gap-1">
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="ghost"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              navigate(`/backoffice/crm/leads/${lead.id}`);
+                            }}
+                            title={i18n.language === 'es' ? 'Ver Detalles' : 'View Details'}
+                          >
+                            <Eye className="h-4 w-4" />
+                          </Button>
+                          {viewFilter === 'trash' ? (
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="ghost"
+                              onClick={(e) => handleRestore(lead.id, e)}
+                              title={i18n.language === 'es' ? 'Restaurar' : 'Restore'}
+                            >
+                              <RotateCcw className="h-4 w-4" />
+                            </Button>
+                          ) : (
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="ghost"
+                              onClick={(e) => handleMoveToTrash(lead.id, e)}
+                              title={i18n.language === 'es' ? 'Mover a Papelera' : 'Move to Trash'}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          )}
+                        </div>
                       </TableCell>
                     </TableRow>
                   ))
