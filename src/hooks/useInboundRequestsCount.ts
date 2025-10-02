@@ -28,10 +28,26 @@ export function useInboundRequestsCount() {
     // Initial fetch
     fetchCount();
 
-    // Poll every 30 seconds
-    const interval = setInterval(fetchCount, 30000);
+    // Set up realtime subscription
+    const channel = supabase
+      .channel('buyer_requests_changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'buyer_requests',
+        },
+        () => {
+          // Refresh count on any change
+          fetchCount();
+        }
+      )
+      .subscribe();
 
-    return () => clearInterval(interval);
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, []);
 
   return count;
