@@ -351,15 +351,46 @@ export default function InboundRequests() {
       return;
     }
 
+    console.log('Starting conversion for request:', request.id);
     setConverting(request.id);
+    
     try {
       const { data, error } = await supabase.rpc('convert_buyer_request_to_lead', {
         p_request_id: request.id,
       });
 
+      console.log('RPC response:', { data, error });
+
       if (error) {
+        // Handle specific error types
+        if (error.message?.includes('foreign key')) {
+          throw new Error(
+            i18n.language === 'es'
+              ? 'Error de integridad de datos. Por favor, contacte al administrador.'
+              : 'Data integrity error. Please contact administrator.'
+          );
+        }
+        
+        if (error.message?.includes('permission')) {
+          throw new Error(
+            i18n.language === 'es'
+              ? 'No tiene permisos para realizar esta acción.'
+              : 'You do not have permission to perform this action.'
+          );
+        }
+
         throw error;
       }
+
+      if (!data) {
+        throw new Error(
+          i18n.language === 'es'
+            ? 'La conversión no devolvió datos válidos.'
+            : 'Conversion did not return valid data.'
+        );
+      }
+
+      console.log('Lead created successfully:', data.lead_id);
 
       toast.success(
         i18n.language === 'es'
@@ -367,16 +398,28 @@ export default function InboundRequests() {
           : 'Lead created successfully'
       );
 
+      // Refresh the list to update status and badge
       await loadRequests();
-      if (data?.lead_id) {
+
+      // Navigate to the new lead if ID is available
+      if (data.lead_id) {
+        console.log('Navigating to lead:', data.lead_id);
         navigate(`/backoffice/crm/leads/${data.lead_id}`);
       }
     } catch (error: any) {
-      console.error('Error converting to lead:', error);
+      console.error('Error converting to lead:', {
+        error,
+        message: error?.message,
+        code: error?.code,
+        details: error?.details,
+        hint: error?.hint,
+      });
+
+      const errorMessage = error?.message || 'Unknown error';
       toast.error(
         i18n.language === 'es' 
-          ? `Error al crear lead: ${error?.message || 'Error desconocido'}` 
-          : `Failed to create lead: ${error?.message || 'Unknown error'}`
+          ? `Error al crear lead: ${errorMessage}` 
+          : `Failed to create lead: ${errorMessage}`
       );
     } finally {
       setConverting(null);
