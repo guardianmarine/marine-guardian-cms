@@ -35,6 +35,7 @@ import Accounts from "./pages/backoffice/crm/Accounts";
 import AccountForm from "./pages/backoffice/crm/AccountForm";
 import AccountDetail from "./pages/backoffice/crm/AccountDetail";
 import Contacts from "./pages/backoffice/crm/Contacts";
+import ContactDetail from "./pages/backoffice/crm/ContactDetail";
 import Leads from "./pages/backoffice/crm/Leads";
 import LeadDetail from "./pages/backoffice/crm/LeadDetail";
 import Opportunities from "./pages/backoffice/crm/Opportunities";
@@ -279,6 +280,7 @@ const App = () => (
             <Route path="/backoffice/crm/accounts/:id/edit" element={<ProtectedRoute><RoleGuard allowedRoles={['admin','sales']}><AccountForm /></RoleGuard></ProtectedRoute>} />
             <Route path="/backoffice/crm/accounts/:id" element={<ProtectedRoute><RoleGuard allowedRoles={['admin','sales','finance','inventory','viewer']}><AccountDetail /></RoleGuard></ProtectedRoute>} />
             <Route path="/backoffice/crm/contacts" element={<ProtectedRoute><RoleGuard allowedRoles={['admin','sales','finance','inventory','viewer']}><Contacts /></RoleGuard></ProtectedRoute>} />
+            <Route path="/backoffice/crm/contacts/:id" element={<ProtectedRoute><RoleGuard allowedRoles={['admin','sales','finance','inventory','viewer']}><ContactDetail /></RoleGuard></ProtectedRoute>} />
             <Route path="/backoffice/crm/leads" element={<ProtectedRoute><RoleGuard allowedRoles={['admin','sales']}><Leads /></RoleGuard></ProtectedRoute>} />
             <Route path="/backoffice/crm/leads/:id" element={<ProtectedRoute><RoleGuard allowedRoles={['admin','sales']}><LeadDetail /></RoleGuard></ProtectedRoute>} />
             <Route path="/backoffice/crm/opportunities" element={<ProtectedRoute><RoleGuard allowedRoles={['admin','sales']}><Opportunities /></RoleGuard></ProtectedRoute>} />

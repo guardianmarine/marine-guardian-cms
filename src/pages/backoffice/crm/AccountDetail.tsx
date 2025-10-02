@@ -1,115 +1,123 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { BackofficeLayout } from '@/components/backoffice/Layout';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { useCRMStore } from '@/services/crmStore';
+import { supabase } from '@/integrations/supabase/client';
 import { getEmailLink, getPhoneLink, getWhatsAppLink } from '@/lib/crm-integrations';
-import { Building, UserPlus, Upload, TrendingUp, Users, FileText, Activity, Mail, Phone, MessageSquare } from 'lucide-react';
+import { Building, TrendingUp, Users, Mail, Phone, MessageSquare } from 'lucide-react';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
+
+type Account = {
+  id: string;
+  kind: 'company' | 'individual';
+  name: string;
+  tax_id?: string | null;
+  phone?: string | null;
+  email?: string | null;
+  website?: string | null;
+  billing_address?: string | null;
+  billing_state?: string | null;
+  billing_country?: string | null;
+  is_tax_exempt: boolean;
+  resale_cert: boolean;
+  created_at: string;
+};
+
+type Contact = {
+  id: string;
+  first_name: string;
+  last_name: string;
+  email: string;
+  phone?: string | null;
+  role_title?: string | null;
+};
+
+type Opportunity = {
+  id: string;
+  stage: string;
+  amount_cents?: number | null;
+  expected_close_date?: string | null;
+  created_at: string;
+};
 
 export default function AccountDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { t } = useTranslation();
-  const {
-    getAccount,
-    getAccountContacts,
-    getAccountOpportunities,
-    addContact,
-    getActivities,
-    addDocument,
-    getDocuments,
-  } = useCRMStore();
+  const { i18n } = useTranslation();
+  const [account, setAccount] = useState<Account | null>(null);
+  const [contacts, setContacts] = useState<Contact[]>([]);
+  const [opportunities, setOpportunities] = useState<Opportunity[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const account = id ? getAccount(id) : null;
-  const contacts = id ? getAccountContacts(id) : [];
-  const opportunities = id ? getAccountOpportunities(id) : [];
-  const activities = id ? getActivities('account', id) : [];
-  const documents = id ? getDocuments('account', id) : [];
+  useEffect(() => {
+    if (id) {
+      loadAccount();
+    }
+  }, [id]);
 
-  const [contactDialog, setContactDialog] = useState(false);
-  const [documentDialog, setDocumentDialog] = useState(false);
-  const [firstName, setFirstName] = useState('');
-  const [lastName, setLastName] = useState('');
-  const [email, setEmail] = useState('');
-  const [phone, setPhone] = useState('');
-  const [roleTitle, setRoleTitle] = useState('');
-  const [documentName, setDocumentName] = useState('');
-  const [documentUrl, setDocumentUrl] = useState('');
+  const loadAccount = async () => {
+    if (!id) return;
+    
+    try {
+      const { data: accountData, error: accountError } = await supabase
+        .from('accounts')
+        .select('*')
+        .eq('id', id)
+        .is('deleted_at', null)
+        .single();
 
-  if (!account) {
+      if (accountError) throw accountError;
+      setAccount(accountData);
+
+      const { data: contactsData } = await supabase
+        .from('contacts')
+        .select('id, first_name, last_name, email, phone, role_title')
+        .eq('account_id', id)
+        .is('deleted_at', null);
+      setContacts(contactsData || []);
+
+      const { data: oppsData } = await supabase
+        .from('opportunities')
+        .select('id, stage, amount_cents, expected_close_date, created_at')
+        .eq('account_id', id)
+        .is('deleted_at', null);
+      setOpportunities(oppsData || []);
+    } catch (error: any) {
+      console.error('Error loading account:', error);
+      toast.error(error?.message ?? 'Failed to load account');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (loading) {
     return (
       <BackofficeLayout>
         <div className="p-6">
-          <p>Account not found</p>
+          <p>{i18n.language === 'es' ? 'Cargando...' : 'Loading...'}</p>
         </div>
       </BackofficeLayout>
     );
   }
 
-  const wonOpportunities = opportunities.filter((opp) => opp.pipeline_stage === 'won');
+  if (!account) {
+    return (
+      <BackofficeLayout>
+        <div className="p-6">
+          <p>{i18n.language === 'es' ? 'Cuenta no encontrada' : 'Account not found'}</p>
+        </div>
+      </BackofficeLayout>
+    );
+  }
+
+  const wonOpportunities = opportunities.filter((opp) => opp.stage === 'won');
   const isRepeatBuyer = wonOpportunities.length > 1;
-  const totalValue = wonOpportunities.reduce((sum, opp) => {
-    // This would calculate from opportunity_units in a real implementation
-    return sum;
-  }, 0);
-
-  const handleAddContact = () => {
-    if (!firstName || !lastName || !email) {
-      toast.error('First name, last name, and email are required');
-      return;
-    }
-
-    addContact({
-      account_id: account.id,
-      first_name: firstName,
-      last_name: lastName,
-      email,
-      phone,
-      role_title: roleTitle || undefined,
-      preferred_lang: 'en',
-    });
-
-    toast.success('Contact added successfully');
-    setContactDialog(false);
-    setFirstName('');
-    setLastName('');
-    setEmail('');
-    setPhone('');
-    setRoleTitle('');
-  };
-
-  const handleAddDocument = () => {
-    if (!documentName || !documentUrl) {
-      toast.error('Document name and URL are required');
-      return;
-    }
-
-    addDocument({
-      parent_type: 'account',
-      parent_id: account.id,
-      name: documentName,
-      file_url: documentUrl,
-      mime: 'application/pdf',
-      size_kb: 0,
-      uploaded_by: 'current-user',
-    });
-
-    toast.success('Document uploaded successfully');
-    setDocumentDialog(false);
-    setDocumentName('');
-    setDocumentUrl('');
-  };
 
   return (
     <BackofficeLayout>
@@ -121,7 +129,7 @@ export default function AccountDetail() {
               <h2 className="text-3xl font-bold">{account.name}</h2>
               {isRepeatBuyer && (
                 <Badge className="bg-purple-500">
-                  Repeat Buyer
+                  {i18n.language === 'es' ? 'Comprador Repetido' : 'Repeat Buyer'}
                 </Badge>
               )}
             </div>
@@ -129,109 +137,32 @@ export default function AccountDetail() {
               {account.kind} • {format(new Date(account.created_at), 'MMM d, yyyy')}
             </p>
           </div>
-          <div className="flex gap-2">
-            <Dialog open={contactDialog} onOpenChange={setContactDialog}>
-              <DialogTrigger asChild>
-                <Button variant="outline">
-                  <UserPlus className="h-4 w-4 mr-2" />
-                  Add Contact
-                </Button>
-              </DialogTrigger>
-              <DialogContent>
-                <DialogHeader>
-                  <DialogTitle>Add Contact</DialogTitle>
-                  <DialogDescription>Add a new contact to this account</DialogDescription>
-                </DialogHeader>
-                <div className="space-y-4">
-                  <div className="grid grid-cols-2 gap-2">
-                    <div>
-                      <Label>First Name</Label>
-                      <Input value={firstName} onChange={(e) => setFirstName(e.target.value)} />
-                    </div>
-                    <div>
-                      <Label>Last Name</Label>
-                      <Input value={lastName} onChange={(e) => setLastName(e.target.value)} />
-                    </div>
-                  </div>
-                  <div>
-                    <Label>Email</Label>
-                    <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
-                  </div>
-                  <div>
-                    <Label>Phone</Label>
-                    <Input type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} />
-                  </div>
-                  <div>
-                    <Label>Role/Title</Label>
-                    <Input value={roleTitle} onChange={(e) => setRoleTitle(e.target.value)} />
-                  </div>
-                  <Button onClick={handleAddContact} className="w-full">Add Contact</Button>
-                </div>
-              </DialogContent>
-            </Dialog>
-
-            <Dialog open={documentDialog} onOpenChange={setDocumentDialog}>
-              <DialogTrigger asChild>
-                <Button variant="outline">
-                  <Upload className="h-4 w-4 mr-2" />
-                  Upload Document
-                </Button>
-              </DialogTrigger>
-              <DialogContent>
-                <DialogHeader>
-                  <DialogTitle>Upload Document</DialogTitle>
-                  <DialogDescription>Upload account-related documents</DialogDescription>
-                </DialogHeader>
-                <div className="space-y-4">
-                  <div>
-                    <Label>Document Name</Label>
-                    <Input
-                      value={documentName}
-                      onChange={(e) => setDocumentName(e.target.value)}
-                      placeholder="e.g., Tax Certificate"
-                    />
-                  </div>
-                  <div>
-                    <Label>File URL</Label>
-                    <Input
-                      value={documentUrl}
-                      onChange={(e) => setDocumentUrl(e.target.value)}
-                      placeholder="https://..."
-                    />
-                  </div>
-                  <Button onClick={handleAddDocument} className="w-full">Upload</Button>
-                </div>
-              </DialogContent>
-            </Dialog>
-          </div>
         </div>
 
         {/* Summary Cards */}
-        <div className="grid md:grid-cols-4 gap-4">
+        <div className="grid md:grid-cols-3 gap-4">
           <Card>
             <CardContent className="pt-6">
-              <div className="text-sm text-muted-foreground">Contacts</div>
+              <div className="text-sm text-muted-foreground">
+                {i18n.language === 'es' ? 'Contactos' : 'Contacts'}
+              </div>
               <div className="text-2xl font-bold">{contacts.length}</div>
             </CardContent>
           </Card>
           <Card>
             <CardContent className="pt-6">
-              <div className="text-sm text-muted-foreground">Opportunities</div>
+              <div className="text-sm text-muted-foreground">
+                {i18n.language === 'es' ? 'Oportunidades' : 'Opportunities'}
+              </div>
               <div className="text-2xl font-bold">{opportunities.length}</div>
             </CardContent>
           </Card>
           <Card>
             <CardContent className="pt-6">
-              <div className="text-sm text-muted-foreground">Won Deals</div>
-              <div className="text-2xl font-bold">{wonOpportunities.length}</div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="pt-6">
-              <div className="text-sm text-muted-foreground">Tax Exempt</div>
-              <div className="text-2xl font-bold">
-                {account.is_tax_exempt ? 'Yes' : 'No'}
+              <div className="text-sm text-muted-foreground">
+                {i18n.language === 'es' ? 'Negocios Ganados' : 'Won Deals'}
               </div>
+              <div className="text-2xl font-bold">{wonOpportunities.length}</div>
             </CardContent>
           </Card>
         </div>
@@ -239,18 +170,24 @@ export default function AccountDetail() {
         {/* Tabs */}
         <Tabs defaultValue="overview" className="space-y-4">
           <TabsList>
-            <TabsTrigger value="overview">Overview</TabsTrigger>
-            <TabsTrigger value="contacts">Contacts ({contacts.length})</TabsTrigger>
-            <TabsTrigger value="opportunities">Opportunities ({opportunities.length})</TabsTrigger>
-            <TabsTrigger value="documents">Documents ({documents.length})</TabsTrigger>
-            <TabsTrigger value="activity">Activity ({activities.length})</TabsTrigger>
+            <TabsTrigger value="overview">
+              {i18n.language === 'es' ? 'Resumen' : 'Overview'}
+            </TabsTrigger>
+            <TabsTrigger value="contacts">
+              {i18n.language === 'es' ? 'Contactos' : 'Contacts'} ({contacts.length})
+            </TabsTrigger>
+            <TabsTrigger value="opportunities">
+              {i18n.language === 'es' ? 'Oportunidades' : 'Opportunities'} ({opportunities.length})
+            </TabsTrigger>
           </TabsList>
 
           <TabsContent value="overview">
             <div className="grid md:grid-cols-2 gap-6">
               <Card>
                 <CardHeader>
-                  <CardTitle>Account Information</CardTitle>
+                  <CardTitle>
+                    {i18n.language === 'es' ? 'Información de Cuenta' : 'Account Information'}
+                  </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-3">
                   <div>
@@ -313,7 +250,9 @@ export default function AccountDetail() {
 
               <Card>
                 <CardHeader>
-                  <CardTitle>Billing Information</CardTitle>
+                  <CardTitle>
+                    {i18n.language === 'es' ? 'Información de Facturación' : 'Billing Information'}
+                  </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-3">
                   {account.billing_address && (
@@ -335,12 +274,16 @@ export default function AccountDetail() {
                     </div>
                   )}
                   <div>
-                    <label className="text-sm font-medium text-muted-foreground">Tax Exempt</label>
-                    <p>{account.is_tax_exempt ? 'Yes' : 'No'}</p>
+                    <label className="text-sm font-medium text-muted-foreground">
+                      {i18n.language === 'es' ? 'Exento de Impuestos' : 'Tax Exempt'}
+                    </label>
+                    <p>{account.is_tax_exempt ? (i18n.language === 'es' ? 'Sí' : 'Yes') : 'No'}</p>
                   </div>
                   <div>
-                    <label className="text-sm font-medium text-muted-foreground">Resale Certificate</label>
-                    <p>{account.resale_cert ? 'Yes' : 'No'}</p>
+                    <label className="text-sm font-medium text-muted-foreground">
+                      {i18n.language === 'es' ? 'Certificado de Reventa' : 'Resale Certificate'}
+                    </label>
+                    <p>{account.resale_cert ? (i18n.language === 'es' ? 'Sí' : 'Yes') : 'No'}</p>
                   </div>
                 </CardContent>
               </Card>
@@ -349,11 +292,13 @@ export default function AccountDetail() {
 
           <TabsContent value="contacts">
             <Card>
-              <CardContent>
+              <CardContent className="pt-6">
                 {contacts.length === 0 ? (
                   <div className="py-12 text-center">
                     <Users className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-                    <p className="text-muted-foreground">No contacts yet</p>
+                    <p className="text-muted-foreground">
+                      {i18n.language === 'es' ? 'Aún no hay contactos' : 'No contacts yet'}
+                    </p>
                   </div>
                 ) : (
                   <div className="space-y-3">
@@ -373,7 +318,7 @@ export default function AccountDetail() {
                           )}
                         </div>
                         <div className="text-sm text-muted-foreground">
-                          {contact.phone}
+                          {contact.phone || '-'}
                         </div>
                       </div>
                     ))}
@@ -385,11 +330,13 @@ export default function AccountDetail() {
 
           <TabsContent value="opportunities">
             <Card>
-              <CardContent>
+              <CardContent className="pt-6">
                 {opportunities.length === 0 ? (
                   <div className="py-12 text-center">
                     <TrendingUp className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-                    <p className="text-muted-foreground">No opportunities yet</p>
+                    <p className="text-muted-foreground">
+                      {i18n.language === 'es' ? 'Aún no hay oportunidades' : 'No opportunities yet'}
+                    </p>
                   </div>
                 ) : (
                   <div className="space-y-3">
@@ -400,87 +347,24 @@ export default function AccountDetail() {
                         onClick={() => navigate(`/backoffice/crm/opportunities/${opp.id}`)}
                       >
                         <div>
-                          <p className="font-medium">{opp.name}</p>
+                          <p className="font-medium">
+                            {account.name}
+                          </p>
                           <p className="text-sm text-muted-foreground">
                             {format(new Date(opp.created_at), 'MMM d, yyyy')}
+                            {opp.amount_cents && ` • $${(opp.amount_cents / 100).toLocaleString()}`}
                           </p>
                         </div>
                         <div className="text-right">
-                          <Badge className={`bg-${opp.pipeline_stage === 'won' ? 'green' : opp.pipeline_stage === 'lost' ? 'gray' : 'blue'}-500`}>
-                            {opp.pipeline_stage}
+                          <Badge variant={opp.stage === 'won' ? 'default' : 'secondary'}>
+                            {opp.stage}
                           </Badge>
-                          {opp.expected_close_at && (
+                          {opp.expected_close_date && (
                             <p className="text-xs text-muted-foreground mt-1">
-                              Close: {format(new Date(opp.expected_close_at), 'MMM d')}
+                              {i18n.language === 'es' ? 'Cierre' : 'Close'}: {format(new Date(opp.expected_close_date), 'MMM d')}
                             </p>
                           )}
                         </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          <TabsContent value="documents">
-            <Card>
-              <CardContent>
-                {documents.length === 0 ? (
-                  <div className="py-12 text-center">
-                    <FileText className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-                    <p className="text-muted-foreground">No documents uploaded yet</p>
-                  </div>
-                ) : (
-                  <div className="space-y-3">
-                    {documents.map((doc) => (
-                      <div key={doc.id} className="flex items-center justify-between p-3 border rounded-lg">
-                        <div className="flex items-center gap-3">
-                          <FileText className="h-5 w-5 text-primary" />
-                          <div>
-                            <p className="font-medium">{doc.name}</p>
-                            <p className="text-xs text-muted-foreground">
-                              {format(new Date(doc.created_at), 'MMM d, yyyy')}
-                            </p>
-                          </div>
-                        </div>
-                        <Button variant="ghost" size="sm" asChild>
-                          <a href={doc.file_url} target="_blank" rel="noopener noreferrer">
-                            View
-                          </a>
-                        </Button>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          <TabsContent value="activity">
-            <Card>
-              <CardContent>
-                {activities.length === 0 ? (
-                  <div className="py-12 text-center">
-                    <Activity className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-                    <p className="text-muted-foreground">No activities yet</p>
-                  </div>
-                ) : (
-                  <div className="space-y-3">
-                    {activities.map((activity) => (
-                      <div key={activity.id} className="border-l-2 border-primary pl-3">
-                        <div className="flex items-center gap-2 mb-1">
-                          <Badge variant="outline" className="text-xs">
-                            {activity.kind}
-                          </Badge>
-                          <span className="text-xs text-muted-foreground">
-                            {format(new Date(activity.created_at), 'MMM d, HH:mm')}
-                          </span>
-                        </div>
-                        <p className="font-medium text-sm">{activity.subject}</p>
-                        {activity.body && (
-                          <p className="text-sm text-muted-foreground mt-1">{activity.body}</p>
-                        )}
                       </div>
                     ))}
                   </div>
