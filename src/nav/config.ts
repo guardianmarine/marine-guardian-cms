@@ -43,14 +43,21 @@ export const NAV_ITEMS: NavItem[] = [
   },
 
   { 
-    id: 'content', 
-    route: '/backoffice/content', 
+    id: 'cms', 
+    route: '/backoffice/cms', 
     icon: 'Layout', 
-    label: { en: 'Content', es: 'Contenido' }, 
+    label: { en: 'CMS', es: 'CMS' }, 
     roles: ['admin', 'inventory'],
     children: [
       { 
-        id: 'home', 
+        id: 'home-hero', 
+        route: '/backoffice/cms/home-hero', 
+        icon: 'Image', 
+        label: { en: 'Home Hero', es: 'Hero Home' }, 
+        roles: ['admin', 'inventory'] 
+      },
+      { 
+        id: 'home-editor', 
         route: '/backoffice/content', 
         icon: 'PanelsTopLeft', 
         label: { en: 'Home Editor', es: 'Editor Home' }, 

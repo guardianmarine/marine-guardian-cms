@@ -24,6 +24,7 @@ import NoAccess from "./pages/NoAccess";
 import Dashboard from "./pages/backoffice/Dashboard";
 import MediaLibrary from "./pages/backoffice/MediaLibrary";
 import HomeEditor from "./pages/backoffice/HomeEditor";
+import HomeHeroCMS from "./pages/backoffice/cms/HomeHeroCMS";
 import InventoryAdmin from "./pages/backoffice/InventoryAdmin";
 import UnitForm from "./pages/backoffice/UnitForm";
 import BuyerRequests from "./pages/backoffice/BuyerRequests";
@@ -191,6 +192,16 @@ const App = () => (
                 <ProtectedRoute>
                   <RoleGuard allowedRoles={['admin', 'inventory']}>
                     <MediaLibrary />
+                  </RoleGuard>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/backoffice/cms/home-hero"
+              element={
+                <ProtectedRoute>
+                  <RoleGuard allowedRoles={['admin', 'inventory']}>
+                    <HomeHeroCMS />
                   </RoleGuard>
                 </ProtectedRoute>
               }

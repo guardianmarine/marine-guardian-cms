@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -7,19 +7,93 @@ import { Card } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { UnitCategory, TruckType, TrailerType } from '@/types';
 import { InventoryService } from '@/services/inventoryService';
+import { supabase } from '@/integrations/supabase/client';
 import { Search } from 'lucide-react';
+
+type HeroContent = {
+  hero_title: string;
+  hero_subtitle: string;
+  hero_cta_label: string;
+  hero_cta_url: string;
+  hero_image_desktop_url: string;
+  hero_image_mobile_url: string;
+  hero_overlay_opacity: number;
+  hero_alignment: 'left' | 'center' | 'right';
+  hero_show_search: boolean;
+};
 
 const truckTypes: TruckType[] = ['Sleeper', 'Daycab', 'Yard Mule', 'Box Truck'];
 const trailerTypes: TrailerType[] = ['Dry Van', 'Reefer', 'Low Boy', 'Flat Bed', 'Pneumatic'];
 
 export function HeroSection() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<UnitCategory>('truck');
   const [filters, setFilters] = useState<Record<string, any>>({});
+  const [heroContent, setHeroContent] = useState<HeroContent | null>(null);
+  const [loading, setLoading] = useState(true);
 
   const makes = InventoryService.getUniqueMakes(activeTab);
   const types = InventoryService.getUniqueTypes(activeTab);
+
+  // Default fallback content
+  const defaultContent: HeroContent = {
+    hero_title: t('hero.title'),
+    hero_subtitle: t('hero.subtitle'),
+    hero_cta_label: '',
+    hero_cta_url: '',
+    hero_image_desktop_url: 'https://images.unsplash.com/photo-1601584115197-04ecc0da31d7?w=1600&q=80',
+    hero_image_mobile_url: '',
+    hero_overlay_opacity: 0.5,
+    hero_alignment: 'center',
+    hero_show_search: true,
+  };
+
+  useEffect(() => {
+    loadHeroContent();
+  }, [i18n.language]);
+
+  const loadHeroContent = async () => {
+    try {
+      setLoading(true);
+      const currentLocale = i18n.language === 'es' ? 'es' : 'en';
+      
+      // Try to fetch published settings for current locale
+      const { data, error } = await supabase
+        .from('site_settings_published')
+        .select('*')
+        .eq('locale', currentLocale)
+        .maybeSingle();
+
+      if (error && error.code !== 'PGRST116') {
+        throw error;
+      }
+
+      if (data) {
+        setHeroContent(data as HeroContent);
+      } else {
+        // Try other locale
+        const otherLocale = currentLocale === 'en' ? 'es' : 'en';
+        const { data: otherData } = await supabase
+          .from('site_settings_published')
+          .select('*')
+          .eq('locale', otherLocale)
+          .maybeSingle();
+
+        if (otherData) {
+          setHeroContent(otherData as HeroContent);
+        } else {
+          // Use default fallback
+          setHeroContent(defaultContent);
+        }
+      }
+    } catch (error) {
+      console.error('Error loading hero content:', error);
+      setHeroContent(defaultContent);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleSearch = () => {
     const params = new URLSearchParams();
@@ -30,31 +104,75 @@ export function HeroSection() {
     navigate(`/inventory?${params.toString()}`);
   };
 
+  const content = heroContent || defaultContent;
+  const alignmentClass = 
+    content.hero_alignment === 'left' ? 'items-start text-left' :
+    content.hero_alignment === 'right' ? 'items-end text-right' :
+    'items-center text-center';
+
+  if (loading) {
+    return (
+      <section className="relative h-[600px] flex items-center bg-muted animate-pulse">
+        <div className="container relative z-10 px-4">
+          <div className="max-w-4xl space-y-4">
+            <div className="h-12 bg-muted-foreground/20 rounded w-3/4" />
+            <div className="h-6 bg-muted-foreground/20 rounded w-1/2" />
+          </div>
+        </div>
+      </section>
+    );
+  }
+
   return (
     <section className="relative h-[600px] flex items-center">
-      {/* Background Image with Overlay */}
+      {/* Background Image with Overlay - Responsive */}
       <div className="absolute inset-0 z-0">
-        <img
-          src="https://images.unsplash.com/photo-1601584115197-04ecc0da31d7?w=1600&q=80"
-          alt="Heavy-duty trucks"
-          className="w-full h-full object-cover"
-          loading="eager"
+        <picture>
+          {content.hero_image_mobile_url && (
+            <source
+              media="(max-width: 768px)"
+              srcSet={content.hero_image_mobile_url}
+            />
+          )}
+          <img
+            src={content.hero_image_desktop_url}
+            alt={content.hero_title}
+            className="w-full h-full object-cover"
+            loading="eager"
+          />
+        </picture>
+        <div
+          className="absolute inset-0 bg-gradient-to-r from-black via-black/70 to-transparent"
+          style={{
+            opacity: content.hero_overlay_opacity,
+          }}
         />
-        <div className="absolute inset-0 bg-gradient-to-r from-black/70 via-black/50 to-transparent" />
       </div>
 
       {/* Content */}
       <div className="container relative z-10 px-4">
-        <div className="max-w-4xl">
+        <div className={`max-w-4xl flex flex-col ${alignmentClass}`}>
           <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold text-white mb-4">
-            {t('hero.title')}
+            {content.hero_title}
           </h1>
           <p className="text-lg md:text-xl text-white/90 mb-8">
-            {t('hero.subtitle')}
+            {content.hero_subtitle}
           </p>
 
+          {content.hero_cta_label && content.hero_cta_url && (
+            <Button
+              asChild
+              size="lg"
+              variant="secondary"
+              className="mb-6 self-start"
+            >
+              <a href={content.hero_cta_url}>{content.hero_cta_label}</a>
+            </Button>
+          )}
+
           {/* Search Card */}
-          <Card className="p-6 shadow-strong">
+          {content.hero_show_search && (
+            <Card className="p-6 shadow-strong w-full">
             <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as UnitCategory)}>
               <TabsList className="grid w-full grid-cols-3 mb-6">
                 <TabsTrigger value="truck">{t('search.trucks')}</TabsTrigger>
@@ -210,6 +328,7 @@ export function HeroSection() {
               </TabsContent>
             </Tabs>
           </Card>
+          )}
         </div>
       </div>
     </section>
