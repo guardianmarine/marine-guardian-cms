@@ -1,30 +1,28 @@
-import { useState, useRef, useEffect } from 'react';
-import { useTranslation } from 'react-i18next';
+import { useState, useRef } from 'react';
 import { BackofficeLayout } from '@/components/backoffice/Layout';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { useCRMStore } from '@/services/crmStore';
-import { getOpportunityStageLabel } from '@/lib/crm-integrations';
+import { Skeleton } from '@/components/ui/skeleton';
+import { useOpportunities } from '@/hooks/useOpportunities';
 import { Plus, Eye, Table as TableIcon, Info } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { format } from 'date-fns';
-import { OpportunityStage } from '@/types';
 
-const stages: { key: OpportunityStage; color: string }[] = [
-  { key: 'new', color: 'bg-blue-500' },
-  { key: 'qualified', color: 'bg-cyan-500' },
-  { key: 'visit', color: 'bg-indigo-500' },
-  { key: 'quote', color: 'bg-purple-500' },
-  { key: 'negotiation', color: 'bg-orange-500' },
-  { key: 'won', color: 'bg-green-500' },
-  { key: 'lost', color: 'bg-gray-500' },
+type OpportunityStage = 'new' | 'qualified' | 'quote' | 'negotiation' | 'won' | 'lost';
+
+const stages: { key: OpportunityStage; label: string; color: string }[] = [
+  { key: 'new', label: 'New', color: 'bg-blue-500' },
+  { key: 'qualified', label: 'Qualified', color: 'bg-cyan-500' },
+  { key: 'quote', label: 'Quote', color: 'bg-purple-500' },
+  { key: 'negotiation', label: 'Negotiation', color: 'bg-orange-500' },
+  { key: 'won', label: 'Won', color: 'bg-green-500' },
+  { key: 'lost', label: 'Lost', color: 'bg-gray-500' },
 ];
 
 export default function OpportunityKanban() {
-  const { t } = useTranslation();
-  const { opportunities, updateOpportunity, getOpportunityUnits } = useCRMStore();
+  const { opportunities, loading, updateOpportunityStage } = useOpportunities();
   const navigate = useNavigate();
   const [draggedItem, setDraggedItem] = useState<string | null>(null);
   
@@ -47,7 +45,7 @@ export default function OpportunityKanban() {
   const handleDrop = (e: React.DragEvent, targetStage: OpportunityStage) => {
     e.preventDefault();
     if (draggedItem) {
-      updateOpportunity(draggedItem, { pipeline_stage: targetStage });
+      updateOpportunityStage(draggedItem, targetStage);
       setDraggedItem(null);
     }
   };
@@ -55,7 +53,7 @@ export default function OpportunityKanban() {
   // Keyboard navigation
   const handleKeyDown = (e: React.KeyboardEvent, opportunityId: string, currentStage: OpportunityStage) => {
     const currentStageIndex = stages.findIndex(s => s.key === currentStage);
-    const stageOpportunities = opportunities.filter(opp => opp.pipeline_stage === currentStage);
+    const stageOpportunities = opportunities.filter(opp => opp.stage === currentStage);
     const currentCardIndex = stageOpportunities.findIndex(opp => opp.id === opportunityId);
 
     switch (e.key) {
@@ -98,7 +96,7 @@ export default function OpportunityKanban() {
         if (selectedCard) {
           const targetStageIndex = stages.findIndex(s => s.key === focusedStage);
           if (targetStageIndex !== currentStageIndex) {
-            updateOpportunity(selectedCard, { pipeline_stage: focusedStage });
+            updateOpportunityStage(selectedCard, focusedStage);
             setSelectedCard(null);
           }
         }
@@ -106,26 +104,40 @@ export default function OpportunityKanban() {
     }
   };
 
-  const getOpportunityValue = (opportunityId: string) => {
-    const units = getOpportunityUnits(opportunityId);
-    return units.reduce((sum, ou) => sum + (ou.agreed_unit_price || 0), 0);
-  };
+  if (loading) {
+    return (
+      <BackofficeLayout>
+        <div className="p-6 space-y-6">
+          <Skeleton className="h-10 w-64" />
+          <div className="grid grid-cols-6 gap-4">
+            {[1, 2, 3, 4, 5, 6].map((i) => (
+              <Skeleton key={i} className="h-96" />
+            ))}
+          </div>
+        </div>
+      </BackofficeLayout>
+    );
+  }
 
   return (
     <BackofficeLayout>
       <div className="p-6 space-y-6 bg-background">
         {/* Header */}
         <div className="flex justify-between items-center">
-          <h2 className="text-3xl font-bold text-foreground">{t('crm.opportunities')} - {t('crm.kanbanView')}</h2>
+          <h2 className="text-3xl font-bold text-foreground">Opportunities - Kanban View</h2>
           <div className="flex gap-2">
-            <Button variant="outline" onClick={() => navigate('/backoffice/crm/opportunities')}>
-              <TableIcon className="h-4 w-4 mr-2" />
-              {t('crm.tableView')}
-            </Button>
-            <Button onClick={() => navigate('/backoffice/crm/opportunities/new')}>
-              <Plus className="h-4 w-4 mr-2" />
-              {t('crm.addOpportunity')}
-            </Button>
+            <Link to="/backoffice/crm/opportunities">
+              <Button variant="outline" type="button">
+                <TableIcon className="h-4 w-4 mr-2" />
+                Table View
+              </Button>
+            </Link>
+            <Link to="/backoffice/crm/opportunities/new">
+              <Button type="button">
+                <Plus className="h-4 w-4 mr-2" />
+                Add Opportunity
+              </Button>
+            </Link>
           </div>
         </div>
 
@@ -133,15 +145,15 @@ export default function OpportunityKanban() {
         <Alert className="bg-blue-50 dark:bg-blue-950 border-blue-200 dark:border-blue-800">
           <Info className="h-4 w-4 text-blue-600 dark:text-blue-400" />
           <AlertDescription className="text-sm text-blue-900 dark:text-blue-100">
-            {t('crm.keyboardNavigation')}
+            Use arrow keys to navigate, Space to select, Enter to move between stages
           </AlertDescription>
         </Alert>
 
         {/* Kanban Board */}
-        <div className="grid grid-cols-7 gap-4 min-h-[600px]">
+        <div className="grid grid-cols-6 gap-4 min-h-[600px]">
           {stages.map((stage) => {
             const stageOpportunities = opportunities.filter(
-              (opp) => opp.pipeline_stage === stage.key
+              (opp) => opp.stage === stage.key
             );
 
             return (
@@ -156,7 +168,7 @@ export default function OpportunityKanban() {
                 <div className="flex items-center justify-between mb-4">
                   <div className="flex items-center gap-2">
                     <Badge className={`${stage.color} text-white`}>
-                      {getOpportunityStageLabel(stage.key, t)}
+                      {stage.label}
                     </Badge>
                     <span className="text-sm text-muted-foreground">
                       ({stageOpportunities.length})
@@ -166,8 +178,7 @@ export default function OpportunityKanban() {
 
                 <div className="space-y-3">
                   {stageOpportunities.map((opp) => {
-                    const value = getOpportunityValue(opp.id);
-                    const unitsCount = getOpportunityUnits(opp.id).length;
+                    const value = opp.amount_cents ? opp.amount_cents / 100 : 0;
 
                     return (
                       <Card
@@ -184,11 +195,13 @@ export default function OpportunityKanban() {
                       >
                         <CardHeader className="pb-2">
                           <CardTitle className="text-sm font-medium line-clamp-2 text-foreground">
-                            {opp.name}
+                            {opp.account?.name || 'Untitled'}
                           </CardTitle>
-                          <p className="text-xs text-muted-foreground">
-                            {opp.account?.name}
-                          </p>
+                          {opp.contact && (
+                            <p className="text-xs text-muted-foreground">
+                              {opp.contact.first_name} {opp.contact.last_name}
+                            </p>
+                          )}
                         </CardHeader>
                         <CardContent className="pt-0">
                           <div className="space-y-2">
@@ -197,14 +210,14 @@ export default function OpportunityKanban() {
                                 ${value.toLocaleString()}
                               </div>
                             )}
-                            {unitsCount > 0 && (
+                            {opp.unit && (
                               <div className="text-xs text-muted-foreground">
-                                {unitsCount} unit{unitsCount !== 1 ? 's' : ''}
+                                {opp.unit.year} {opp.unit.make} {opp.unit.model}
                               </div>
                             )}
-                            {opp.expected_close_at && (
+                            {opp.expected_close_date && (
                               <div className="text-xs text-muted-foreground">
-                                Close: {format(new Date(opp.expected_close_at), 'MMM d')}
+                                Close: {format(new Date(opp.expected_close_date), 'MMM d')}
                               </div>
                             )}
                             <div className="flex justify-between items-center">
@@ -212,6 +225,7 @@ export default function OpportunityKanban() {
                                 {format(new Date(opp.created_at), 'MMM d')}
                               </span>
                               <Button
+                                type="button"
                                 variant="ghost"
                                 size="sm"
                                 onClick={(e) => {
@@ -246,20 +260,20 @@ export default function OpportunityKanban() {
             <CardTitle className="text-foreground">Pipeline Summary</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-7 gap-4">
+            <div className="grid grid-cols-6 gap-4">
               {stages.map((stage) => {
                 const stageOpportunities = opportunities.filter(
-                  (opp) => opp.pipeline_stage === stage.key
+                  (opp) => opp.stage === stage.key
                 );
                 const stageValue = stageOpportunities.reduce(
-                  (sum, opp) => sum + getOpportunityValue(opp.id),
+                  (sum, opp) => sum + (opp.amount_cents ? opp.amount_cents / 100 : 0),
                   0
                 );
 
                 return (
                   <div key={stage.key} className="text-center">
                     <div className="text-sm font-medium text-foreground">
-                      {getOpportunityStageLabel(stage.key, t)}
+                      {stage.label}
                     </div>
                     <div className="text-xs text-muted-foreground">
                       {stageOpportunities.length} opps
