@@ -149,9 +149,7 @@ export async function convertBuyerRequestToLead(
         .insert({
           name: name,
           kind: 'individual',
-          email: email,
-          phone: phone,
-          owner_user_id: currentUserId,
+          created_by: currentUserId,
         })
         .select()
         .single();
@@ -200,13 +198,12 @@ export async function convertBuyerRequestToLead(
     const { data: opportunity, error: opportunityError } = await supabase
       .from('opportunities')
       .insert({
-        lead_id: lead.id,
         account_id: accountId,
         contact_id: contactId,
         unit_id: resolvedUnitId,
         stage: 'new',
-        expected_close_date: expectedCloseDate.toISOString().split('T')[0],
-        created_by: currentUserId,
+        expected_close: expectedCloseDate.toISOString().split('T')[0],
+        owner_user_id: currentUserId,
       })
       .select()
       .single();
@@ -220,13 +217,12 @@ export async function convertBuyerRequestToLead(
     const { data: task, error: taskError } = await supabase
       .from('tasks')
       .insert({
-        related_type: 'lead',
-        related_id: lead.id,
+        lead_id: lead.id,
+        opportunity_id: opportunity.id,
         title: 'First contact (SLA 24h)',
         due_at: dueAt.toISOString(),
         assigned_to: currentUserId,
         status: 'open',
-        created_by: currentUserId,
       })
       .select()
       .single();
