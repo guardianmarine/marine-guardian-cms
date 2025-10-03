@@ -3,53 +3,76 @@ name: Apply patch from issue
 on:
   issues:
     types: [opened, edited, labeled]
-
-permissions:
-  contents: write        # push a ramas
-  pull-requests: write   # abrir PRs
-  issues: write          # comentar de vuelta al issue
+  issue_comment:
+    types: [created]
 
 jobs:
   apply:
-    if: contains(github.event.issue.labels.*.name, 'apply-patch')
+    # Solo corre si el issue tiene la etiqueta 'apply-patch' o si comentas /apply
+    if: >
+      (github.event_name == 'issues' && contains(join(github.event.issue.labels.*.name, ','), 'apply-patch')) ||
+      (github.event_name == 'issue_comment' && startsWith(github.event.comment.body, '/apply'))
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
 
-      - name: Extract patch from issue body
-        id: extract
+      - name: Configurar git
         run: |
-          python3 - <<'PY'
-          import os, re, sys, pathlib
-          body = os.environ['BODY']
-          m = re.search(r'```patch\s+([\s\S]+?)\s```', body)
-          if not m:
-            print("::error::No se encontró un bloque ```patch``` en el issue.")
-            sys.exit(1)
-          pathlib.Path("patch.diff").write_text(m.group(1))
-          PY
-        env:
-          BODY: ${{ github.event.issue.body }}
+          git config user.name "patch-bot"
+          git config user.email "bot@users.noreply.github.com"
 
-      - name: Apply patch
+      - name: Extraer bloque ```patch``` del issue/comentario
+        id: getpatch
+        run: |
+          python3 - << 'PY'
+          import os, re, json, sys
+          evt = json.load(open(os.environ['GITHUB_EVENT_PATH']))
+          if os.environ['GITHUB_EVENT_NAME'] == 'issues':
+              text = evt.get('issue', {}).get('body', '')
+          else:
+              text = evt.get('comment', {}).get('body', '')
+          m = re.search(r"```patch\n([\s\S]*?)\n```", text)
+          if not m:
+              print("::error::No se encontró bloque ```patch``` en el issue/comentario.")
+              sys.exit(1)
+          open('patch.diff','w').write(m.group(1))
+          PY
+
+      - name: Crear rama de trabajo
+        run: |
+          BR="patch/${{ github.run_id }}"
+          echo "BRANCH=$BR" >> $GITHUB_ENV
+          git checkout -b "$BR"
+
+      - name: Aplicar patch y commit
         run: |
           set -e
-          git config user.name  "patch-bot"
-          git config user.email "bot@users.noreply.github.com"
-          git checkout -b patch/${{ github.run_id }}
-          git apply -p0 patch.diff
+          git apply --whitespace=fix patch.diff
           git add -A
           git commit -m "Apply patch from issue #${{ github.event.issue.number }}"
-          git push --set-upstream origin patch/${{ github.run_id }}
 
-      - name: Open PR
+      - name: Push con token
+        env:
+          TOKEN: ${{ secrets.PATCH_BOT_TOKEN }}
+        run: |
+          set -e
+          git remote set-url origin https://x-access-token:${TOKEN}@github.com/${{ github.repository }}.git
+          git push origin "$BRANCH"
+
+      - name: Abrir Pull Request
         uses: peter-evans/create-pull-request@v6
         with:
-          token: ${{ github.token }}
-          branch: patch/${{ github.run_id }}
+          token: ${{ secrets.PATCH_BOT_TOKEN }}
+          commit-message: "Apply patch from issue #${{ github.event.issue.number }}"
+          branch: ${{ env.BRANCH }}
+          title: "Patch from issue #${{ github.event.issue.number }}"
+          body: "Automated patch from issue."
           base: main
-          title: "Patch from issue #${{ github.event.issue.number }} — ${{ github.event.issue.title }}"
-          body: |
-            Auto PR generado desde el issue #${{ github.event.issue.number }}.
-
