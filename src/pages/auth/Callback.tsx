@@ -16,6 +16,9 @@ export default function Callback() {
   useEffect(() => {
     const handleCallback = async () => {
       try {
+        const url = new URL(window.location.href);
+        const type = url.searchParams.get('type');
+
         // Exchange code for session
         try {
           await supabase.auth.exchangeCodeForSession(window.location.href);
@@ -25,6 +28,12 @@ export default function Callback() {
 
         if (!user) {
           setError(t('auth.callbackError', 'Authentication failed. Please try again.'));
+          return;
+        }
+
+        // If type is invite or recovery, redirect to set password
+        if (type === 'invite' || type === 'recovery') {
+          navigate('/auth/set-password', { replace: true });
           return;
         }
 
@@ -60,7 +69,7 @@ export default function Callback() {
     };
 
     handleCallback();
-  }, [t]);
+  }, [t, navigate]);
 
   if (error) {
     return (

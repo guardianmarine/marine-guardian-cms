@@ -84,42 +84,19 @@ export default function SetPassword() {
         return;
       }
 
-      // Check for staff row - NO AUTO-UPSERT
-      let { data: staff } = await supabase
-        .from('users')
-        .select('id, status')
-        .eq('auth_user_id', user.id)
-        .maybeSingle();
-
-      // Fallback by email
-      if (!staff && user.email) {
-        const res = await supabase
-          .from('users')
-          .select('id, status')
-          .eq('email', user.email)
-          .maybeSingle();
-        staff = res.data || null;
-      }
-
-      // If no staff or not active → /no-access
-      if (!staff || staff.status !== 'active') {
-        navigate(`/no-access?email=${encodeURIComponent(user.email || '')}`, { replace: true });
-        return;
-      }
-
-      // Update password only
+      // Update password
       const { error } = await supabase.auth.updateUser({ password });
 
       if (error) throw error;
 
       toast({
         title: t('common.success', 'Success'),
-        description: t('auth.passwordSet', 'Your password has been set successfully'),
+        description: t('auth.passwordCreated', 'Password created successfully. Please ask an admin to activate your account if you cannot access the system.'),
       });
 
-      // Redirect to next
-      const next = searchParams.get('next') || '/admin';
-      navigate(next, { replace: true });
+      // Sign out and redirect to login
+      await supabase.auth.signOut();
+      navigate('/login?set=1', { replace: true });
     } catch (error: any) {
       toast({
         title: t('common.error', 'Error'),
