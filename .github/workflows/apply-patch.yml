@@ -3,56 +3,53 @@ name: Apply patch from issue
 on:
   issues:
     types: [opened, edited, labeled]
-  issue_comment:
-    types: [created]
 
 permissions:
-  contents: write
-  pull-requests: write
-  issues: read
+  contents: write        # push a ramas
+  pull-requests: write   # abrir PRs
+  issues: write          # comentar de vuelta al issue
 
 jobs:
   apply:
-    if: >
-      (github.event_name == 'issues' &&
-       contains(join(github.event.issue.labels.*.name), 'apply-patch')) ||
-      (github.event_name == 'issue_comment' &&
-       contains(github.event.issue.labels.*.name, 'apply-patch') &&
-       contains(github.event.comment.body, '/apply'))
+    if: contains(github.event.issue.labels.*.name, 'apply-patch')
     runs-on: ubuntu-latest
-    env:
-      PATCH_BRANCH: patch-${{ github.event.issue.number || github.run_id }}
     steps:
-      - uses: actions/checkout@v4
-        with:
-          ref: main
-          fetch-depth: 0
+      - name: Checkout
+        uses: actions/checkout@v4
 
-      - name: Extract patch from issue/comment body
+      - name: Extract patch from issue body
         id: extract
-        uses: actions/github-script@v7
-        with:
-          script: |
-            const body = (context.payload.comment?.body || context.payload.issue?.body || '');
-            const m = body.match(/```patch([\s\S]*?)```/i);
-            if (!m) core.setFailed('No se encontró un bloque ```patch``` en el issue/comment.');
-            const fs = require('fs');
-            fs.writeFileSync('chatgpt.patch', m[1].trim() + '\n');
+        run: |
+          python3 - <<'PY'
+          import os, re, sys, pathlib
+          body = os.environ['BODY']
+          m = re.search(r'```patch\s+([\s\S]+?)\s```', body)
+          if not m:
+            print("::error::No se encontró un bloque ```patch``` en el issue.")
+            sys.exit(1)
+          pathlib.Path("patch.diff").write_text(m.group(1))
+          PY
+        env:
+          BODY: ${{ github.event.issue.body }}
 
       - name: Apply patch
         run: |
-          git config user.name "Patch Bot"
-          git config user.email "patch-bot@users.noreply.github.com"
-          git checkout -b "$PATCH_BRANCH"
-          git apply -p0 --whitespace=fix chatgpt.patch
+          set -e
+          git config user.name  "patch-bot"
+          git config user.email "bot@users.noreply.github.com"
+          git checkout -b patch/${{ github.run_id }}
+          git apply -p0 patch.diff
           git add -A
-          git commit -m "Apply patch from issue #${{ github.event.issue.number || github.run_id }}"
-          git push --set-upstream origin "$PATCH_BRANCH"
+          git commit -m "Apply patch from issue #${{ github.event.issue.number }}"
+          git push --set-upstream origin patch/${{ github.run_id }}
 
       - name: Open PR
         uses: peter-evans/create-pull-request@v6
         with:
-          branch: ${{ env.PATCH_BRANCH }}
-          title: "Apply patch from issue #${{ github.event.issue.number || github.run_id }}"
-          body: "PR automatizado desde issue con etiqueta `apply-patch`."
+          token: ${{ github.token }}
+          branch: patch/${{ github.run_id }}
           base: main
+          title: "Patch from issue #${{ github.event.issue.number }} — ${{ github.event.issue.title }}"
+          body: |
+            Auto PR generado desde el issue #${{ github.event.issue.number }}.
+
