@@ -5,8 +5,8 @@ on:
     types: [labeled]
 
 permissions:
-  contents: write          # para commitear/pushear
-  pull-requests: write     # para abrir el PR
+  contents: write
+  pull-requests: write
   issues: read
 
 jobs:
@@ -48,6 +48,15 @@ jobs:
           echo "Patch extraído:"
           head -n 20 changes.patch
 
+      # <<< NUEVO PASO: fija la identidad para el commit >>>
+      - name: Configurar identidad Git (autor del commit)
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
+      # También funcionaría con:
+      # git config --global user.name "${{ github.actor }}"
+      # git config --global user.email "${{ github.actor }}@users.noreply.github.com"
+
       - name: Crear rama de trabajo y aplicar patch
         id: apply_patch
         run: |
@@ -88,8 +97,8 @@ jobs:
         uses: peter-evans/create-pull-request@v6
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-          base: ${{ env.DEFAULT_BRANCH }}           # <— base correcta (main/master, etc)
-          branch: ${{ env.WORKING_BRANCH }}         # <— tu rama patch/issue-…
+          base: ${{ env.DEFAULT_BRANCH }}
+          branch: ${{ env.WORKING_BRANCH }}
           title: "Patch from issue #${{ github.event.issue.number }}"
           body: "Automated patch created from issue by workflow."
           draft: false
