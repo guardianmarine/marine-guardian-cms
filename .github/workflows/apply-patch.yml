@@ -2,17 +2,17 @@ name: Apply patch from issue
 
 on:
   issues:
-    types: [labeled]
-
-permissions:
-  contents: write
-  pull-requests: write
-  issues: read
+    types: [opened, edited, labeled]
 
 jobs:
   apply:
-    if: github.event.label.name == 'apply-patch'
+    # Solo corre si el issue tiene la etiqueta "apply-patch"
+    if: contains(github.event.issue.labels.*.name, 'apply-patch')
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+      issues: write
 
     steps:
       - name: Checkout (historia completa)
@@ -20,86 +20,77 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Instalar jq (para leer el default_branch)
-        run: sudo apt-get update && sudo apt-get install -y jq
+      - name: Leer rama por defecto del repo
+        id: base
+        shell: bash
+        run: |
+          BASE=$(git symbolic-ref --short refs/remotes/origin/HEAD | sed 's@^origin/@@')
+          echo "default_branch=$BASE" >> "$GITHUB_OUTPUT"
 
-      - name: Extraer bloque ```patch``` del issue o comentarios
-        id: extract
+      - name: Extraer bloque ```patch``` del issue/comentarios
+        id: patch
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import os, re, json, sys
+          body = os.environ['ISSUE_BODY'] or ''
+          m = re.search(r"```patch\s+([\s\S]*?)```", body, re.M|re.S)
+          if not m:
+              print("::error::No se encontró bloque ```patch``` en el issue.")
+              sys.exit(1)
+          open('changes.patch','w').write(m.group(1).strip()+"\n")
+          PY
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          set -e
-          issue_body=$(jq -r '.issue.body' <<< '${{ toJson(github.event) }}')
-          patch_block=$(printf "%s" "$issue_body" | awk '/```patch/{flag=1;next}/```/{flag=0}flag')
-          if [ -z "$patch_block" ]; then
-            echo "No hay bloque ```patch``` en el cuerpo. Buscando en comentarios…"
-            comments_url=$(jq -r '.issue.comments_url' <<< '${{ toJson(github.event) }}')
-            patch_block=$(
-              curl -s -H "Authorization: Bearer $GH_TOKEN" "$comments_url" \
-              | jq -r '.[].body' \
-              | awk '/```patch/{flag=1;next}/```/{if(flag){exit} }flag'
-            )
-          fi
-          if [ -z "$patch_block" ]; then
-            echo "::error::No se encontró un bloque ```patch``` en el issue/comentarios."
-            exit 1
-          fi
-          printf "%s\n" "$patch_block" > changes.patch
-          echo "Patch extraído:"
-          head -n 20 changes.patch
-
-      # <<< NUEVO PASO: fija la identidad para el commit >>>
-      - name: Configurar identidad Git (autor del commit)
-        run: |
-          git config --global user.name "github-actions[bot]"
-          git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
-      # También funcionaría con:
-      # git config --global user.name "${{ github.actor }}"
-      # git config --global user.email "${{ github.actor }}@users.noreply.github.com"
+          ISSUE_BODY: ${{ github.event.issue.body }}
 
       - name: Crear rama de trabajo y aplicar patch
         id: apply_patch
+        shell: bash
         run: |
           set -e
+          git config --local user.name "github-actions[bot]"
+          git config --local user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
           BRANCH="patch/issue-${{ github.event.issue.number }}-${{ github.run_id }}"
-          echo "WORKING_BRANCH=$BRANCH" >> $GITHUB_ENV
+          echo "BRANCH=$BRANCH" >> $GITHUB_ENV
           git checkout -b "$BRANCH"
 
-          # Intento normal, si falla probamos 3-way
+          # Aplicar patch (intento normal, si falla prueba 3-way)
           if ! git apply --whitespace=fix changes.patch; then
             echo "Aplicación simple falló; intentando 3-way…"
             git apply -3 changes.patch
           fi
 
           git add -A
-          git commit -m "Apply patch from issue #${{ github.event.issue.number }}"
-
-      - name: Detectar rama por defecto del repo
-        id: default_branch
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          set -e
-          default_branch=$(
-            curl -s -H "Authorization: Bearer $GH_TOKEN" \
-              https://api.github.com/repos/${{ github.repository }} \
-            | jq -r .default_branch
-          )
-          echo "DEFAULT_BRANCH=$default_branch" >> $GITHUB_ENV
-          echo "Rama por defecto: $default_branch"
+          if git diff --cached --quiet; then
+            echo "NO_CHANGES=true" >> $GITHUB_ENV
+          else
+            git commit -m "Apply patch from issue #${{ github.event.issue.number }}"
+            echo "NO_CHANGES=false" >> $GITHUB_ENV
+          fi
 
       - name: Push de la rama de trabajo
+        if: env.NO_CHANGES == 'false'
+        shell: bash
         run: |
-          set -e
-          git push --set-upstream origin "$WORKING_BRANCH"
+          git push --set-upstream origin "$BRANCH"
 
       - name: Crear Pull Request
+        if: env.NO_CHANGES == 'false'
         uses: peter-evans/create-pull-request@v6
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-          base: ${{ env.DEFAULT_BRANCH }}
-          branch: ${{ env.WORKING_BRANCH }}
-          title: "Patch from issue #${{ github.event.issue.number }}"
-          body: "Automated patch created from issue by workflow."
-          draft: false
-          delete-branch: false
+          base: ${{ steps.base.outputs.default_branch }}
+          branch: ${{ env.BRANCH }}
+          title: "Apply patch from issue #${{ github.event.issue.number }}"
+          body: |
+            This PR was generated automatically from issue #${{ github.event.issue.number }}.
+
+      - name: Comentar en el issue si no hay cambios
+        if: env.NO_CHANGES == 'true'
+        uses: peter-evans/create-or-update-comment@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          issue-number: ${{ github.event.issue.number }}
+          body: |
+            ✅ El patch ya está aplicado o no produce cambios; no se creó PR.
