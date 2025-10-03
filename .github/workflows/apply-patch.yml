@@ -2,132 +2,129 @@ name: Apply patch from issue
 
 on:
   issues:
-    types: [opened, edited, labeled]
+    types: [labeled]
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+  pull-requests: write
 
 jobs:
   apply:
-    if: contains(github.event.issue.labels.*.name, 'apply-patch')
+    if: github.event_name == 'workflow_dispatch' || (github.event.label.name == 'apply-patch')
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
-      pull-requests: write
-      issues: write
+    env:
+      ISSUE_NUMBER: ${{ github.event.issue.number }}
+      REPO: ${{ github.repository }}
+      # Base = rama por defecto del repo (ej. main). GitHub siempre manda este dato.
+      BASE_BRANCH: ${{ github.event.repository.default_branch }}
+      WORK_BRANCH: patch/issue-${{ github.event.issue.number || 'manual' }}-${{ github.run_id }}
 
     steps:
+      - name: Set up job
+        run: echo "Start"
+
       - name: Checkout (historia completa)
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          persist-credentials: false
 
-      # Tomamos la rama base directamente del payload del evento
       - name: Definir rama base (desde evento)
-        id: base
-        shell: bash
         run: |
-          echo "default_branch=${{ github.event.repository.default_branch }}" >> "$GITHUB_OUTPUT"
-          echo "Base branch: ${{ github.event.repository.default_branch }}"
+          echo "BASE_BRANCH=${BASE_BRANCH:-main}" >> $GITHUB_ENV
+          echo "WORK_BRANCH=${WORK_BRANCH}" >> $GITHUB_ENV
+          echo "Base: $BASE_BRANCH | Work: $WORK_BRANCH"
 
-      # Lee el bloque ```patch``` del cuerpo del issue
       - name: Extraer bloque ```patch``` del issue/comentarios
-        id: patch
-        shell: bash
-        run: |
-          python3 - <<'PY'
-          import os, re, sys
-          body = os.environ.get('ISSUE_BODY') or ''
-          m = re.search(r"```patch\s+([\s\S]*?)```", body, re.M|re.S)
-          if not m:
-              print("::error::No se encontró bloque ```patch``` en el issue.")
-              sys.exit(1)
-          open('changes.patch','w').write(m.group(1).strip()+"\n")
-          PY
+        id: grab
         env:
-          ISSUE_BODY: ${{ github.event.issue.body }}
-
-      - name: Crear rama de trabajo y aplicar patch
-        id: apply_patch
-        shell: bash
+          BODY: ${{ github.event.issue.body }}
         run: |
           set -e
-          git config --local user.name "github-actions[bot]"
-          git config --local user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          printf '%s\n' "$BODY" > issue.md
+          awk '/```patch/{flag=1;next}/```/{if(flag){exit}}flag' issue.md > changes.patch || true
+          if [ ! -s changes.patch ]; then
+            echo "No se encontró bloque ```patch``` en el cuerpo del issue."
+            exit 1
+          fi
+          echo "Patch encontrado:"
+          wc -l changes.patch
 
-          BRANCH="patch/issue-${{ github.event.issue.number }}-${{ github.run_id }}"
-          echo "BRANCH=$BRANCH" >> $GITHUB_ENV
-          git checkout -b "$BRANCH"
+      - name: Crear rama de trabajo y aplicar patch
+        run: |
+          set -e
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git config user.name  "github-actions[bot]"
+
+          git switch -c "$WORK_BRANCH"
 
           echo "==> Intentando aplicar patch (modo normal)"
-          if ! git apply --whitespace=fix changes.patch; then
-            echo "==> Simple falló; intentando 3-way…"
-            git apply -3 changes.patch
+          if git apply --index --3way changes.patch 2>/dev/null; then
+            echo "==> Estado tras aplicar:"
+            git status --porcelain
+          else
+            echo "==> Patch simple falló, intentando 3-way con --reject"
+            git apply --3way --reject changes.patch
+            git add -A
           fi
 
-          echo "==> Estado tras aplicar:"
-          git status --porcelain=v1 || true
           echo "==> Diff (no index):"
-          git diff --name-only || true
+          git --no-pager diff
 
-          git add -A
           echo "==> Diff staged:"
-          git diff --cached --name-only || true
+          git --no-pager diff --staged | cat
 
           if git diff --cached --quiet; then
             echo "NO_CHANGES=true" >> $GITHUB_ENV
-            echo "==> NO_CHANGES=true (no hay nada staged)"
+            echo "No hay cambios para commitear."
           else
-            git commit -m "Apply patch from issue #${{ github.event.issue.number }}"
             echo "NO_CHANGES=false" >> $GITHUB_ENV
-            echo "==> Commit creado:"
-            git show --stat -1
+            git commit -m "Apply patch from issue #${ISSUE_NUMBER}"
           fi
 
       - name: Push de la rama
         if: env.NO_CHANGES == 'false'
-        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          git push "https://x-access-token:${GH_TOKEN}@github.com/${REPO}.git" "HEAD:${WORK_BRANCH}"
+
+      # === PR ROBUSTO CON GH CLI ===
+      - name: Crear o actualizar PR
+        if: env.NO_CHANGES == 'false'
+        id: pr
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           set -e
-          echo "==> Haciendo push de $BRANCH"
-          git push --set-upstream origin "$BRANCH" -v
+          echo "Creando/actualizando PR: base=${BASE_BRANCH} head=${WORK_BRANCH}"
+          # ¿Ya existe un PR abierto con esta head?
+          PR_JSON=$(gh pr list --repo "$REPO" --state open --head "$WORK_BRANCH" --json number,url)
+          PR_NUM=$(echo "$PR_JSON" | jq -r '.[0].number // empty')
+          if [ -n "$PR_NUM" ]; then
+            echo "PR ya existe: #$PR_NUM"
+          else
+            gh pr create \
+              --repo "$REPO" \
+              --base "$BASE_BRANCH" \
+              --head "$WORK_BRANCH" \
+              --title "Apply patch from issue #${ISSUE_NUMBER}" \
+              --body "This PR was created automatically from issue #${ISSUE_NUMBER}."
+          fi
+          # Log final (número y URL)
+          gh pr view "$WORK_BRANCH" --repo "$REPO" --json number,url -q '.number, .url' | paste -sd' ' - > pr.txt
+          echo "pr_out=$(cat pr.txt)" >> $GITHUB_OUTPUT
 
-      - name: Crear Pull Request
-        if: env.NO_CHANGES == 'false'
-        id: cpr
-        uses: peter-evans/create-pull-request@v6
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          base: ${{ steps.base.outputs.default_branch }}
-          branch: ${{ env.BRANCH }}
-          title: "Apply patch from issue #${{ github.event.issue.number }}"
-          body: |
-            This PR was generated automatically from issue #${{ github.event.issue.number }}.
-          draft: false
-          labels: automated-patch
-
-      # Depuración: mostrar el número/URL del PR si existe
       - name: Log de PR creado
         if: env.NO_CHANGES == 'false'
-        shell: bash
         run: |
-          echo "PR number: ${{ steps.cpr.outputs.pull-request-number }}"
-          echo "PR url:    ${{ steps.cpr.outputs.pull-request-url }}"
+          echo "PR -> ${{ steps.pr.outputs.pr_out }}"
 
-      # Si hubo cambios pero no se obtuvo número de PR, dejar rastro en el issue
-      - name: Aviso si no se pudo crear PR (fallback)
-        if: env.NO_CHANGES == 'false' && steps.cpr.outputs.pull-request-number == ''
-        uses: peter-evans/create-or-update-comment@v4
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          issue-number: ${{ github.event.issue.number }}
-          body: |
-            ⚠️ Se empujó la rama `${{ env.BRANCH }}`, pero no se obtuvo número de PR.
-            Revisa la pestaña *Pull requests* y la rama remota.
-
-      # Si NO_CHANGES = true (no hubo cambios), deja comentario
       - name: Comentar en el issue si no hay cambios
         if: env.NO_CHANGES == 'true'
         uses: peter-evans/create-or-update-comment@v4
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          issue-number: ${{ github.event.issue.number }}
+          issue-number: ${{ env.ISSUE_NUMBER }}
           body: |
-            ✅ El patch no produjo cambios (quizá ya estaba aplicado); no se creó PR.
+            No se crearon cambios a partir del patch (no hay diff). No se generó PR.
