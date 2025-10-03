@@ -6,7 +6,6 @@ on:
 
 jobs:
   apply:
-    # Solo corre si el issue tiene la etiqueta "apply-patch"
     if: contains(github.event.issue.labels.*.name, 'apply-patch')
     runs-on: ubuntu-latest
     permissions:
@@ -20,7 +19,7 @@ jobs:
         with:
           fetch-depth: 0
 
-      # ✅ Tomamos la rama base del payload del evento (main/master, lo que tenga el repo)
+      # Tomamos la rama base directamente del payload del evento
       - name: Definir rama base (desde evento)
         id: base
         shell: bash
@@ -28,6 +27,7 @@ jobs:
           echo "default_branch=${{ github.event.repository.default_branch }}" >> "$GITHUB_OUTPUT"
           echo "Base branch: ${{ github.event.repository.default_branch }}"
 
+      # Lee el bloque ```patch``` del cuerpo del issue
       - name: Extraer bloque ```patch``` del issue/comentarios
         id: patch
         shell: bash
@@ -56,37 +56,73 @@ jobs:
           echo "BRANCH=$BRANCH" >> $GITHUB_ENV
           git checkout -b "$BRANCH"
 
-          # Intento normal, si falla probamos 3-way
+          echo "==> Intentando aplicar patch (modo normal)"
           if ! git apply --whitespace=fix changes.patch; then
-            echo "Aplicación simple falló; intentando 3-way…"
+            echo "==> Simple falló; intentando 3-way…"
             git apply -3 changes.patch
           fi
 
+          echo "==> Estado tras aplicar:"
+          git status --porcelain=v1 || true
+          echo "==> Diff (no index):"
+          git diff --name-only || true
+
           git add -A
+          echo "==> Diff staged:"
+          git diff --cached --name-only || true
+
           if git diff --cached --quiet; then
             echo "NO_CHANGES=true" >> $GITHUB_ENV
+            echo "==> NO_CHANGES=true (no hay nada staged)"
           else
             git commit -m "Apply patch from issue #${{ github.event.issue.number }}"
             echo "NO_CHANGES=false" >> $GITHUB_ENV
+            echo "==> Commit creado:"
+            git show --stat -1
           fi
 
-      - name: Push de la rama de trabajo
+      - name: Push de la rama
         if: env.NO_CHANGES == 'false'
         shell: bash
         run: |
-          git push --set-upstream origin "$BRANCH"
+          set -e
+          echo "==> Haciendo push de $BRANCH"
+          git push --set-upstream origin "$BRANCH" -v
 
       - name: Crear Pull Request
         if: env.NO_CHANGES == 'false'
+        id: cpr
         uses: peter-evans/create-pull-request@v6
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-          base: ${{ steps.base.outputs.default_branch }}   # ← ahora viene del evento
+          base: ${{ steps.base.outputs.default_branch }}
           branch: ${{ env.BRANCH }}
           title: "Apply patch from issue #${{ github.event.issue.number }}"
           body: |
             This PR was generated automatically from issue #${{ github.event.issue.number }}.
+          draft: false
+          labels: automated-patch
 
+      # Depuración: mostrar el número/URL del PR si existe
+      - name: Log de PR creado
+        if: env.NO_CHANGES == 'false'
+        shell: bash
+        run: |
+          echo "PR number: ${{ steps.cpr.outputs.pull-request-number }}"
+          echo "PR url:    ${{ steps.cpr.outputs.pull-request-url }}"
+
+      # Si hubo cambios pero no se obtuvo número de PR, dejar rastro en el issue
+      - name: Aviso si no se pudo crear PR (fallback)
+        if: env.NO_CHANGES == 'false' && steps.cpr.outputs.pull-request-number == ''
+        uses: peter-evans/create-or-update-comment@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          issue-number: ${{ github.event.issue.number }}
+          body: |
+            ⚠️ Se empujó la rama `${{ env.BRANCH }}`, pero no se obtuvo número de PR.
+            Revisa la pestaña *Pull requests* y la rama remota.
+
+      # Si NO_CHANGES = true (no hubo cambios), deja comentario
       - name: Comentar en el issue si no hay cambios
         if: env.NO_CHANGES == 'true'
         uses: peter-evans/create-or-update-comment@v4
@@ -94,4 +130,4 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
           issue-number: ${{ github.event.issue.number }}
           body: |
-            ✅ El patch ya está aplicado o no produce cambios; no se creó PR.
+            ✅ El patch no produjo cambios (quizá ya estaba aplicado); no se creó PR.
