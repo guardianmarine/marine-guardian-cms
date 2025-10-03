@@ -54,6 +54,12 @@ export default function Callback() {
           staff = res.data || null;
         }
 
+        // If staff exists but status is pending (first-time magic link user), send to set password
+        if (staff && staff.status === 'pending') {
+          navigate('/auth/set-password', { replace: true });
+          return;
+        }
+
         // If no staff or not active → /no-access
         if (!staff || staff.status !== 'active') {
           navigate(`/no-access?email=${encodeURIComponent(user.email || '')}`, { replace: true });
