@@ -1,0 +1,4 @@
+Patch-bot proof file.
+Issue: #36
+Created to force a diff and PR.
+OK
