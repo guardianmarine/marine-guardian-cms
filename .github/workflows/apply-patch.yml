@@ -2,78 +2,95 @@ name: Apply patch from issue
 
 on:
   issues:
-    types: [labeled, edited]
-  issue_comment:
-    types: [created]
+    types: [labeled]
 
 permissions:
-  contents: write
-  pull-requests: write
+  contents: write          # para commitear/pushear
+  pull-requests: write     # para abrir el PR
+  issues: read
 
 jobs:
   apply:
-    # Dispara si el issue tiene la etiqueta apply-patch o si alguien comenta /apply-patch
-    if: >
-      (github.event_name == 'issues' &&
-       contains(join(github.event.issue.labels.*.name, ','), 'apply-patch'))
-      || (github.event_name == 'issue_comment' &&
-          contains(github.event.comment.body || '', '/apply-patch'))
+    if: github.event.label.name == 'apply-patch'
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout
+      - name: Checkout (historia completa)
         uses: actions/checkout@v4
-
-      - name: Extraer bloque ```patch``` del issue/comentario
-        id: extract
-        uses: actions/github-script@v7
         with:
-          script: |
-            const fs = require('fs');
+          fetch-depth: 0
 
-            // body del issue o del comentario (si vino por issue_comment)
-            const body =
-              (context.payload.issue && context.payload.issue.body) ||
-              (context.payload.comment && context.payload.comment.body) ||
-              '';
+      - name: Instalar jq (para leer el default_branch)
+        run: sudo apt-get update && sudo apt-get install -y jq
 
-            // Busca un bloque con ```patch ... ```
-            const m = body.match(/```patch\s*([\s\S]*?)```/i);
-            if (!m) {
-              core.setFailed('No se encontró un bloque ```patch``` en el issue/comentario.');
-              return;
-            }
-
-            const patch = m[1].trim() + '\n';
-            fs.writeFileSync('changes.patch', patch, 'utf8');
-
-            // Nombre de rama único por issue
-            const branch = `patch/issue-${context.payload.issue.number}-${Date.now()}`;
-            core.setOutput('branch', branch);
-
-      - name: Crear rama y aplicar patch
+      - name: Extraer bloque ```patch``` del issue o comentarios
+        id: extract
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -e
-          BRANCH="${{ steps.extract.outputs.branch }}"
-          git config user.name  "patch-bot"
-          git config user.email "patch-bot@users.noreply.github.com"
+          issue_body=$(jq -r '.issue.body' <<< '${{ toJson(github.event) }}')
+          patch_block=$(printf "%s" "$issue_body" | awk '/```patch/{flag=1;next}/```/{flag=0}flag')
+          if [ -z "$patch_block" ]; then
+            echo "No hay bloque ```patch``` en el cuerpo. Buscando en comentarios…"
+            comments_url=$(jq -r '.issue.comments_url' <<< '${{ toJson(github.event) }}')
+            patch_block=$(
+              curl -s -H "Authorization: Bearer $GH_TOKEN" "$comments_url" \
+              | jq -r '.[].body' \
+              | awk '/```patch/{flag=1;next}/```/{if(flag){exit} }flag'
+            )
+          fi
+          if [ -z "$patch_block" ]; then
+            echo "::error::No se encontró un bloque ```patch``` en el issue/comentarios."
+            exit 1
+          fi
+          printf "%s\n" "$patch_block" > changes.patch
+          echo "Patch extraído:"
+          head -n 20 changes.patch
+
+      - name: Crear rama de trabajo y aplicar patch
+        id: apply_patch
+        run: |
+          set -e
+          BRANCH="patch/issue-${{ github.event.issue.number }}-${{ github.run_id }}"
+          echo "WORKING_BRANCH=$BRANCH" >> $GITHUB_ENV
           git checkout -b "$BRANCH"
 
-          echo "Aplicando changes.patch…"
-          # Intenta aplicar directo; si falla, intenta 3-way
-          if ! git apply --whitespace=fix -p0 changes.patch; then
-            echo "Patch simple falló, intentando 3-way…"
-            git apply --3way changes.patch
+          # Intento normal, si falla probamos 3-way
+          if ! git apply --whitespace=fix changes.patch; then
+            echo "Aplicación simple falló; intentando 3-way…"
+            git apply -3 changes.patch
           fi
+
+          git add -A
+          git commit -m "Apply patch from issue #${{ github.event.issue.number }}"
+
+      - name: Detectar rama por defecto del repo
+        id: default_branch
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -e
+          default_branch=$(
+            curl -s -H "Authorization: Bearer $GH_TOKEN" \
+              https://api.github.com/repos/${{ github.repository }} \
+            | jq -r .default_branch
+          )
+          echo "DEFAULT_BRANCH=$default_branch" >> $GITHUB_ENV
+          echo "Rama por defecto: $default_branch"
+
+      - name: Push de la rama de trabajo
+        run: |
+          set -e
+          git push --set-upstream origin "$WORKING_BRANCH"
 
       - name: Crear Pull Request
         uses: peter-evans/create-pull-request@v6
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-          branch: ${{ steps.extract.outputs.branch }}
-          commit-message: "Apply patch from issue #${{ github.event.issue.number }}"
-          title: "Apply patch from issue #${{ github.event.issue.number }}"
-          body: |
-            This PR was created automatically from issue #${{ github.event.issue.number }}.
-            It applies the patch that was included in a ```patch``` fenced block.
-          labels: automated, patch-bot
+          base: ${{ env.DEFAULT_BRANCH }}           # <— base correcta (main/master, etc)
+          branch: ${{ env.WORKING_BRANCH }}         # <— tu rama patch/issue-…
+          title: "Patch from issue #${{ github.event.issue.number }}"
+          body: "Automated patch created from issue by workflow."
+          draft: false
+          delete-branch: false
