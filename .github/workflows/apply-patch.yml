@@ -57,26 +57,22 @@ jobs:
       # git config --global user.name "${{ github.actor }}"
       # git config --global user.email "${{ github.actor }}@users.noreply.github.com"
 
-     - name: Crear rama de trabajo y aplicar patch
-  id: apply_patch
-  run: |
-    set -e
-    # Configurar identidad de git para poder crear el commit
-    git config --local user.name "github-actions[bot]"
-    git config --local user.email "41898282+github-actions[bot]@users.noreply.github.com"
+      - name: Crear rama de trabajo y aplicar patch
+        id: apply_patch
+        run: |
+          set -e
+          BRANCH="patch/issue-${{ github.event.issue.number }}-${{ github.run_id }}"
+          echo "WORKING_BRANCH=$BRANCH" >> $GITHUB_ENV
+          git checkout -b "$BRANCH"
 
-    BRANCH="patch/issue-${{ github.event.issue.number }}-${{ github.run_id }}"
-    echo "WORKING_BRANCH=$BRANCH" >> $GITHUB_ENV
-    git checkout -b "$BRANCH"
+          # Intento normal, si falla probamos 3-way
+          if ! git apply --whitespace=fix changes.patch; then
+            echo "Aplicación simple falló; intentando 3-way…"
+            git apply -3 changes.patch
+          fi
 
-    # Intento normal; si falla, 3-way
-    if ! git apply --whitespace=fix changes.patch; then
-      echo "Aplicación simple falló; intentando 3-way…"
-      git apply -3 changes.patch
-    fi
-
-    git add -A
-    git commit -m "Apply patch from issue #${{ github.event.issue.number }}"
+          git add -A
+          git commit -m "Apply patch from issue #${{ github.event.issue.number }}"
 
       - name: Detectar rama por defecto del repo
         id: default_branch
