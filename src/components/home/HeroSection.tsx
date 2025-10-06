@@ -20,6 +20,7 @@ type HeroContent = {
   hero_overlay_opacity: number;
   hero_alignment: 'left' | 'center' | 'right';
   hero_show_search: boolean;
+  updated_at?: string;
 };
 
 const truckTypes: TruckType[] = ['Sleeper', 'Daycab', 'Yard Mule', 'Box Truck'];
@@ -110,6 +111,15 @@ export function HeroSection() {
     content.hero_alignment === 'right' ? 'items-end text-right' :
     'items-center text-center';
 
+  // Cache-busting: append timestamp to image URLs
+  const cacheBustParam = heroContent?.updated_at 
+    ? `?v=${new Date(heroContent.updated_at).getTime()}`
+    : '';
+  const desktopImageUrl = `${content.hero_image_desktop_url}${cacheBustParam}`;
+  const mobileImageUrl = content.hero_image_mobile_url 
+    ? `${content.hero_image_mobile_url}${cacheBustParam}`
+    : '';
+
   if (loading) {
     return (
       <section className="relative h-[600px] flex items-center bg-muted animate-pulse">
@@ -128,14 +138,14 @@ export function HeroSection() {
       {/* Background Image with Overlay - Responsive */}
       <div className="absolute inset-0 z-0">
         <picture>
-          {content.hero_image_mobile_url && (
+          {mobileImageUrl && (
             <source
               media="(max-width: 768px)"
-              srcSet={content.hero_image_mobile_url}
+              srcSet={mobileImageUrl}
             />
           )}
           <img
-            src={content.hero_image_desktop_url}
+            src={desktopImageUrl}
             alt={content.hero_title}
             className="w-full h-full object-cover"
             loading="eager"
