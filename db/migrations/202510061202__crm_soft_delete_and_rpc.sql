@@ -69,13 +69,12 @@ DECLARE
   v_name_parts text[];
   v_actor_user uuid;
 BEGIN
-  -- Get the authenticated user or use a default fallback
+  -- Get the authenticated user
   v_actor_user := auth.uid();
   
-  -- Require authentication
+  -- Require authentication with clear error message
   IF v_actor_user IS NULL THEN
-    RAISE EXCEPTION 'Authentication required. Please log in and try again.'
-      USING ERRCODE = 'PGRST' || '401';
+    RAISE EXCEPTION 'Authentication required. Your session may have expired. Please log in and try again.';
   END IF;
 
   -- Get the buyer request
@@ -84,7 +83,12 @@ BEGIN
   WHERE id = p_request_id;
   
   IF NOT FOUND THEN
-    RAISE EXCEPTION 'Buyer request not found';
+    RAISE EXCEPTION 'Buyer request with ID % not found', p_request_id;
+  END IF;
+  
+  -- Check if already converted
+  IF v_request.status = 'converted' THEN
+    RAISE EXCEPTION 'This request has already been converted to a lead';
   END IF;
   
   -- Parse unit ID from page_url if needed

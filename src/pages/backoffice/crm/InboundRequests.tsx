@@ -5,7 +5,6 @@ import { BackofficeLayout } from '@/components/backoffice/Layout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { useAuth } from '@/contexts/AuthContext';
 import {
   Table,
   TableBody,
@@ -46,7 +45,8 @@ import {
 } from '@/components/ui/alert-dialog';
 import { Card, CardContent } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
-import { supabase, getCurrentUserOrNull } from '@/integrations/supabase/client';
+import { supabase } from '@/integrations/supabase/client';
+import { requireUser, redirectToLogin } from '@/lib/session';
 import { Search, ExternalLink, UserPlus, MoreVertical, Trash2, RotateCcw, XCircle, Loader2 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { toast } from 'sonner';
@@ -80,7 +80,6 @@ type ViewFilter = 'active' | 'trash' | 'all';
 export default function InboundRequests() {
   const { t, i18n } = useTranslation();
   const navigate = useNavigate();
-  const { user } = useAuth();
   const [requests, setRequests] = useState<BuyerRequest[]>([]);
   const [unitsById, setUnitsById] = useState<Record<string, UnitInfo>>({});
   const [loading, setLoading] = useState(true);
@@ -346,81 +345,94 @@ export default function InboundRequests() {
   };
 
   const handleConvertToLead = async (request: BuyerRequest) => {
+    // Check for valid session before proceeding
+    const user = await requireUser();
+    if (!user) {
+      toast.warning(
+        i18n.language === 'es'
+          ? 'Tu sesión expiró. Inicia sesión para continuar.'
+          : 'Your session expired. Please log in to continue.'
+      );
+      redirectToLogin('/backoffice/crm/inbound-requests');
+      return;
+    }
+
     setConverting(request.id);
     
     try {
-      // Check if user has a valid session
-      const currentUser = await getCurrentUserOrNull();
-      if (!currentUser) {
-        toast.warning(
-          i18n.language === 'es'
-            ? 'Tu sesión expiró. Vuelve a iniciar sesión.'
-            : 'Your session expired. Please log in again.'
-        );
-        navigate('/backoffice/login');
-        return;
-      }
-
-      console.info('Starting lead conversion (request hash:', request.id.slice(-8), ')');
+      console.info('Converting request to lead (hash:', request.id.slice(-8), ')');
       
       const { data, error } = await supabase.rpc('convert_buyer_request_to_lead', {
         p_request_id: request.id,
       });
 
       if (error) {
-        // Handle specific error types
-        if (error.message?.includes('foreign key')) {
+        // Handle specific error types with user-friendly messages
+        if (error.message?.includes('foreign key') || error.message?.includes('violates')) {
           throw new Error(
             i18n.language === 'es'
-              ? 'Error de integridad de datos. Por favor, contacte al administrador.'
-              : 'Data integrity error. Please contact administrator.'
+              ? 'Error de integridad de datos. Verifica que todos los campos estén correctos.'
+              : 'Data integrity error. Please verify all fields are correct.'
           );
         }
         
-        if (error.message?.includes('permission')) {
+        if (error.message?.includes('permission') || error.message?.includes('denied')) {
           throw new Error(
             i18n.language === 'es'
-              ? 'No tiene permisos para realizar esta acción.'
+              ? 'No tienes permisos para realizar esta acción.'
               : 'You do not have permission to perform this action.'
+          );
+        }
+
+        if (error.message?.includes('not found')) {
+          throw new Error(
+            i18n.language === 'es'
+              ? 'Solicitud no encontrada o ya fue procesada.'
+              : 'Request not found or already processed.'
           );
         }
 
         throw error;
       }
 
-      if (!data) {
+      if (!data || !data.success) {
         throw new Error(
           i18n.language === 'es'
-            ? 'La conversión no devolvió datos válidos.'
-            : 'Conversion did not return valid data.'
+            ? 'La conversión falló. Por favor, intenta nuevamente.'
+            : 'Conversion failed. Please try again.'
         );
       }
 
-      console.info('Lead created (lead hash:', data.lead_id?.slice(-8), ')');
+      console.info('Lead created successfully (hash:', data.lead_id?.slice(-8), ')');
 
       toast.success(
         i18n.language === 'es'
-          ? 'Lead creado y vinculado exitosamente'
-          : 'Lead created and linked successfully'
+          ? 'Lead creado exitosamente'
+          : 'Lead created successfully'
       );
 
-      // Refresh the list to update status and badge
+      // Refresh the list to update status
       await loadRequests();
 
-      // Navigate to the new lead if ID is available
+      // Navigate to the new lead
       if (data.lead_id) {
         navigate(`/backoffice/crm/leads/${data.lead_id}`);
       }
     } catch (error: any) {
-      console.error('Lead conversion failed:', {
+      console.error('Lead conversion error:', {
         code: error?.code,
         message: error?.message,
       });
 
-      const errorMessage = error?.message || 'Unknown error';
+      const errorMessage = error?.message || (
+        i18n.language === 'es' 
+          ? 'Error desconocido. Por favor, intenta nuevamente.' 
+          : 'Unknown error. Please try again.'
+      );
+      
       toast.error(
         i18n.language === 'es' 
-          ? `Error al crear lead: ${errorMessage}` 
+          ? `No se pudo crear el lead: ${errorMessage}` 
           : `Failed to create lead: ${errorMessage}`
       );
     } finally {
