@@ -67,7 +67,17 @@ DECLARE
   v_first_name text;
   v_last_name text;
   v_name_parts text[];
+  v_actor_user uuid;
 BEGIN
+  -- Get the authenticated user or use a default fallback
+  v_actor_user := auth.uid();
+  
+  -- Require authentication
+  IF v_actor_user IS NULL THEN
+    RAISE EXCEPTION 'Authentication required. Please log in and try again.'
+      USING ERRCODE = 'PGRST' || '401';
+  END IF;
+
   -- Get the buyer request
   SELECT * INTO v_request
   FROM public.buyer_requests
@@ -128,7 +138,7 @@ BEGIN
     -- Create account if needed
     IF NOT FOUND THEN
       INSERT INTO public.accounts (kind, name, created_by)
-      VALUES ('individual', v_request.name, auth.uid())
+      VALUES ('individual', v_request.name, v_actor_user)
       RETURNING id INTO v_account_id;
     END IF;
     
@@ -147,7 +157,7 @@ BEGIN
   
   -- Create lead
   INSERT INTO public.leads (account_id, contact_id, unit_id, source, stage, notes, owner_user_id)
-  VALUES (v_account_id, v_contact_id, v_unit_id, 'website', 'new', v_request.message, auth.uid())
+  VALUES (v_account_id, v_contact_id, v_unit_id, 'website', 'new', v_request.message, v_actor_user)
   RETURNING id INTO v_lead_id;
   
   -- Mark request as converted

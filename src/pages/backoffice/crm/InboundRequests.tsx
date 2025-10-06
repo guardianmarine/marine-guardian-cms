@@ -46,8 +46,8 @@ import {
 } from '@/components/ui/alert-dialog';
 import { Card, CardContent } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
-import { supabase } from '@/integrations/supabase/client';
-import { Search, ExternalLink, UserPlus, MoreVertical, Trash2, RotateCcw, XCircle } from 'lucide-react';
+import { supabase, getCurrentUserOrNull } from '@/integrations/supabase/client';
+import { Search, ExternalLink, UserPlus, MoreVertical, Trash2, RotateCcw, XCircle, Loader2 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { toast } from 'sonner';
 
@@ -346,20 +346,26 @@ export default function InboundRequests() {
   };
 
   const handleConvertToLead = async (request: BuyerRequest) => {
-    if (!user?.id) {
-      toast.error(i18n.language === 'es' ? 'Usuario no autenticado' : 'User not authenticated');
-      return;
-    }
-
-    console.log('Starting conversion for request:', request.id);
     setConverting(request.id);
     
     try {
+      // Check if user has a valid session
+      const currentUser = await getCurrentUserOrNull();
+      if (!currentUser) {
+        toast.warning(
+          i18n.language === 'es'
+            ? 'Tu sesión expiró. Vuelve a iniciar sesión.'
+            : 'Your session expired. Please log in again.'
+        );
+        navigate('/backoffice/login');
+        return;
+      }
+
+      console.info('Starting lead conversion (request hash:', request.id.slice(-8), ')');
+      
       const { data, error } = await supabase.rpc('convert_buyer_request_to_lead', {
         p_request_id: request.id,
       });
-
-      console.log('RPC response:', { data, error });
 
       if (error) {
         // Handle specific error types
@@ -390,12 +396,12 @@ export default function InboundRequests() {
         );
       }
 
-      console.log('Lead created successfully:', data.lead_id);
+      console.info('Lead created (lead hash:', data.lead_id?.slice(-8), ')');
 
       toast.success(
         i18n.language === 'es'
-          ? 'Lead creado exitosamente'
-          : 'Lead created successfully'
+          ? 'Lead creado y vinculado exitosamente'
+          : 'Lead created and linked successfully'
       );
 
       // Refresh the list to update status and badge
@@ -403,16 +409,12 @@ export default function InboundRequests() {
 
       // Navigate to the new lead if ID is available
       if (data.lead_id) {
-        console.log('Navigating to lead:', data.lead_id);
         navigate(`/backoffice/crm/leads/${data.lead_id}`);
       }
     } catch (error: any) {
-      console.error('Error converting to lead:', {
-        error,
-        message: error?.message,
+      console.error('Lead conversion failed:', {
         code: error?.code,
-        details: error?.details,
-        hint: error?.hint,
+        message: error?.message,
       });
 
       const errorMessage = error?.message || 'Unknown error';
@@ -826,8 +828,13 @@ export default function InboundRequests() {
                     <Button
                       onClick={() => handleConvertToLead(selectedRequest)}
                       disabled={converting === selectedRequest.id}
+                      title={i18n.language === 'es' ? 'Convertir a Lead' : 'Convert to Lead'}
                     >
-                      <UserPlus className="h-4 w-4 mr-2" />
+                      {converting === selectedRequest.id ? (
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      ) : (
+                        <UserPlus className="h-4 w-4 mr-2" />
+                      )}
                       {i18n.language === 'es' ? 'Convertir a Lead' : 'Convert to Lead'}
                     </Button>
                   </div>

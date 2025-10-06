@@ -11,5 +11,27 @@ if (!url || !anonKey) {
 }
 
 export const supabase = createClient(url, anonKey, {
-  auth: { persistSession: true, autoRefreshToken: true },
+  auth: { 
+    persistSession: true, 
+    autoRefreshToken: true,
+    detectSessionInUrl: true 
+  },
 });
+
+/**
+ * Get the current authenticated user or null if no valid session exists.
+ * This function checks for a valid session without throwing errors.
+ */
+export const getCurrentUserOrNull = async () => {
+  try {
+    const { data: { session }, error } = await supabase.auth.getSession();
+    if (error) {
+      console.warn('Error getting session:', error);
+      return null;
+    }
+    return session?.user ?? null;
+  } catch (err) {
+    console.warn('Unexpected error getting session:', err);
+    return null;
+  }
+};
