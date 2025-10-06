@@ -1,0 +1,134 @@
+name: Database Migrations
+
+on:
+  pull_request:
+    paths:
+      - 'db/migrations/**'
+  push:
+    branches:
+      - main
+    paths:
+      - 'db/migrations/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  migrate:
+    runs-on: ubuntu-latest
+    env:
+      PGPASSWORD: dummy
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install PostgreSQL client
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y postgresql-client
+
+      - name: Validate migrations (dry-run on PR)
+        if: github.event_name == 'pull_request'
+        env:
+          DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+        run: |
+          set -e
+          if [ -z "$DB_URL" ]; then
+            echo "❌ SUPABASE_DB_URL secret not configured"
+            exit 1
+          fi
+          
+          echo "🔍 Validating migrations (dry-run)..."
+          echo ""
+          
+          FAILED=0
+          for file in db/migrations/*.sql; do
+            if [ ! -f "$file" ]; then
+              echo "No migration files found"
+              exit 0
+            fi
+            
+            filename=$(basename "$file")
+            echo -n "Testing $filename... "
+            
+            # Run in transaction that will be rolled back
+            if psql "$DB_URL" -v ON_ERROR_STOP=on -q <<EOF 2>&1 | grep -q "ROLLBACK"; then
+          BEGIN;
+          \i $file
+          ROLLBACK;
+          EOF
+              echo "✅ OK"
+            else
+              # If transaction fails, try to capture error without exposing connection string
+              ERROR_OUTPUT=$(psql "$DB_URL" -v ON_ERROR_STOP=on -q <<EOF 2>&1 || true)
+          BEGIN;
+          \i $file
+          ROLLBACK;
+          EOF
+              echo "❌ FAIL"
+              echo "$ERROR_OUTPUT" | grep -v "postgresql://" | head -n 10
+              FAILED=1
+            fi
+          done
+          
+          if [ $FAILED -eq 1 ]; then
+            echo ""
+            echo "❌ One or more migrations failed validation"
+            exit 1
+          fi
+          
+          echo ""
+          echo "✅ All migrations validated successfully"
+
+      - name: Apply migrations (main/dispatch)
+        if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+        env:
+          DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+        run: |
+          set -e
+          if [ -z "$DB_URL" ]; then
+            echo "❌ SUPABASE_DB_URL secret not configured"
+            exit 1
+          fi
+          
+          echo "🚀 Applying migrations..."
+          echo ""
+          
+          for file in db/migrations/*.sql; do
+            if [ ! -f "$file" ]; then
+              echo "No migration files found"
+              exit 0
+            fi
+            
+            filename=$(basename "$file")
+            echo -n "Applying $filename... "
+            
+            if psql "$DB_URL" -v ON_ERROR_STOP=on -q -f "$file" 2>&1 | grep -v "postgresql://" > /tmp/psql_output.txt; then
+              echo "✅ OK"
+            else
+              echo "❌ FAIL"
+              cat /tmp/psql_output.txt | grep -v "postgresql://" | head -n 20
+              exit 1
+            fi
+          done
+          
+          echo ""
+          echo "✅ All migrations applied successfully"
+
+      - name: Comment on PR
+        if: github.event_name == 'pull_request' && always()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const status = '${{ job.status }}' === 'success' ? '✅ Passed' : '❌ Failed';
+            
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: `## Database Migration Validation ${status}\n\nAll migrations have been validated in dry-run mode.`
+            });
