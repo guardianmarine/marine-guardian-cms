@@ -22,9 +22,12 @@ import {
 } from '@/components/ui/select';
 import { Card, CardContent } from '@/components/ui/card';
 import { supabase } from '@/integrations/supabase/client';
-import { Search, ExternalLink, Eye, Trash2, RotateCcw } from 'lucide-react';
+import { Search, ExternalLink, Eye } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { toast } from 'sonner';
+import { SoftDeleteActions } from '@/components/common/SoftDeleteActions';
+import { ViewFilterTabs } from '@/components/common/ViewFilterTabs';
+import { ViewFilter } from '@/hooks/useSoftDelete';
 
 type Lead = {
   id: string;
@@ -35,6 +38,7 @@ type Lead = {
   contact_phone: string | null;
   unit_id: string | null;
   created_at: string;
+  deleted_at: string | null;
 };
 
 type UnitInfo = {
@@ -55,7 +59,7 @@ export default function Leads() {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [stageFilter, setStageFilter] = useState<Stage>('all');
-  const [viewFilter, setViewFilter] = useState<'active' | 'trash' | 'all'>('active');
+  const [viewFilter, setViewFilter] = useState<ViewFilter>('active');
 
   useEffect(() => {
     loadLeads();
@@ -148,41 +152,6 @@ export default function Leads() {
     }
   };
 
-  const handleMoveToTrash = async (id: string, e: React.MouseEvent) => {
-    e.stopPropagation();
-    try {
-      const { error } = await supabase
-        .from('leads')
-        .update({ deleted_at: new Date().toISOString() })
-        .eq('id', id);
-
-      if (error) throw error;
-
-      toast.success(i18n.language === 'es' ? 'Movido a papelera' : 'Moved to trash');
-      await loadLeads();
-    } catch (error: any) {
-      console.error('Error moving to trash:', error);
-      toast.error(error?.message ?? (i18n.language === 'es' ? 'Error al mover' : 'Failed to move'));
-    }
-  };
-
-  const handleRestore = async (id: string, e: React.MouseEvent) => {
-    e.stopPropagation();
-    try {
-      const { error } = await supabase
-        .from('leads')
-        .update({ deleted_at: null })
-        .eq('id', id);
-
-      if (error) throw error;
-
-      toast.success(i18n.language === 'es' ? 'Restaurado' : 'Restored');
-      await loadLeads();
-    } catch (error: any) {
-      console.error('Error restoring:', error);
-      toast.error(error?.message ?? (i18n.language === 'es' ? 'Error al restaurar' : 'Failed to restore'));
-    }
-  };
 
   if (loading) {
     return (
@@ -223,16 +192,7 @@ export default function Leads() {
               className="pl-10"
             />
           </div>
-          <Select value={viewFilter} onValueChange={(v: any) => setViewFilter(v)}>
-            <SelectTrigger className="w-32">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="active">{i18n.language === 'es' ? 'Activos' : 'Active'}</SelectItem>
-              <SelectItem value="trash">{i18n.language === 'es' ? 'Papelera' : 'Trash'}</SelectItem>
-              <SelectItem value="all">{i18n.language === 'es' ? 'Todos' : 'All'}</SelectItem>
-            </SelectContent>
-          </Select>
+          <ViewFilterTabs value={viewFilter} onValueChange={setViewFilter} />
           <Select value={stageFilter} onValueChange={(v: Stage) => setStageFilter(v)}>
             <SelectTrigger className="w-48">
               <SelectValue />
@@ -334,7 +294,7 @@ export default function Leads() {
                           <span className="text-muted-foreground text-sm">—</span>
                         )}
                       </TableCell>
-                      <TableCell>
+                      <TableCell onClick={(e) => e.stopPropagation()}>
                         <div className="flex items-center gap-1">
                           <Button
                             type="button"
@@ -348,27 +308,13 @@ export default function Leads() {
                           >
                             <Eye className="h-4 w-4" />
                           </Button>
-                          {viewFilter === 'trash' ? (
-                            <Button
-                              type="button"
-                              size="sm"
-                              variant="ghost"
-                              onClick={(e) => handleRestore(lead.id, e)}
-                              title={i18n.language === 'es' ? 'Restaurar' : 'Restore'}
-                            >
-                              <RotateCcw className="h-4 w-4" />
-                            </Button>
-                          ) : (
-                            <Button
-                              type="button"
-                              size="sm"
-                              variant="ghost"
-                              onClick={(e) => handleMoveToTrash(lead.id, e)}
-                              title={i18n.language === 'es' ? 'Mover a Papelera' : 'Move to Trash'}
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          )}
+                          <SoftDeleteActions
+                            table="leads"
+                            id={lead.id}
+                            isDeleted={!!lead.deleted_at}
+                            onActionComplete={loadLeads}
+                            inline
+                          />
                         </div>
                       </TableCell>
                     </TableRow>

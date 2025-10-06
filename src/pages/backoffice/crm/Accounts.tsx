@@ -8,11 +8,14 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { getCRMPermissions } from '@/lib/permissions';
-import { Building, Plus, Search, Trash2, RotateCcw } from 'lucide-react';
+import { Building, Plus, Search } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
+import { SoftDeleteActions } from '@/components/common/SoftDeleteActions';
+import { ViewFilterTabs } from '@/components/common/ViewFilterTabs';
+import { ViewFilter } from '@/hooks/useSoftDelete';
 
 type Account = {
   id: string;
@@ -31,7 +34,7 @@ export default function Accounts() {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [kindFilter, setKindFilter] = useState<'all' | 'company' | 'individual'>('all');
-  const [viewFilter, setViewFilter] = useState<'active' | 'trash' | 'all'>('active');
+  const [viewFilter, setViewFilter] = useState<ViewFilter>('active');
   
   const permissions = user ? getCRMPermissions(user.role) : { canViewCRM: false, canCreateCRM: false };
 
@@ -63,39 +66,6 @@ export default function Accounts() {
     }
   };
 
-  const handleMoveToTrash = async (id: string, e: React.MouseEvent) => {
-    e.stopPropagation();
-    try {
-      const { error } = await supabase
-        .from('accounts')
-        .update({ deleted_at: new Date().toISOString() })
-        .eq('id', id);
-
-      if (error) throw error;
-      toast.success(i18n.language === 'es' ? 'Movido a papelera' : 'Moved to trash');
-      await loadAccounts();
-    } catch (error: any) {
-      console.error('Error moving to trash:', error);
-      toast.error(error?.message ?? (i18n.language === 'es' ? 'Error al mover' : 'Failed to move'));
-    }
-  };
-
-  const handleRestore = async (id: string, e: React.MouseEvent) => {
-    e.stopPropagation();
-    try {
-      const { error } = await supabase
-        .from('accounts')
-        .update({ deleted_at: null })
-        .eq('id', id);
-
-      if (error) throw error;
-      toast.success(i18n.language === 'es' ? 'Restaurado' : 'Restored');
-      await loadAccounts();
-    } catch (error: any) {
-      console.error('Error restoring:', error);
-      toast.error(error?.message ?? (i18n.language === 'es' ? 'Error al restaurar' : 'Failed to restore'));
-    }
-  };
 
   if (loading) {
     return (
@@ -148,16 +118,7 @@ export default function Accounts() {
               className="pl-10"
             />
           </div>
-          <Select value={viewFilter} onValueChange={(v: any) => setViewFilter(v)}>
-            <SelectTrigger className="w-32">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="active">{i18n.language === 'es' ? 'Activos' : 'Active'}</SelectItem>
-              <SelectItem value="trash">{i18n.language === 'es' ? 'Papelera' : 'Trash'}</SelectItem>
-              <SelectItem value="all">{i18n.language === 'es' ? 'Todos' : 'All'}</SelectItem>
-            </SelectContent>
-          </Select>
+          <ViewFilterTabs value={viewFilter} onValueChange={setViewFilter} />
           <Select value={kindFilter} onValueChange={(v) => setKindFilter(v as any)}>
             <SelectTrigger className="w-40">
               <SelectValue />
@@ -192,25 +153,13 @@ export default function Accounts() {
                     {!account.is_active && (
                       <Badge variant="outline">Inactive</Badge>
                     )}
-                    {viewFilter === 'trash' ? (
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={(e) => handleRestore(account.id, e)}
-                        title={i18n.language === 'es' ? 'Restaurar' : 'Restore'}
-                      >
-                        <RotateCcw className="h-4 w-4" />
-                      </Button>
-                    ) : (
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={(e) => handleMoveToTrash(account.id, e)}
-                        title={i18n.language === 'es' ? 'Mover a Papelera' : 'Move to Trash'}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    )}
+                    <SoftDeleteActions
+                      table="accounts"
+                      id={account.id}
+                      isDeleted={!!account.deleted_at}
+                      onActionComplete={loadAccounts}
+                      inline
+                    />
                   </div>
                 </div>
               </CardHeader>

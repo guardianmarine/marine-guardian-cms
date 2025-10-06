@@ -6,10 +6,13 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { supabase } from '@/integrations/supabase/client';
 import { getEmailLink, getPhoneLink, getWhatsAppLink } from '@/lib/crm-integrations';
-import { Plus, UserCircle, Mail, Phone, MessageSquare, Search, Trash2, RotateCcw } from 'lucide-react';
+import { Plus, UserCircle, Mail, Phone, MessageSquare, Search } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
+import { SoftDeleteActions } from '@/components/common/SoftDeleteActions';
+import { ViewFilterTabs } from '@/components/common/ViewFilterTabs';
+import { ViewFilter } from '@/hooks/useSoftDelete';
 
 type Contact = {
   id: string;
@@ -32,7 +35,7 @@ export default function Contacts() {
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
-  const [viewFilter, setViewFilter] = useState<'active' | 'trash' | 'all'>('active');
+  const [viewFilter, setViewFilter] = useState<ViewFilter>('active');
 
   useEffect(() => {
     loadContacts();
@@ -69,39 +72,6 @@ export default function Contacts() {
     }
   };
 
-  const handleMoveToTrash = async (id: string, e: React.MouseEvent) => {
-    e.stopPropagation();
-    try {
-      const { error } = await supabase
-        .from('contacts')
-        .update({ deleted_at: new Date().toISOString() })
-        .eq('id', id);
-
-      if (error) throw error;
-      toast.success(i18n.language === 'es' ? 'Movido a papelera' : 'Moved to trash');
-      await loadContacts();
-    } catch (error: any) {
-      console.error('Error moving to trash:', error);
-      toast.error(error?.message ?? (i18n.language === 'es' ? 'Error al mover' : 'Failed to move'));
-    }
-  };
-
-  const handleRestore = async (id: string, e: React.MouseEvent) => {
-    e.stopPropagation();
-    try {
-      const { error } = await supabase
-        .from('contacts')
-        .update({ deleted_at: null })
-        .eq('id', id);
-
-      if (error) throw error;
-      toast.success(i18n.language === 'es' ? 'Restaurado' : 'Restored');
-      await loadContacts();
-    } catch (error: any) {
-      console.error('Error restoring:', error);
-      toast.error(error?.message ?? (i18n.language === 'es' ? 'Error al restaurar' : 'Failed to restore'));
-    }
-  };
 
   const filteredContacts = contacts.filter((contact) => {
     const fullName = `${contact.first_name} ${contact.last_name}`.toLowerCase();
@@ -144,16 +114,7 @@ export default function Contacts() {
               className="pl-10"
             />
           </div>
-          <Select value={viewFilter} onValueChange={(v: any) => setViewFilter(v)}>
-            <SelectTrigger className="w-32">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="active">{i18n.language === 'es' ? 'Activos' : 'Active'}</SelectItem>
-              <SelectItem value="trash">{i18n.language === 'es' ? 'Papelera' : 'Trash'}</SelectItem>
-              <SelectItem value="all">{i18n.language === 'es' ? 'Todos' : 'All'}</SelectItem>
-            </SelectContent>
-          </Select>
+          <ViewFilterTabs value={viewFilter} onValueChange={setViewFilter} />
         </div>
 
         <div className="grid gap-4">
@@ -204,25 +165,13 @@ export default function Contacts() {
                         </div>
                       )}
                     </div>
-                    {viewFilter === 'trash' ? (
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={(e) => handleRestore(contact.id, e)}
-                        title={i18n.language === 'es' ? 'Restaurar' : 'Restore'}
-                      >
-                        <RotateCcw className="h-4 w-4" />
-                      </Button>
-                    ) : (
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={(e) => handleMoveToTrash(contact.id, e)}
-                        title={i18n.language === 'es' ? 'Mover a Papelera' : 'Move to Trash'}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    )}
+                    <SoftDeleteActions
+                      table="contacts"
+                      id={contact.id}
+                      isDeleted={!!contact.deleted_at}
+                      onActionComplete={loadContacts}
+                      inline
+                    />
                   </div>
                 </div>
               </CardHeader>
