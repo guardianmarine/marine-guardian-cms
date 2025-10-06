@@ -24,14 +24,22 @@ export async function getSessionOrPromptLogin(): Promise<Session | null> {
  */
 export async function ensureFreshSession(): Promise<Session | null> {
   try {
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session) {
+    const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+    if (sessionError || !session) {
       return null;
     }
     
     // Try to refresh the session (no-op if already fresh)
-    const { data } = await supabase.auth.refreshSession();
-    return data.session ?? session;
+    const { data, error: refreshError } = await supabase.auth.refreshSession();
+    
+    // If refresh fails, the session is invalid
+    if (refreshError) {
+      console.warn('Session refresh failed:', refreshError.message);
+      return null;
+    }
+    
+    // Return the refreshed session, or null if refresh didn't return a session
+    return data.session;
   } catch (err) {
     console.warn('Error refreshing session:', err);
     return null;

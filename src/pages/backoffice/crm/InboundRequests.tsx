@@ -345,21 +345,31 @@ export default function InboundRequests() {
   };
 
   const handleConvertToLead = async (request: BuyerRequest) => {
-    // Check for valid session before proceeding
-    const user = await requireUser();
-    if (!user) {
-      toast.warning(
-        i18n.language === 'es'
-          ? 'Tu sesión expiró. Inicia sesión para continuar.'
-          : 'Your session expired. Please log in to continue.'
-      );
-      redirectToLogin('/backoffice/crm/inbound-requests');
-      return;
-    }
-
-    setConverting(request.id);
-    
     try {
+      // Prevent re-conversion
+      if (request.status === 'converted') {
+        toast.warning(
+          i18n.language === 'es'
+            ? 'Esta solicitud ya fue convertida.'
+            : 'This request has already been converted.'
+        );
+        return;
+      }
+
+      setConverting(request.id);
+
+      // Check for valid session before proceeding
+      const user = await requireUser();
+      if (!user) {
+        toast.warning(
+          i18n.language === 'es'
+            ? 'Tu sesión expiró. Inicia sesión para continuar.'
+            : 'Your session expired. Please log in to continue.'
+        );
+        redirectToLogin('/backoffice/crm/inbound-requests');
+        return;
+      }
+      
       console.info('Converting request to lead (hash:', request.id.slice(-8), ')');
       
       const { data, error } = await supabase.rpc('convert_buyer_request_to_lead', {
@@ -367,7 +377,30 @@ export default function InboundRequests() {
       });
 
       if (error) {
+        // Handle authentication errors specifically
+        if (error.message?.includes('Authentication required') || 
+            error.message?.includes('session') ||
+            error.code === 'PGRST301') {
+          toast.warning(
+            i18n.language === 'es'
+              ? 'Tu sesión expiró. Inicia sesión para continuar.'
+              : 'Your session expired. Please log in to continue.'
+          );
+          redirectToLogin('/backoffice/crm/inbound-requests');
+          return;
+        }
+
         // Handle specific error types with user-friendly messages
+        if (error.message?.includes('already been converted')) {
+          toast.warning(
+            i18n.language === 'es'
+              ? 'Esta solicitud ya fue convertida a lead.'
+              : 'This request has already been converted to a lead.'
+          );
+          await loadRequests();
+          return;
+        }
+
         if (error.message?.includes('foreign key') || error.message?.includes('violates')) {
           throw new Error(
             i18n.language === 'es'
@@ -387,8 +420,8 @@ export default function InboundRequests() {
         if (error.message?.includes('not found')) {
           throw new Error(
             i18n.language === 'es'
-              ? 'Solicitud no encontrada o ya fue procesada.'
-              : 'Request not found or already processed.'
+              ? 'Solicitud no encontrada.'
+              : 'Request not found.'
           );
         }
 
@@ -423,6 +456,19 @@ export default function InboundRequests() {
         code: error?.code,
         message: error?.message,
       });
+
+      // Check if error is related to authentication
+      if (error?.message?.includes('Authentication required') || 
+          error?.message?.includes('session') ||
+          error?.code === 'PGRST301') {
+        toast.warning(
+          i18n.language === 'es'
+            ? 'Tu sesión expiró. Inicia sesión para continuar.'
+            : 'Your session expired. Please log in to continue.'
+        );
+        redirectToLogin('/backoffice/crm/inbound-requests');
+        return;
+      }
 
       const errorMessage = error?.message || (
         i18n.language === 'es' 
