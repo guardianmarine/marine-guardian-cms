@@ -46,7 +46,7 @@ import {
 import { Card, CardContent } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
 import { supabase } from '@/integrations/supabase/client';
-import { requireUser, redirectToLogin } from '@/lib/session';
+import { redirectToLogin } from '@/lib/session';
 import { Search, ExternalLink, UserPlus, MoreVertical, Trash2, RotateCcw, XCircle, Loader2 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { toast } from 'sonner';
@@ -345,42 +345,39 @@ export default function InboundRequests() {
   };
 
   const handleConvertToLead = async (request: BuyerRequest) => {
+    // Prevent re-conversion
+    if (request.status === 'converted') {
+      toast.warning(
+        i18n.language === 'es'
+          ? 'Esta solicitud ya fue convertida.'
+          : 'This request has already been converted.'
+      );
+      return;
+    }
+
+    // Check for valid session before proceeding
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session?.user) {
+      toast.warning(
+        i18n.language === 'es'
+          ? 'Tu sesión expiró. Inicia sesión para continuar.'
+          : 'Your session expired. Please log in to continue.'
+      );
+      redirectToLogin('/backoffice/crm/inbound-requests');
+      return;
+    }
+
+    setConverting(request.id);
+    
     try {
-      // Prevent re-conversion
-      if (request.status === 'converted') {
-        toast.warning(
-          i18n.language === 'es'
-            ? 'Esta solicitud ya fue convertida.'
-            : 'This request has already been converted.'
-        );
-        return;
-      }
-
-      setConverting(request.id);
-
-      // Check for valid session before proceeding
-      const user = await requireUser();
-      if (!user) {
-        toast.warning(
-          i18n.language === 'es'
-            ? 'Tu sesión expiró. Inicia sesión para continuar.'
-            : 'Your session expired. Please log in to continue.'
-        );
-        redirectToLogin('/backoffice/crm/inbound-requests');
-        return;
-      }
-      
-      console.info('Converting request to lead (hash:', request.id.slice(-8), ')');
-      
       const { data, error } = await supabase.rpc('convert_buyer_request_to_lead', {
         p_request_id: request.id,
       });
 
       if (error) {
-        // Handle authentication errors specifically
+        // Handle session errors
         if (error.message?.includes('Authentication required') || 
-            error.message?.includes('session') ||
-            error.code === 'PGRST301') {
+            error.message?.includes('session')) {
           toast.warning(
             i18n.language === 'es'
               ? 'Tu sesión expiró. Inicia sesión para continuar.'
@@ -390,7 +387,7 @@ export default function InboundRequests() {
           return;
         }
 
-        // Handle specific error types with user-friendly messages
+        // Handle already converted
         if (error.message?.includes('already been converted')) {
           toast.warning(
             i18n.language === 'es'
@@ -401,34 +398,10 @@ export default function InboundRequests() {
           return;
         }
 
-        if (error.message?.includes('foreign key') || error.message?.includes('violates')) {
-          throw new Error(
-            i18n.language === 'es'
-              ? 'Error de integridad de datos. Verifica que todos los campos estén correctos.'
-              : 'Data integrity error. Please verify all fields are correct.'
-          );
-        }
-        
-        if (error.message?.includes('permission') || error.message?.includes('denied')) {
-          throw new Error(
-            i18n.language === 'es'
-              ? 'No tienes permisos para realizar esta acción.'
-              : 'You do not have permission to perform this action.'
-          );
-        }
-
-        if (error.message?.includes('not found')) {
-          throw new Error(
-            i18n.language === 'es'
-              ? 'Solicitud no encontrada.'
-              : 'Request not found.'
-          );
-        }
-
-        throw error;
+        throw new Error(error.message);
       }
 
-      if (!data || !data.success) {
+      if (!data?.success) {
         throw new Error(
           i18n.language === 'es'
             ? 'La conversión falló. Por favor, intenta nuevamente.'
@@ -436,50 +409,23 @@ export default function InboundRequests() {
         );
       }
 
-      console.info('Lead created successfully (hash:', data.lead_id?.slice(-8), ')');
-
       toast.success(
         i18n.language === 'es'
-          ? 'Lead creado exitosamente'
-          : 'Lead created successfully'
+          ? 'Lead creado y vinculado'
+          : 'Lead created and linked'
       );
 
-      // Refresh the list to update status
       await loadRequests();
 
-      // Navigate to the new lead
       if (data.lead_id) {
         navigate(`/backoffice/crm/leads/${data.lead_id}`);
       }
     } catch (error: any) {
-      console.error('Lead conversion error:', {
-        code: error?.code,
-        message: error?.message,
-      });
-
-      // Check if error is related to authentication
-      if (error?.message?.includes('Authentication required') || 
-          error?.message?.includes('session') ||
-          error?.code === 'PGRST301') {
-        toast.warning(
-          i18n.language === 'es'
-            ? 'Tu sesión expiró. Inicia sesión para continuar.'
-            : 'Your session expired. Please log in to continue.'
-        );
-        redirectToLogin('/backoffice/crm/inbound-requests');
-        return;
-      }
-
-      const errorMessage = error?.message || (
-        i18n.language === 'es' 
-          ? 'Error desconocido. Por favor, intenta nuevamente.' 
-          : 'Unknown error. Please try again.'
-      );
-      
+      console.error('Lead conversion error:', error);
       toast.error(
         i18n.language === 'es' 
-          ? `No se pudo crear el lead: ${errorMessage}` 
-          : `Failed to create lead: ${errorMessage}`
+          ? `No se pudo crear el lead: ${error.message}` 
+          : `Failed to create lead: ${error.message}`
       );
     } finally {
       setConverting(null);
@@ -731,7 +677,11 @@ export default function InboundRequests() {
                               disabled={converting === request.id}
                               title={i18n.language === 'es' ? 'Convertir a Lead' : 'Convert to Lead'}
                             >
-                              <UserPlus className="h-4 w-4" />
+                              {converting === request.id ? (
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                              ) : (
+                                <UserPlus className="h-4 w-4" />
+                              )}
                             </Button>
                           )}
                           <DropdownMenu>
