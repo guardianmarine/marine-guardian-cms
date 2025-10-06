@@ -47,6 +47,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
 import { supabase } from '@/integrations/supabase/client';
 import { redirectToLogin } from '@/lib/session';
+import { convertBuyerRequestToLead } from '@/services/crm/convertBuyerRequestToLead';
 import { Search, ExternalLink, UserPlus, MoreVertical, Trash2, RotateCcw, XCircle, Loader2 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { toast } from 'sonner';
@@ -345,90 +346,59 @@ export default function InboundRequests() {
   };
 
   const handleConvertToLead = async (request: BuyerRequest) => {
-    // Prevent re-conversion
     if (request.status === 'converted') {
       toast.warning(
         i18n.language === 'es'
-          ? 'Esta solicitud ya fue convertida.'
-          : 'This request has already been converted.'
+          ? 'Esta solicitud ya fue convertida a lead'
+          : 'This request has already been converted to a lead'
       );
-      return;
-    }
-
-    // Check for valid session before proceeding
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session?.user) {
-      toast.warning(
-        i18n.language === 'es'
-          ? 'Tu sesión expiró. Inicia sesión para continuar.'
-          : 'Your session expired. Please log in to continue.'
-      );
-      redirectToLogin('/backoffice/crm/inbound-requests');
       return;
     }
 
     setConverting(request.id);
-    
-    try {
-      const { data, error } = await supabase.rpc('convert_buyer_request_to_lead', {
-        p_request_id: request.id,
-      });
 
-      if (error) {
-        // Handle session errors
-        if (error.message?.includes('Authentication required') || 
-            error.message?.includes('session')) {
-          toast.warning(
-            i18n.language === 'es'
-              ? 'Tu sesión expiró. Inicia sesión para continuar.'
-              : 'Your session expired. Please log in to continue.'
-          );
-          redirectToLogin('/backoffice/crm/inbound-requests');
-          return;
-        }
-
-        // Handle already converted
-        if (error.message?.includes('already been converted')) {
-          toast.warning(
-            i18n.language === 'es'
-              ? 'Esta solicitud ya fue convertida a lead.'
-              : 'This request has already been converted to a lead.'
-          );
-          await loadRequests();
-          return;
-        }
-
-        throw new Error(error.message);
-      }
-
-      if (!data?.success) {
-        throw new Error(
+    const result = await convertBuyerRequestToLead(request.id, {
+      onNoSession: () => {
+        toast.warning(
           i18n.language === 'es'
-            ? 'La conversión falló. Por favor, intenta nuevamente.'
-            : 'Conversion failed. Please try again.'
+            ? 'Tu sesión expiró. Inicia sesión para continuar.'
+            : 'Your session expired. Please log in to continue.'
         );
+        redirectToLogin('/backoffice/crm/inbound-requests');
+      }
+    });
+
+    setConverting(null);
+
+    if (result.error) {
+      if (result.error.message?.includes('already been converted')) {
+        toast.warning(
+          i18n.language === 'es'
+            ? 'Esta solicitud ya fue convertida a lead'
+            : 'This request has already been converted to a lead'
+        );
+        await loadRequests();
+        return;
       }
 
-      toast.success(
-        i18n.language === 'es'
-          ? 'Lead creado y vinculado'
-          : 'Lead created and linked'
-      );
-
-      await loadRequests();
-
-      if (data.lead_id) {
-        navigate(`/backoffice/crm/leads/${data.lead_id}`);
-      }
-    } catch (error: any) {
-      console.error('Lead conversion error:', error);
       toast.error(
-        i18n.language === 'es' 
-          ? `No se pudo crear el lead: ${error.message}` 
-          : `Failed to create lead: ${error.message}`
+        i18n.language === 'es'
+          ? `No se pudo crear el lead: ${result.error.message}`
+          : `Failed to create lead: ${result.error.message}`
       );
-    } finally {
-      setConverting(null);
+      return;
+    }
+
+    toast.success(
+      i18n.language === 'es'
+        ? 'Lead creado y vinculado'
+        : 'Lead created and linked'
+    );
+
+    await loadRequests();
+
+    if (result.data?.lead_id) {
+      navigate(`/backoffice/crm/leads/${result.data.lead_id}`);
     }
   };
 
