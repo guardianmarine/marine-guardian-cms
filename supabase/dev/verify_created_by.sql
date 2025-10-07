@@ -131,7 +131,92 @@ select
    and constraint_name like '%created_by_fkey') as "✓ FK constraints";
 
 -- ============================================================================
--- Check for problematic patterns (should return 0 rows)
+-- 7. CHECK CONTACTS SCHEMA (first_name/last_name vs full_name)
+-- ============================================================================
+select 
+  '7. Contacts Schema' as check_name,
+  case 
+    when exists (select 1 from pg_attribute where attrelid = 'public.contacts'::regclass and attname = 'first_name')
+     and exists (select 1 from pg_attribute where attrelid = 'public.contacts'::regclass and attname = 'last_name')
+    then '✅ PASS - Uses first_name/last_name (correct)'
+    when exists (select 1 from pg_attribute where attrelid = 'public.contacts'::regclass and attname = 'full_name')
+    then '❌ FAIL - Uses full_name (RPC expects first_name/last_name)'
+    else '❌ FAIL - Missing name columns'
+  end as status,
+  case 
+    when exists (select 1 from pg_attribute where attrelid = 'public.contacts'::regclass and attname = 'first_name')
+     and exists (select 1 from pg_attribute where attrelid = 'public.contacts'::regclass and attname = 'last_name')
+    then 'Schema matches RPC requirements'
+    when exists (select 1 from pg_attribute where attrelid = 'public.contacts'::regclass and attname = 'full_name')
+    then 'RPC will fail - needs migration to add first_name/last_name or update RPC'
+    else 'Critical error - name columns missing'
+  end as details;
+
+-- ============================================================================
+-- 8. CHECK LEADS SCHEMA (stage vs status)
+-- ============================================================================
+select 
+  '8. Leads Schema' as check_name,
+  case 
+    when exists (select 1 from pg_attribute where attrelid = 'public.leads'::regclass and attname = 'stage')
+    then '✅ PASS - Uses stage (lead_stage enum)'
+    when exists (select 1 from pg_attribute where attrelid = 'public.leads'::regclass and attname = 'status')
+    then '❌ FAIL - Uses status (RPC expects stage)'
+    else '❌ FAIL - Missing stage/status column'
+  end as status,
+  case 
+    when exists (select 1 from pg_attribute where attrelid = 'public.leads'::regclass and attname = 'stage')
+    then 'Schema matches RPC requirements'
+    when exists (select 1 from pg_attribute where attrelid = 'public.leads'::regclass and attname = 'status')
+    then 'RPC will fail - needs migration to rename status to stage or update RPC'
+    else 'Critical error - stage column missing'
+  end as details;
+
+-- ============================================================================
+-- 9. CHECK FOR PROBLEMATIC RPC PATTERNS
+-- ============================================================================
+select 
+  '9. RPC Pattern Check' as check_name,
+  case 
+    when exists (
+      select 1 from pg_proc 
+      where proname = 'convert_buyer_request_to_lead'
+      and pg_get_functiondef(oid) like '%_default_owner_user()%'
+    )
+    then '❌ FAIL - RPC calls _default_owner_user() (trigger function)'
+    when exists (
+      select 1 from pg_proc 
+      where proname = 'convert_buyer_request_to_lead'
+      and pg_get_functiondef(oid) like '%_force_created_by()%'
+    )
+    then '❌ FAIL - RPC calls _force_created_by() (trigger function)'
+    when exists (
+      select 1 from pg_proc 
+      where proname = 'convert_buyer_request_to_lead'
+      and pg_get_functiondef(oid) like '%created_by :=%'
+    )
+    then '⚠️ WARNING - RPC manually sets created_by (should rely on triggers)'
+    else '✅ PASS - RPC does not call trigger functions'
+  end as status,
+  case 
+    when exists (
+      select 1 from pg_proc 
+      where proname = 'convert_buyer_request_to_lead'
+      and (pg_get_functiondef(oid) like '%_default_owner_user()%'
+           or pg_get_functiondef(oid) like '%_force_created_by()%')
+    )
+    then 'Apply migration 202510071035__replace_convert_buyer_request_rpc.sql'
+    when exists (
+      select 1 from pg_proc 
+      where proname = 'convert_buyer_request_to_lead'
+      and pg_get_functiondef(oid) like '%created_by :=%'
+    )
+    then 'RPC sets created_by manually - should rely on triggers instead'
+    else 'RPC correctly relies on triggers for created_by'
+  end as details;
+
+-- ============================================================================
+-- 10. CHECK FOR PROBLEMATIC PATTERNS (should return 0 rows)
 -- ============================================================================
 -- Any column with trigger function in DEFAULT?
 select 
@@ -159,10 +244,48 @@ where n.nspname = 'public'
   and p.proname != '_force_created_by';
 
 -- ============================================================================
+-- 11. SUMMARY
+-- ============================================================================
+select 
+  '=== VERIFICATION SUMMARY ===' as check_name,
+  '' as status,
+  '' as details;
+
+select 
+  'All checks passed! ✅' as message
+where 
+  (select count(*) from pg_attribute where attrelid = 'public.accounts'::regclass and attname = 'created_by') = 1
+  and (select count(*) from pg_attribute where attrelid = 'public.contacts'::regclass and attname = 'created_by') = 1
+  and (select count(*) from pg_attribute where attrelid = 'public.leads'::regclass and attname = 'created_by') = 1
+  and (select count(*) from pg_proc where proname = '_force_created_by') > 0
+  and (select count(*) from pg_trigger where tgname = 'trg_accounts_force_created_by') > 0
+  and (select count(*) from pg_trigger where tgname = 'trg_contacts_force_created_by') > 0
+  and (select count(*) from pg_trigger where tgname = 'trg_leads_force_created_by') > 0
+  and exists (select 1 from pg_attribute where attrelid = 'public.contacts'::regclass and attname = 'first_name')
+  and exists (select 1 from pg_attribute where attrelid = 'public.contacts'::regclass and attname = 'last_name')
+  and exists (select 1 from pg_attribute where attrelid = 'public.leads'::regclass and attname = 'stage');
+
+select 
+  '⚠️ Some checks failed. Review output above.' as message
+where not (
+  (select count(*) from pg_attribute where attrelid = 'public.accounts'::regclass and attname = 'created_by') = 1
+  and (select count(*) from pg_attribute where attrelid = 'public.contacts'::regclass and attname = 'created_by') = 1
+  and (select count(*) from pg_attribute where attrelid = 'public.leads'::regclass and attname = 'created_by') = 1
+  and (select count(*) from pg_proc where proname = '_force_created_by') > 0
+  and (select count(*) from pg_trigger where tgname = 'trg_accounts_force_created_by') > 0
+  and (select count(*) from pg_trigger where tgname = 'trg_contacts_force_created_by') > 0
+  and (select count(*) from pg_trigger where tgname = 'trg_leads_force_created_by') > 0
+  and exists (select 1 from pg_attribute where attrelid = 'public.contacts'::regclass and attname = 'first_name')
+  and exists (select 1 from pg_attribute where attrelid = 'public.contacts'::regclass and attname = 'last_name')
+  and exists (select 1 from pg_attribute where attrelid = 'public.leads'::regclass and attname = 'stage')
+);
+
+-- ============================================================================
 -- If all checks pass, you should see:
 --   ✓ 3 NULL defaults
 --   ✓ 1 Trigger function
 --   ✓ 3 BEFORE INSERT triggers
 --   ✓ 3 FK constraints (if auth.users exists)
+--   ✓ Schema consistency (first_name/last_name, stage)
 --   ✓ 0 rows in problematic patterns check
 -- ============================================================================

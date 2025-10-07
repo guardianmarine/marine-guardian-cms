@@ -60,9 +60,50 @@ export default function NewDeal() {
     setCreating(true);
     try {
       if (leadId && leadData) {
-        // Create from lead
-        const { createDealFromLead } = await import('@/services/crmFlow');
-        const deal = await createDealFromLead(leadId, user.id);
+        // Create deal from lead data
+        const { data: deal, error } = await supabase
+          .from('deals')
+          .insert({
+            sales_rep_id: user.id,
+            account_id: leadData.account_id,
+            contact_id: leadData.contact_id,
+            status: 'draft',
+            currency: 'USD',
+            subtotal: 0,
+            discounts_total: 0,
+            fees_total: 0,
+            tax_total: 0,
+            total_due: 0,
+            commission_base: 0,
+            notes: leadData.notes,
+          })
+          .select()
+          .single();
+
+        if (error) throw error;
+
+        // If lead has a unit, add it to the deal
+        if (leadData.unit_id && leadData.units) {
+          await supabase.from('deal_units').insert({
+            deal_id: deal.id,
+            unit_id: leadData.units.id,
+            price: leadData.units.price || 0,
+            unit_snapshot: {
+              title: leadData.units.title,
+              vin: leadData.units.vin,
+              year: leadData.units.year,
+              make: leadData.units.make,
+              model: leadData.units.model,
+            },
+          });
+        }
+
+        // Update lead stage to quoted
+        await supabase
+          .from('leads')
+          .update({ stage: 'quoted' })
+          .eq('id', leadId);
+
         toast.success('Deal created from lead');
         navigate(`/backoffice/deals/${deal.id}/edit`);
       } else {

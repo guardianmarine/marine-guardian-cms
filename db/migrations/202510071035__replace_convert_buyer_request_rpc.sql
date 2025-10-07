@@ -33,6 +33,10 @@ declare
 
   v_account_name text;
   v_account_kind text; -- 'company' | 'individual'
+  
+  v_name_parts text[];
+  v_first_name text;
+  v_last_name text;
 begin
   -- Auth check
   if v_uid is null then
@@ -49,11 +53,16 @@ begin
     raise exception 'buyer_request % not found', p_request_id using errcode = 'P0002';
   end if;
 
-  -- Clean data
+  -- Clean data and split name
   v_name  := nullif(trim(v_name), '');
   v_email := nullif(lower(trim(v_email)), '');
   v_phone := nullif(regexp_replace(coalesce(v_phone,''), '\s+', '', 'g'), '');
   v_account_name := coalesce(v_name, coalesce(v_email, 'Inbound'));
+
+  -- Split name into first_name and last_name
+  v_name_parts := regexp_split_to_array(coalesce(v_name, 'Prospect'), '\s+');
+  v_first_name := v_name_parts[1];
+  v_last_name := array_to_string(v_name_parts[2:array_length(v_name_parts, 1)], ' ');
 
   -- Determine account type (company vs individual)
   if v_name is not null and (
@@ -89,29 +98,30 @@ begin
     limit 1;
 
     if v_contact_id is null then
-      insert into public.contacts (full_name, email, phone, account_id)
-      values (coalesce(v_name, v_email), v_email, v_phone, v_account_id)
+      insert into public.contacts (first_name, last_name, email, phone, account_id)
+      values (v_first_name, v_last_name, v_email, v_phone, v_account_id)
       returning id into v_contact_id;
       -- Note: created_by populated by trg_contacts_force_created_by trigger
     else
       -- Update existing contact
       update public.contacts
-         set full_name = coalesce(coalesce(v_name, v_email), full_name),
-             phone     = coalesce(v_phone, phone),
-             account_id= coalesce(v_account_id, account_id)
+         set first_name = coalesce(v_first_name, first_name),
+             last_name  = coalesce(v_last_name, last_name),
+             phone      = coalesce(v_phone, phone),
+             account_id = coalesce(v_account_id, account_id)
        where id = v_contact_id;
     end if;
   else
     -- No email, try to find by name + phone
     select c.id into v_contact_id
     from public.contacts c
-    where lower(coalesce(c.full_name, c.name)) = lower(coalesce(v_name,'Prospect'))
+    where lower(c.first_name) = lower(v_first_name)
       and coalesce(c.phone,'') = coalesce(v_phone,'')
     limit 1;
 
     if v_contact_id is null then
-      insert into public.contacts (full_name, phone, account_id)
-      values (coalesce(v_name, 'Prospect'), v_phone, v_account_id)
+      insert into public.contacts (first_name, last_name, phone, account_id)
+      values (v_first_name, v_last_name, v_phone, v_account_id)
       returning id into v_contact_id;
       -- Note: created_by populated by trg_contacts_force_created_by trigger
     end if;
@@ -120,8 +130,8 @@ begin
   -- ========================================================================
   -- Lead: Create new lead (NO created_by - trigger handles it)
   -- ========================================================================
-  insert into public.leads (account_id, contact_id, unit_id, source, status)
-  values (v_account_id, v_contact_id, v_unit, 'inbound', 'new')
+  insert into public.leads (account_id, contact_id, unit_id, source, stage)
+  values (v_account_id, v_contact_id, v_unit, 'inbound', 'new'::lead_stage)
   returning id into v_lead_id;
   -- Note: created_by populated by trg_leads_force_created_by trigger
 
