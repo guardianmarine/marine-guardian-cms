@@ -216,6 +216,74 @@ select
   end as details;
 
 -- ============================================================================
+-- RPC Pattern Checks (Extended)
+-- ============================================================================
+
+-- Check if RPC calls trigger functions directly
+select '🔍 Checking for problematic RPC patterns...' as status;
+
+select 
+  p.proname as rpc_name,
+  case 
+    when pg_get_functiondef(p.oid) ~* '_force_created_by\s*\('
+      then '✗ CALLS TRIGGER FUNCTION DIRECTLY'
+    when pg_get_functiondef(p.oid) ~* 'created_by\s*:=.*_default_owner_user'
+      then '✗ SETS created_by MANUALLY'
+    else '✓ Does not call trigger functions'
+  end as pattern_check,
+  case 
+    when pg_get_functiondef(p.oid) ~* '_force_created_by\s*\('
+      or pg_get_functiondef(p.oid) ~* 'created_by\s*:=.*_default_owner_user'
+      then '🚨 THIS RPC NEEDS TO BE UPDATED'
+    else '✅ OK'
+  end as action_needed
+from pg_proc p
+join pg_namespace n on p.pronamespace = n.oid
+where n.nspname = 'public'
+  and p.proname in ('convert_buyer_request_to_lead');
+
+-- ============================================================================
+-- DEFAULT Constraint Check
+-- ============================================================================
+
+-- Check for problematic DEFAULT constraints
+select '🔍 Checking for DEFAULT constraints on created_by columns...' as status;
+
+select 
+  table_name,
+  column_name,
+  column_default,
+  case 
+    when column_default is null then '✓ NO DEFAULT (correct)'
+    when column_default ~* '_force_created_by|_default_owner_user' then '✗ CALLS TRIGGER FUNCTION (problematic)'
+    else '⚠️ HAS DEFAULT (review needed)'
+  end as status,
+  case 
+    when column_default ~* '_force_created_by|_default_owner_user' 
+      then '🚨 MUST DROP THIS DEFAULT: ALTER TABLE ' || table_name || ' ALTER COLUMN created_by DROP DEFAULT;'
+    else null
+  end as fix_command
+from information_schema.columns
+where table_schema = 'public'
+  and table_name in ('accounts', 'contacts', 'leads', 'opportunities')
+  and column_name = 'created_by';
+
+-- ============================================================================
+-- Show Full RPC Definition
+-- ============================================================================
+
+-- Show the complete RPC definition for manual review
+select '🔍 Full RPC Definition (for manual review)...' as status;
+
+select 
+  p.proname as rpc_name,
+  pg_get_functiondef(p.oid) as full_definition
+from pg_proc p
+join pg_namespace n on p.pronamespace = n.oid
+where n.nspname = 'public'
+  and p.proname = 'convert_buyer_request_to_lead';
+
+-- ============================================================================
 -- 10. CHECK FOR PROBLEMATIC PATTERNS (should return 0 rows)
 -- ============================================================================
 -- Any column with trigger function in DEFAULT?
@@ -244,7 +312,7 @@ where n.nspname = 'public'
   and p.proname != '_force_created_by';
 
 -- ============================================================================
--- 11. SUMMARY
+-- 11. FINAL SUMMARY
 -- ============================================================================
 select 
   '=== VERIFICATION SUMMARY ===' as check_name,
@@ -252,33 +320,53 @@ select
   '' as details;
 
 select 
-  'All checks passed! ✅' as message
-where 
-  (select count(*) from pg_attribute where attrelid = 'public.accounts'::regclass and attname = 'created_by') = 1
-  and (select count(*) from pg_attribute where attrelid = 'public.contacts'::regclass and attname = 'created_by') = 1
-  and (select count(*) from pg_attribute where attrelid = 'public.leads'::regclass and attname = 'created_by') = 1
-  and (select count(*) from pg_proc where proname = '_force_created_by') > 0
-  and (select count(*) from pg_trigger where tgname = 'trg_accounts_force_created_by') > 0
-  and (select count(*) from pg_trigger where tgname = 'trg_contacts_force_created_by') > 0
-  and (select count(*) from pg_trigger where tgname = 'trg_leads_force_created_by') > 0
-  and exists (select 1 from pg_attribute where attrelid = 'public.contacts'::regclass and attname = 'first_name')
-  and exists (select 1 from pg_attribute where attrelid = 'public.contacts'::regclass and attname = 'last_name')
-  and exists (select 1 from pg_attribute where attrelid = 'public.leads'::regclass and attname = 'stage');
-
-select 
-  '⚠️ Some checks failed. Review output above.' as message
-where not (
-  (select count(*) from pg_attribute where attrelid = 'public.accounts'::regclass and attname = 'created_by') = 1
-  and (select count(*) from pg_attribute where attrelid = 'public.contacts'::regclass and attname = 'created_by') = 1
-  and (select count(*) from pg_attribute where attrelid = 'public.leads'::regclass and attname = 'created_by') = 1
-  and (select count(*) from pg_proc where proname = '_force_created_by') > 0
-  and (select count(*) from pg_trigger where tgname = 'trg_accounts_force_created_by') > 0
-  and (select count(*) from pg_trigger where tgname = 'trg_contacts_force_created_by') > 0
-  and (select count(*) from pg_trigger where tgname = 'trg_leads_force_created_by') > 0
-  and exists (select 1 from pg_attribute where attrelid = 'public.contacts'::regclass and attname = 'first_name')
-  and exists (select 1 from pg_attribute where attrelid = 'public.contacts'::regclass and attname = 'last_name')
-  and exists (select 1 from pg_attribute where attrelid = 'public.leads'::regclass and attname = 'stage')
-);
+  case 
+    when (
+      -- All created_by columns exist with NULL default
+      (select count(*) from pg_attribute where attrelid = 'public.accounts'::regclass and attname = 'created_by') = 1
+      and (select count(*) from pg_attribute where attrelid = 'public.contacts'::regclass and attname = 'created_by') = 1
+      and (select count(*) from pg_attribute where attrelid = 'public.leads'::regclass and attname = 'created_by') = 1
+      and not exists (
+        select 1 from information_schema.columns
+        where table_schema = 'public'
+          and table_name in ('accounts', 'contacts', 'leads', 'opportunities')
+          and column_name = 'created_by'
+          and column_default ~* '_force_created_by|_default_owner_user'
+      )
+      -- Trigger function exists
+      and (select count(*) from pg_proc where proname = '_force_created_by') > 0
+      and exists (
+        select 1 from pg_proc p
+        where p.proname = '_force_created_by'
+          and pg_get_function_result(p.oid) = 'trigger'
+      )
+      -- All triggers exist
+      and (select count(*) from pg_trigger where tgname = 'trg_accounts_force_created_by') > 0
+      and (select count(*) from pg_trigger where tgname = 'trg_contacts_force_created_by') > 0
+      and (select count(*) from pg_trigger where tgname = 'trg_leads_force_created_by') > 0
+      -- Schema consistency
+      and exists (select 1 from pg_attribute where attrelid = 'public.contacts'::regclass and attname = 'first_name')
+      and exists (select 1 from pg_attribute where attrelid = 'public.contacts'::regclass and attname = 'last_name')
+      and exists (select 1 from pg_attribute where attrelid = 'public.leads'::regclass and attname = 'stage')
+      -- RPC exists
+      and exists (
+        select 1 from pg_proc p
+        join pg_namespace n on p.pronamespace = n.oid
+        where n.nspname = 'public' and p.proname = 'convert_buyer_request_to_lead'
+      )
+      -- RPC does not call trigger functions
+      and not exists (
+        select 1 from pg_proc p
+        join pg_namespace n on p.pronamespace = n.oid
+        where n.nspname = 'public' and p.proname = 'convert_buyer_request_to_lead'
+          and (
+            pg_get_functiondef(p.oid) ~* '_force_created_by\s*\('
+            or pg_get_functiondef(p.oid) ~* 'created_by\s*:=.*_default_owner_user'
+          )
+      )
+    ) then '✅ ALL CHECKS PASSED - System is correctly configured!'
+    else '❌ SOME CHECKS FAILED - Review the output above and apply db/migrations/202510071040__force_fix_created_by_system.sql'
+  end as final_status;
 
 -- ============================================================================
 -- If all checks pass, you should see:
