@@ -6,10 +6,7 @@ interface ConvertOptions {
 
 interface ConvertResult {
   data?: {
-    success: boolean;
     lead_id: string;
-    account_id: string;
-    contact_id: string;
   };
   error?: {
     message: string;
@@ -46,6 +43,7 @@ export async function convertBuyerRequestToLead(
   }
 
   // Call the RPC with correct parameter name
+  // New RPC returns UUID directly, not a JSON object
   const { data, error } = await supabase.rpc('convert_buyer_request_to_lead', {
     p_request_id: requestId,
   });
@@ -59,5 +57,10 @@ export async function convertBuyerRequestToLead(
     };
   }
 
-  return { data: data as ConvertResult['data'] };
+  // The RPC returns the lead_id UUID directly
+  return { 
+    data: {
+      lead_id: data as string
+    }
+  };
 }
