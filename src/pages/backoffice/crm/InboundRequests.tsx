@@ -371,6 +371,17 @@ export default function InboundRequests() {
     setConverting(null);
 
     if (result.error) {
+      // Check for PostgreSQL authentication error
+      if (result.error.code === '28000') {
+        toast.warning(
+          i18n.language === 'es'
+            ? 'Tu sesión expiró. Inicia sesión.'
+            : 'Your session expired. Please log in.'
+        );
+        redirectToLogin('/backoffice/crm/inbound-requests');
+        return;
+      }
+
       if (result.error.message?.includes('already been converted')) {
         toast.warning(
           i18n.language === 'es'
