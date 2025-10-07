@@ -87,7 +87,9 @@ DROP FUNCTION IF EXISTS public._set_created_by() CASCADE;
 -- Step 4: Drop the old RPC with CASCADE
 DROP FUNCTION IF EXISTS public.convert_buyer_request_to_lead(uuid) CASCADE;
 
-RAISE NOTICE '✅ Nuclear cleanup completed - all old defaults, triggers, functions, and RPCs removed';
+DO $$ BEGIN
+  RAISE NOTICE '✅ Nuclear cleanup completed - all old defaults, triggers, functions, and RPCs removed';
+END $$;
 
 -- =============================================================================
 -- PART 3: REBUILD FROM SCRATCH
@@ -155,7 +157,9 @@ CREATE TRIGGER trg_leads_force_created_by
   FOR EACH ROW
   EXECUTE FUNCTION public._force_created_by();
 
-RAISE NOTICE '✅ Triggers recreated on accounts, contacts, leads';
+DO $$ BEGIN
+  RAISE NOTICE '✅ Triggers recreated on accounts, contacts, leads';
+END $$;
 
 -- =============================================================================
 -- PART 4: RECREATE THE RPC
@@ -335,7 +339,9 @@ GRANT EXECUTE ON FUNCTION public.convert_buyer_request_to_lead(uuid) TO authenti
 COMMENT ON FUNCTION public.convert_buyer_request_to_lead(uuid) IS 
 'Converts a buyer_request into an account, contact, and lead. Relies on triggers to populate created_by fields. Returns the new lead UUID.';
 
-RAISE NOTICE '✅ RPC convert_buyer_request_to_lead recreated successfully';
+DO $$ BEGIN
+  RAISE NOTICE '✅ RPC convert_buyer_request_to_lead recreated successfully';
+END $$;
 
 -- =============================================================================
 -- VERIFICATION
