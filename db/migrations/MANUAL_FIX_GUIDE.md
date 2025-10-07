@@ -227,31 +227,112 @@ drop function if exists public.convert_buyer_request_to_lead(uuid) cascade;
 
 ---
 
+## Option 4: Direct SQL Commands (Emergency Fix)
+
+If all else fails, copy and paste these commands directly into SQL Editor:
+
+```sql
+-- Step 1: Remove DEFAULT constraints
+DO $$ 
+DECLARE r RECORD;
+BEGIN
+  FOR r IN 
+    SELECT t.relname as table_name
+    FROM pg_attribute a
+    JOIN pg_class t ON a.attrelid = t.oid
+    JOIN pg_namespace n ON t.relnamespace = n.oid
+    LEFT JOIN pg_attrdef d ON a.attrelid = d.adrelid AND a.attnum = d.adnum
+    WHERE a.attname = 'created_by' AND n.nspname = 'public'
+      AND t.relname IN ('accounts', 'contacts', 'leads') AND d.adbin IS NOT NULL
+  LOOP
+    EXECUTE format('ALTER TABLE public.%I ALTER COLUMN created_by DROP DEFAULT', r.table_name);
+  END LOOP;
+END $$;
+
+-- Step 2: Drop old triggers and functions
+DROP TRIGGER IF EXISTS trg_accounts_force_created_by ON public.accounts CASCADE;
+DROP TRIGGER IF EXISTS trg_contacts_force_created_by ON public.contacts CASCADE;
+DROP TRIGGER IF EXISTS trg_leads_force_created_by ON public.leads CASCADE;
+DROP FUNCTION IF EXISTS public._force_created_by() CASCADE;
+DROP FUNCTION IF EXISTS public.convert_buyer_request_to_lead(uuid) CASCADE;
+
+-- Step 3: Recreate the trigger function
+CREATE OR REPLACE FUNCTION public._force_created_by()
+RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path = public
+AS $$
+DECLARE v_auth_user uuid; v_fallback_user uuid;
+BEGIN
+  IF NEW.created_by IS NOT NULL THEN RETURN NEW; END IF;
+  v_auth_user := auth.uid();
+  IF v_auth_user IS NOT NULL THEN
+    NEW.created_by := v_auth_user;
+    RETURN NEW;
+  END IF;
+  SELECT id INTO v_fallback_user FROM auth.users WHERE deleted_at IS NULL ORDER BY created_at LIMIT 1;
+  IF v_fallback_user IS NOT NULL THEN
+    NEW.created_by := v_fallback_user;
+    RETURN NEW;
+  END IF;
+  RETURN NEW;
+END;
+$$;
+
+-- Step 4: Create triggers
+CREATE TRIGGER trg_accounts_force_created_by BEFORE INSERT ON public.accounts
+  FOR EACH ROW EXECUTE FUNCTION public._force_created_by();
+CREATE TRIGGER trg_contacts_force_created_by BEFORE INSERT ON public.contacts
+  FOR EACH ROW EXECUTE FUNCTION public._force_created_by();
+CREATE TRIGGER trg_leads_force_created_by BEFORE INSERT ON public.leads
+  FOR EACH ROW EXECUTE FUNCTION public._force_created_by();
+
+-- Step 5: Recreate the RPC (see migration file for full version)
+-- For brevity, this is simplified - use the full version from 202510071050__nuclear_fix_created_by.sql
+```
+
 ## Verification Checklist
 
-After applying the fix, verify these items:
+After applying the fix, run this in SQL Editor:
 
-- [ ] `created_by` columns exist on `accounts`, `contacts`, `leads`
-- [ ] No DEFAULT constraints on `created_by` columns
-- [ ] `_force_created_by()` function exists and returns `trigger`
-- [ ] BEFORE INSERT triggers exist on all three tables
-- [ ] `convert_buyer_request_to_lead` RPC exists and returns `uuid`
-- [ ] Can successfully convert a buyer request to lead in the UI
+```sql
+-- Check DEFAULT constraints (should return 0 rows)
+SELECT t.relname, pg_get_expr(d.adbin, d.adrelid)
+FROM pg_attribute a
+JOIN pg_class t ON a.attrelid = t.oid
+JOIN pg_namespace n ON t.relnamespace = n.oid
+LEFT JOIN pg_attrdef d ON a.attrelid = d.adrelid AND a.attnum = d.adnum
+WHERE a.attname = 'created_by' AND n.nspname = 'public'
+  AND t.relname IN ('accounts', 'contacts', 'leads') AND d.adbin IS NOT NULL;
 
----
+-- Check triggers (should return 3 rows)
+SELECT trigger_name, event_object_table
+FROM information_schema.triggers
+WHERE event_object_schema = 'public' AND trigger_name LIKE '%force_created_by%';
+
+-- Check RPC exists (should return 1 row)
+SELECT proname FROM pg_proc WHERE proname = 'convert_buyer_request_to_lead';
+```
+
+Checklist:
+- [ ] `created_by` columns exist in accounts, contacts, leads
+- [ ] **NO DEFAULT constraints** on `created_by` columns (query returns 0 rows)
+- [ ] Triggers exist: 3 triggers named `trg_*_force_created_by`
+- [ ] Function `_force_created_by()` exists
+- [ ] RPC `convert_buyer_request_to_lead` exists
+- [ ] Converting a buyer request works without errors
 
 ## Success Criteria
 
-✅ **Working System:**
+Test the complete flow:
 
-1. Create a buyer request on the public site
-2. Go to Backoffice → Inbound Requests
-3. Click "Convert to Lead" on a request
-4. No errors appear
-5. New lead appears in Leads page
-6. Badge count updates correctly
+1. Go to `/backoffice/crm/inbound-requests`
+2. Click "Convert to Lead" on any pending request
+3. ✅ See success toast notification
+4. ✅ Be redirected to `/backoffice/crm/leads/{lead_id}`
+5. ✅ Lead has proper account and contact links
+6. ✅ All `created_by` fields are populated
+7. ✅ **NO ERROR**: "trigger functions can only be called as triggers"
 
-If all steps work, the fix is successful! 🎉
+If all these work, the fix was successful! 🎉
 
 ---
 

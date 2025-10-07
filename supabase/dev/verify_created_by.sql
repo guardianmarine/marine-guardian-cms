@@ -284,89 +284,150 @@ where n.nspname = 'public'
   and p.proname = 'convert_buyer_request_to_lead';
 
 -- ============================================================================
--- 10. CHECK FOR PROBLEMATIC PATTERNS (should return 0 rows)
+-- CHECK FOR PROBLEMATIC PATTERNS (AGGREGATED)
 -- ============================================================================
--- Any column with trigger function in DEFAULT?
-select 
-  '✗ ERROR: Trigger function in column DEFAULT' as issue,
-  table_name,
-  column_name,
-  column_default
-from information_schema.columns
-where table_schema = 'public'
-  and (column_default ilike '%trigger%' 
-       or column_default ilike '%_force_created_by%'
-       or column_default ilike '%_default_owner_user%')
-union all
--- Any RPC that directly calls trigger functions?
-select 
-  '⚠ WARNING: Check RPC for direct trigger calls' as issue,
-  p.proname as table_name,
-  'RPC function' as column_name,
-  pg_get_functiondef(p.oid)::text as column_default
-from pg_proc p
-join pg_namespace n on n.oid = p.pronamespace
-where n.nspname = 'public'
-  and p.prokind = 'f'
-  and pg_get_functiondef(p.oid) ilike '%_force_created_by()%'
-  and p.proname != '_force_created_by';
+
+DO $$
+DECLARE
+  v_bad_defaults int;
+  v_bad_rpc_calls int;
+BEGIN
+  RAISE NOTICE '';
+  RAISE NOTICE '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━';
+  RAISE NOTICE '10. PROBLEMATIC PATTERN SUMMARY';
+  RAISE NOTICE '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━';
+  
+  -- Count problematic DEFAULT constraints
+  SELECT COUNT(*) INTO v_bad_defaults
+  FROM pg_attribute a
+  JOIN pg_class t ON a.attrelid = t.oid
+  JOIN pg_namespace n ON t.relnamespace = n.oid
+  LEFT JOIN pg_attrdef d ON a.attrelid = d.adrelid AND a.attnum = d.adnum
+  WHERE a.attname = 'created_by'
+    AND n.nspname = 'public'
+    AND t.relname IN ('accounts', 'contacts', 'leads')
+    AND d.adbin IS NOT NULL
+    AND pg_get_expr(d.adbin, d.adrelid) LIKE '%force_created_by%';
+  
+  -- Count problematic RPC calls
+  SELECT COUNT(*) INTO v_bad_rpc_calls
+  FROM pg_proc p
+  JOIN pg_namespace n ON p.pronamespace = n.oid
+  WHERE n.nspname = 'public'
+    AND p.proname = 'convert_buyer_request_to_lead'
+    AND (
+      pg_get_functiondef(p.oid) LIKE '%_force_created_by()%'
+      OR pg_get_functiondef(p.oid) LIKE '%created_by := %'
+      OR pg_get_functiondef(p.oid) LIKE '%created_by = %'
+    );
+  
+  IF v_bad_defaults > 0 THEN
+    RAISE NOTICE '❌ Found % DEFAULT constraint(s) that call trigger functions', v_bad_defaults;
+    RAISE NOTICE '   → This causes "trigger functions can only be called as triggers" error';
+    RAISE NOTICE '   → Run: ALTER TABLE <table> ALTER COLUMN created_by DROP DEFAULT;';
+  ELSE
+    RAISE NOTICE '✅ No problematic DEFAULT constraints found';
+  END IF;
+  
+  IF v_bad_rpc_calls > 0 THEN
+    RAISE NOTICE '❌ RPC convert_buyer_request_to_lead has problematic patterns';
+    RAISE NOTICE '   → It may be calling trigger functions directly';
+    RAISE NOTICE '   → Apply migration: 202510071050__nuclear_fix_created_by.sql';
+  ELSE
+    RAISE NOTICE '✅ RPC convert_buyer_request_to_lead looks clean';
+  END IF;
+  
+  RAISE NOTICE '';
+END $$;
 
 -- ============================================================================
--- 11. FINAL SUMMARY
+-- FINAL SUMMARY
 -- ============================================================================
-select 
-  '=== VERIFICATION SUMMARY ===' as check_name,
-  '' as status,
-  '' as details;
 
-select 
-  case 
-    when (
-      -- All created_by columns exist with NULL default
-      (select count(*) from pg_attribute where attrelid = 'public.accounts'::regclass and attname = 'created_by') = 1
-      and (select count(*) from pg_attribute where attrelid = 'public.contacts'::regclass and attname = 'created_by') = 1
-      and (select count(*) from pg_attribute where attrelid = 'public.leads'::regclass and attname = 'created_by') = 1
-      and not exists (
-        select 1 from information_schema.columns
-        where table_schema = 'public'
-          and table_name in ('accounts', 'contacts', 'leads', 'opportunities')
-          and column_name = 'created_by'
-          and column_default ~* '_force_created_by|_default_owner_user'
-      )
-      -- Trigger function exists
-      and (select count(*) from pg_proc where proname = '_force_created_by') > 0
-      and exists (
-        select 1 from pg_proc p
-        where p.proname = '_force_created_by'
-          and pg_get_function_result(p.oid) = 'trigger'
-      )
-      -- All triggers exist
-      and (select count(*) from pg_trigger where tgname = 'trg_accounts_force_created_by') > 0
-      and (select count(*) from pg_trigger where tgname = 'trg_contacts_force_created_by') > 0
-      and (select count(*) from pg_trigger where tgname = 'trg_leads_force_created_by') > 0
-      -- Schema consistency
-      and exists (select 1 from pg_attribute where attrelid = 'public.contacts'::regclass and attname = 'first_name')
-      and exists (select 1 from pg_attribute where attrelid = 'public.contacts'::regclass and attname = 'last_name')
-      and exists (select 1 from pg_attribute where attrelid = 'public.leads'::regclass and attname = 'stage')
-      -- RPC exists
-      and exists (
-        select 1 from pg_proc p
-        join pg_namespace n on p.pronamespace = n.oid
-        where n.nspname = 'public' and p.proname = 'convert_buyer_request_to_lead'
-      )
-      -- RPC does not call trigger functions
-      and not exists (
-        select 1 from pg_proc p
-        join pg_namespace n on p.pronamespace = n.oid
-        where n.nspname = 'public' and p.proname = 'convert_buyer_request_to_lead'
-          and (
-            pg_get_functiondef(p.oid) ~* '_force_created_by\s*\('
-            or pg_get_functiondef(p.oid) ~* 'created_by\s*:=.*_default_owner_user'
-          )
-      )
-    ) then '✅ ALL CHECKS PASSED - System is correctly configured!'
-    else '❌ SOME CHECKS FAILED - Review the output above and apply db/migrations/202510071040__force_fix_created_by_system.sql'
-  end as final_status;
+DO $$
+DECLARE
+  v_accounts_ok boolean;
+  v_contacts_ok boolean;
+  v_leads_ok boolean;
+  v_function_ok boolean;
+  v_rpc_ok boolean;
+  v_triggers_ok boolean;
+  v_no_bad_defaults boolean;
+  v_clean_rpc boolean;
+BEGIN
+  -- Check all critical components
+  SELECT 
+    EXISTS(SELECT 1 FROM information_schema.columns WHERE table_name = 'accounts' AND column_name = 'created_by') INTO v_accounts_ok;
+  SELECT 
+    EXISTS(SELECT 1 FROM information_schema.columns WHERE table_name = 'contacts' AND column_name = 'created_by') INTO v_contacts_ok;
+  SELECT 
+    EXISTS(SELECT 1 FROM information_schema.columns WHERE table_name = 'leads' AND column_name = 'created_by') INTO v_leads_ok;
+  SELECT 
+    EXISTS(SELECT 1 FROM pg_proc WHERE proname = '_force_created_by') INTO v_function_ok;
+  SELECT 
+    EXISTS(SELECT 1 FROM pg_proc WHERE proname = 'convert_buyer_request_to_lead') INTO v_rpc_ok;
+  SELECT 
+    (SELECT COUNT(*) FROM information_schema.triggers 
+     WHERE trigger_name IN ('trg_accounts_force_created_by', 'trg_contacts_force_created_by', 'trg_leads_force_created_by')) = 3 
+    INTO v_triggers_ok;
+  
+  -- Check for problematic patterns
+  SELECT 
+    NOT EXISTS(
+      SELECT 1 FROM pg_attribute a
+      JOIN pg_class t ON a.attrelid = t.oid
+      JOIN pg_namespace n ON t.relnamespace = n.oid
+      LEFT JOIN pg_attrdef d ON a.attrelid = d.adrelid AND a.attnum = d.adnum
+      WHERE a.attname = 'created_by' AND n.nspname = 'public'
+        AND t.relname IN ('accounts', 'contacts', 'leads')
+        AND d.adbin IS NOT NULL
+    ) INTO v_no_bad_defaults;
+  
+  SELECT 
+    NOT EXISTS(
+      SELECT 1 FROM pg_proc p
+      JOIN pg_namespace n ON p.pronamespace = n.oid
+      WHERE n.nspname = 'public' AND p.proname = 'convert_buyer_request_to_lead'
+        AND (pg_get_functiondef(p.oid) LIKE '%_force_created_by()%'
+             OR pg_get_functiondef(p.oid) LIKE '%created_by := auth.uid()%')
+    ) INTO v_clean_rpc;
+  
+  RAISE NOTICE '';
+  RAISE NOTICE '═══════════════════════════════════════════════════════════════════════════════';
+  RAISE NOTICE '                           FINAL VERIFICATION STATUS';
+  RAISE NOTICE '═══════════════════════════════════════════════════════════════════════════════';
+  RAISE NOTICE '';
+  RAISE NOTICE '📋 SCHEMA COMPONENTS:';
+  RAISE NOTICE '   Accounts table: %', CASE WHEN v_accounts_ok THEN '✅ OK' ELSE '❌ MISSING' END;
+  RAISE NOTICE '   Contacts table: %', CASE WHEN v_contacts_ok THEN '✅ OK' ELSE '❌ MISSING' END;
+  RAISE NOTICE '   Leads table: %', CASE WHEN v_leads_ok THEN '✅ OK' ELSE '❌ MISSING' END;
+  RAISE NOTICE '';
+  RAISE NOTICE '🔧 FUNCTIONS & TRIGGERS:';
+  RAISE NOTICE '   Trigger function _force_created_by: %', CASE WHEN v_function_ok THEN '✅ OK' ELSE '❌ MISSING' END;
+  RAISE NOTICE '   RPC convert_buyer_request_to_lead: %', CASE WHEN v_rpc_ok THEN '✅ OK' ELSE '❌ MISSING' END;
+  RAISE NOTICE '   Triggers (3 required): %', CASE WHEN v_triggers_ok THEN '✅ OK' ELSE '❌ MISSING' END;
+  RAISE NOTICE '';
+  RAISE NOTICE '⚠️  PROBLEMATIC PATTERNS:';
+  RAISE NOTICE '   No DEFAULT constraints on created_by: %', CASE WHEN v_no_bad_defaults THEN '✅ CLEAN' ELSE '❌ FOUND' END;
+  RAISE NOTICE '   RPC does not call triggers directly: %', CASE WHEN v_clean_rpc THEN '✅ CLEAN' ELSE '❌ PROBLEMATIC' END;
+  RAISE NOTICE '';
+  
+  IF v_accounts_ok AND v_contacts_ok AND v_leads_ok AND v_function_ok AND v_rpc_ok AND v_triggers_ok 
+     AND v_no_bad_defaults AND v_clean_rpc THEN
+    RAISE NOTICE '🎉 ALL CHECKS PASSED! The system is correctly configured.';
+    RAISE NOTICE '   You should be able to convert buyer requests to leads without errors.';
+  ELSE
+    RAISE NOTICE '⚠️  SOME CHECKS FAILED - Review the output above for details.';
+    RAISE NOTICE '';
+    RAISE NOTICE '🔧 RECOMMENDED FIX:';
+    RAISE NOTICE '   1. Apply migration: db/migrations/202510071050__nuclear_fix_created_by.sql';
+    RAISE NOTICE '   2. OR follow manual steps in: db/migrations/MANUAL_FIX_GUIDE.md';
+    RAISE NOTICE '   3. Re-run this verification script after applying the fix';
+  END IF;
+  
+  RAISE NOTICE '';
+  RAISE NOTICE '═══════════════════════════════════════════════════════════════════════════════';
+END $$;
 
 -- ============================================================================
 -- If all checks pass, you should see:
