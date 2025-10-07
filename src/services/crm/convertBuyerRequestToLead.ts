@@ -19,25 +19,30 @@ interface ConvertResult {
 
 /**
  * Converts a buyer request to a lead.
- * Validates session before calling the RPC.
+ * Validates and refreshes session before calling the RPC.
  */
 export async function convertBuyerRequestToLead(
   requestId: string,
   options?: ConvertOptions
 ): Promise<ConvertResult> {
-  // Check session first
-  const { data: { session } } = await supabase.auth.getSession();
+  // Try to get current session
+  const { data: sessionData } = await supabase.auth.getSession();
   
-  if (!session?.user) {
-    if (options?.onNoSession) {
-      options.onNoSession();
-    }
-    return {
-      error: {
-        message: 'Session expired. Please log in to continue.',
-        code: 'SESSION_EXPIRED'
+  // If no session, try to refresh
+  if (!sessionData?.session) {
+    const { data: refreshData } = await supabase.auth.refreshSession();
+    
+    if (!refreshData?.session) {
+      if (options?.onNoSession) {
+        options.onNoSession();
       }
-    };
+      return {
+        error: {
+          message: 'Session expired. Please log in to continue.',
+          code: '28000'
+        }
+      };
+    }
   }
 
   // Call the RPC with correct parameter name
