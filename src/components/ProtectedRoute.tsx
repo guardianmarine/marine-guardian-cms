@@ -1,5 +1,6 @@
 import { ReactNode, useEffect, useState } from 'react';
 import { Navigate } from 'react-router-dom';
+import { useAuth } from '@/contexts/AuthContext';
 import { getActiveUserForSession } from '@/services/authUser';
 
 interface ProtectedRouteProps {
@@ -8,11 +9,21 @@ interface ProtectedRouteProps {
 
 export function ProtectedRoute({ children }: ProtectedRouteProps) {
   const [state, setState] = useState<'checking' | 'allowed' | 'login' | 'noaccess'>('checking');
+  const { isAuthenticated, user, loading: authLoading } = useAuth();
 
   useEffect(() => {
     let mounted = true;
     
+    // Wait for AuthContext to finish loading
+    if (authLoading) return;
+    
     (async () => {
+      // If AuthContext says not authenticated, redirect to login immediately
+      if (!isAuthenticated) {
+        if (mounted) setState('login');
+        return;
+      }
+
       const { session, staff } = await getActiveUserForSession();
       
       if (!mounted) return;
@@ -42,7 +53,7 @@ export function ProtectedRoute({ children }: ProtectedRouteProps) {
     return () => {
       mounted = false;
     };
-  }, []);
+  }, [isAuthenticated, authLoading, user]);
 
   if (state === 'checking') {
     return (

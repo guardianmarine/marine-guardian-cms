@@ -16,6 +16,7 @@ import { toast } from 'sonner';
 import { SoftDeleteActions } from '@/components/common/SoftDeleteActions';
 import { ViewFilterTabs } from '@/components/common/ViewFilterTabs';
 import { ViewFilter } from '@/hooks/useSoftDelete';
+import { useSessionErrorHandler, handleQueryError } from '@/hooks/useSessionErrorHandler';
 
 type Account = {
   id: string;
@@ -29,13 +30,16 @@ type Account = {
 
 export default function Accounts() {
   const { t, i18n } = useTranslation();
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
   const navigate = useNavigate();
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [kindFilter, setKindFilter] = useState<'all' | 'company' | 'individual'>('all');
   const [viewFilter, setViewFilter] = useState<ViewFilter>('active');
+  
+  // Enable global session error handling
+  useSessionErrorHandler();
   
   const permissions = user ? getCRMPermissions(user.role) : { canViewCRM: false, canCreateCRM: false };
 
@@ -95,7 +99,13 @@ export default function Accounts() {
       setAccounts(accountsWithCount);
     } catch (error: any) {
       console.error('Error loading accounts:', error);
-      toast.error(error?.message ?? (i18n.language === 'es' ? 'Error al cargar cuentas' : 'Failed to load accounts'));
+      
+      // Handle authentication errors specifically
+      handleQueryError(
+        error,
+        logout,
+        error?.message ?? (i18n.language === 'es' ? 'Error al cargar cuentas' : 'Failed to load accounts')
+      );
     } finally {
       setLoading(false);
     }

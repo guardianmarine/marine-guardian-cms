@@ -28,26 +28,52 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // Set up auth state listener FIRST
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, currentSession) => {
+        console.log('[AuthContext] Auth event:', event, 'Session:', !!currentSession);
+        
         setSession(currentSession);
         
+        // Handle session expiration or sign out
+        if (event === 'SIGNED_OUT' || (!currentSession && event === 'TOKEN_REFRESHED')) {
+          setUser(null);
+          setLoading(false);
+          return;
+        }
+        
         if (currentSession?.user) {
-          // Defer staff row fetch with setTimeout
+          // Defer staff row fetch with setTimeout to avoid blocking the auth callback
           setTimeout(() => {
             fetchStaffUser(currentSession.user);
           }, 0);
         } else {
           setUser(null);
+          setLoading(false);
         }
       }
     );
 
-    // THEN check for existing session
-    supabase.auth.getSession().then(({ data: { session: currentSession } }) => {
-      setSession(currentSession);
-      
-      if (currentSession?.user) {
-        fetchStaffUser(currentSession.user);
+    // THEN check for existing session and try to refresh it
+    supabase.auth.getSession().then(async ({ data: { session: currentSession } }) => {
+      if (currentSession) {
+        // Try to refresh the session to ensure it's still valid
+        const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession();
+        
+        if (refreshError || !refreshData.session) {
+          console.warn('[AuthContext] Session refresh failed:', refreshError?.message);
+          setSession(null);
+          setUser(null);
+          setLoading(false);
+          return;
+        }
+        
+        setSession(refreshData.session);
+        if (refreshData.session?.user) {
+          fetchStaffUser(refreshData.session.user);
+        } else {
+          setLoading(false);
+        }
       } else {
+        setSession(null);
+        setUser(null);
         setLoading(false);
       }
     });
