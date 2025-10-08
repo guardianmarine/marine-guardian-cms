@@ -137,7 +137,7 @@ export default function Contacts() {
                       </p>
                     </div>
                   </div>
-                  <div className="flex items-center gap-4">
+                  <div className="flex items-center gap-4" onClick={(e) => e.stopPropagation()}>
                     <div className="text-right text-sm space-y-1">
                       {contact.email && (
                         <div className="flex items-center justify-end space-x-2">
