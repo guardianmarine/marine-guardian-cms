@@ -45,9 +45,10 @@ export default function Accounts() {
 
   const loadAccounts = async () => {
     try {
+      // First, get accounts without the aggregate
       let query = supabase
         .from('accounts')
-        .select('id, kind, name, is_active, created_at, deleted_at, contacts(count)')
+        .select('id, kind, name, is_active, created_at, deleted_at')
         .order('created_at', { ascending: false });
 
       if (viewFilter === 'active') {
@@ -59,10 +60,36 @@ export default function Accounts() {
       const { data, error } = await query;
       if (error) throw error;
       
-      // Map contact count from aggregated data
-      const accountsWithCount = (data || []).map((row: any) => ({
-        ...row,
-        contact_count: row?.contacts?.[0]?.count ?? 0
+      if (!data || data.length === 0) {
+        setAccounts([]);
+        return;
+      }
+
+      // Get account IDs
+      const accountIds = data.map(acc => acc.id);
+
+      // Count only active contacts for these accounts
+      const { data: contactCounts, error: countError } = await supabase
+        .from('contacts')
+        .select('account_id')
+        .in('account_id', accountIds)
+        .is('deleted_at', null);
+
+      if (countError) throw countError;
+
+      // Create a map of account_id to contact count
+      const countMap: Record<string, number> = {};
+      (contactCounts || []).forEach(contact => {
+        const accId = contact.account_id;
+        if (accId) {
+          countMap[accId] = (countMap[accId] || 0) + 1;
+        }
+      });
+
+      // Map contact counts to accounts
+      const accountsWithCount = data.map((acc: any) => ({
+        ...acc,
+        contact_count: countMap[acc.id] || 0
       }));
       
       setAccounts(accountsWithCount);
