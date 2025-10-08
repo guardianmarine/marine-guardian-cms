@@ -4,12 +4,13 @@ import { useTranslation } from 'react-i18next';
 import { BackofficeLayout } from '@/components/backoffice/Layout';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { supabase } from '@/integrations/supabase/client';
+import { supabase, isSupabaseReady } from '@/lib/supabaseClient';
 import { getEmailLink, getPhoneLink, getWhatsAppLink } from '@/lib/crm-integrations';
-import { Building, TrendingUp, Users, Mail, Phone, MessageSquare } from 'lucide-react';
+import { Building, TrendingUp, Users, Mail, Phone, MessageSquare, AlertCircle } from 'lucide-react';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
 
@@ -63,6 +64,13 @@ export default function AccountDetail() {
 
   const loadAccount = async () => {
     if (!id) return;
+
+    // Verificar configuración de Supabase
+    if (!isSupabaseReady() || !supabase) {
+      setLoading(false);
+      toast.error('Supabase no está configurado correctamente');
+      return;
+    }
     
     try {
       const { data: accountData, error: accountError } = await supabase

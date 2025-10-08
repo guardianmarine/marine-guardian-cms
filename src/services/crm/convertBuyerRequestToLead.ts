@@ -1,4 +1,4 @@
-import { supabase } from '@/integrations/supabase/client';
+import { supabase, isSupabaseReady } from '@/lib/supabaseClient';
 
 interface ConvertOptions {
   onNoSession?: () => void;
@@ -22,6 +22,16 @@ export async function convertBuyerRequestToLead(
   requestId: string,
   options?: ConvertOptions
 ): Promise<ConvertResult> {
+  // Verificar que Supabase esté configurado
+  if (!isSupabaseReady() || !supabase) {
+    return {
+      error: {
+        message: 'Supabase no está configurado correctamente',
+        code: 'SUPABASE_NOT_READY'
+      }
+    };
+  }
+
   // Try to get current session
   const { data: sessionData } = await supabase.auth.getSession();
   

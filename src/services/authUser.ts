@@ -1,4 +1,4 @@
-import { supabase } from '@/integrations/supabase/client';
+import { supabase, isSupabaseReady } from '@/lib/supabaseClient';
 
 export type StaffUser = {
   id: string;
@@ -10,6 +10,10 @@ export type StaffUser = {
 };
 
 export async function getActiveUserForSession() {
+  if (!isSupabaseReady() || !supabase) {
+    return { session: null, staff: null as StaffUser | null };
+  }
+
   const { data: sessionData } = await supabase.auth.getSession();
   const uid = sessionData?.session?.user?.id;
   const email = sessionData?.session?.user?.email ?? null;

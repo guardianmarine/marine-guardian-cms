@@ -1,10 +1,15 @@
 import { useState, useEffect } from 'react';
-import { supabase } from '@/integrations/supabase/client';
+import { supabase, isSupabaseReady } from '@/lib/supabaseClient';
 
 export function useBuyerRequestsBadge() {
   const [count, setCount] = useState<number>(0);
 
   const fetchCount = async () => {
+    if (!isSupabaseReady() || !supabase) {
+      setCount(0);
+      return;
+    }
+
     try {
       const { count: newCount, error } = await supabase
         .from('buyer_requests')
@@ -27,6 +32,10 @@ export function useBuyerRequestsBadge() {
   useEffect(() => {
     // Initial fetch
     fetchCount();
+
+    if (!isSupabaseReady() || !supabase) {
+      return;
+    }
 
     // Set up realtime subscription
     const channel = supabase

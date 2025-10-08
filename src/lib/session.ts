@@ -1,4 +1,4 @@
-import { supabase } from '@/integrations/supabase/client';
+import { supabase, isSupabaseReady, getSession } from '@/lib/supabaseClient';
 import type { Session, User } from '@supabase/supabase-js';
 
 /**
@@ -6,6 +6,10 @@ import type { Session, User } from '@supabase/supabase-js';
  * This is a lightweight check without refreshing.
  */
 export async function getSessionOrPromptLogin(): Promise<Session | null> {
+  if (!isSupabaseReady() || !supabase) {
+    return null;
+  }
+
   try {
     const { data: { session }, error } = await supabase.auth.getSession();
     if (error || !session?.user) {
@@ -23,6 +27,10 @@ export async function getSessionOrPromptLogin(): Promise<Session | null> {
  * Returns the session or null if authentication fails.
  */
 export async function ensureFreshSession(): Promise<Session | null> {
+  if (!isSupabaseReady() || !supabase) {
+    return null;
+  }
+
   try {
     const { data: { session }, error: sessionError } = await supabase.auth.getSession();
     if (sessionError || !session) {

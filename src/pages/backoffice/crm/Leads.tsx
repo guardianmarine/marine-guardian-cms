@@ -21,8 +21,9 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Card, CardContent } from '@/components/ui/card';
-import { supabase } from '@/integrations/supabase/client';
-import { Search, ExternalLink, Eye } from 'lucide-react';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { supabase, isSupabaseReady } from '@/lib/supabaseClient';
+import { Search, ExternalLink, Eye, AlertCircle } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { toast } from 'sonner';
 import { SoftDeleteActions } from '@/components/common/SoftDeleteActions';
@@ -66,6 +67,13 @@ export default function Leads() {
   }, [viewFilter]);
 
   const loadLeads = async () => {
+    // Verificar configuración de Supabase
+    if (!isSupabaseReady() || !supabase) {
+      setLoading(false);
+      toast.error('Supabase no está configurado correctamente');
+      return;
+    }
+
     try {
       let query = supabase
         .from('leads')

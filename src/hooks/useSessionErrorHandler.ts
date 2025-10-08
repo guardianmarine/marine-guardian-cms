@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
-import { supabase } from '@/integrations/supabase/client';
+import { supabase, isSupabaseReady } from '@/lib/supabaseClient';
 import { toast } from 'sonner';
 
 /**
@@ -11,6 +11,10 @@ export function useSessionErrorHandler() {
   const { logout } = useAuth();
 
   useEffect(() => {
+    if (!isSupabaseReady() || !supabase) {
+      return;
+    }
+
     // Listen to auth state changes for SIGNED_OUT events
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if (event === 'SIGNED_OUT' || (event === 'TOKEN_REFRESHED' && !session)) {

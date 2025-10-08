@@ -5,10 +5,11 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { supabase } from '@/integrations/supabase/client';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { supabase, isSupabaseReady } from '@/lib/supabaseClient';
 import { useAuth } from '@/contexts/AuthContext';
 import { getCRMPermissions } from '@/lib/permissions';
-import { Building, Plus, Search } from 'lucide-react';
+import { Building, Plus, Search, AlertCircle } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { format } from 'date-fns';
@@ -48,6 +49,13 @@ export default function Accounts() {
   }, [viewFilter]);
 
   const loadAccounts = async () => {
+    // Verificar configuración de Supabase
+    if (!isSupabaseReady() || !supabase) {
+      setLoading(false);
+      toast.error('Supabase no está configurado correctamente');
+      return;
+    }
+
     try {
       // First, get accounts without the aggregate
       let query = supabase
@@ -111,6 +119,25 @@ export default function Accounts() {
     }
   };
 
+
+  // Verificar configuración de Supabase primero
+  if (!isSupabaseReady()) {
+    return (
+      <BackofficeLayout>
+        <div className="p-6">
+          <Alert variant="destructive">
+            <AlertCircle className="h-4 w-4" />
+            <AlertTitle>Configuración faltante</AlertTitle>
+            <AlertDescription>
+              Supabase no está configurado. Configure VITE_SUPABASE_URL y
+              VITE_SUPABASE_ANON_KEY en las variables de entorno, o asegúrese de
+              que window.__SUPABASE__ esté definido en index.html.
+            </AlertDescription>
+          </Alert>
+        </div>
+      </BackofficeLayout>
+    );
+  }
 
   if (loading) {
     return (

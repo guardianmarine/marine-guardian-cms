@@ -58,6 +58,7 @@ import CommissionsReport from "./pages/backoffice/finance/CommissionsReport";
 import Insights from "./pages/backoffice/Insights";
 import UsersRoles from "./pages/admin/settings/UsersRoles";
 import Profile from "./pages/backoffice/Profile";
+import SupabaseDebug from "./pages/backoffice/SupabaseDebug";
 import NotFound from "./pages/NotFound";
 import "@/i18n/config";
 
@@ -322,6 +323,7 @@ const App = () => (
 
             {/* Admin Settings Routes */}
             <Route path="/admin/settings/users" element={<ProtectedRoute><RoleGuard allowedRoles={['admin']}><UsersRoles /></RoleGuard></ProtectedRoute>} />
+            <Route path="/admin/debug/supabase" element={<ProtectedRoute><RoleGuard allowedRoles={['admin']}><SupabaseDebug /></RoleGuard></ProtectedRoute>} />
 
             {/* Profile Route */}
             <Route path="/backoffice/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
