@@ -57,10 +57,10 @@ export default function Accounts() {
     }
 
     try {
-      // First, get accounts without the aggregate
+      // Get accounts with aggregated contact count (no N+1)
       let query = supabase
         .from('accounts')
-        .select('id, kind, name, is_active, created_at, deleted_at')
+        .select('id, kind, name, is_active, created_at, deleted_at, contacts!account_id(count)')
         .order('created_at', { ascending: false });
 
       if (viewFilter === 'active') {
@@ -77,31 +77,15 @@ export default function Accounts() {
         return;
       }
 
-      // Get account IDs
-      const accountIds = data.map(acc => acc.id);
-
-      // Count only active contacts for these accounts
-      const { data: contactCounts, error: countError } = await supabase
-        .from('contacts')
-        .select('account_id')
-        .in('account_id', accountIds)
-        .is('deleted_at', null);
-
-      if (countError) throw countError;
-
-      // Create a map of account_id to contact count
-      const countMap: Record<string, number> = {};
-      (contactCounts || []).forEach(contact => {
-        const accId = contact.account_id;
-        if (accId) {
-          countMap[accId] = (countMap[accId] || 0) + 1;
-        }
-      });
-
-      // Map contact counts to accounts
+      // Map the aggregated count from the nested contacts array
       const accountsWithCount = data.map((acc: any) => ({
-        ...acc,
-        contact_count: countMap[acc.id] || 0
+        id: acc.id,
+        kind: acc.kind,
+        name: acc.name,
+        is_active: acc.is_active,
+        created_at: acc.created_at,
+        deleted_at: acc.deleted_at,
+        contact_count: acc.contacts?.[0]?.count ?? 0
       }));
       
       setAccounts(accountsWithCount);
