@@ -24,6 +24,7 @@ type Account = {
   is_active: boolean;
   created_at: string;
   deleted_at: string | null;
+  contact_count: number;
 };
 
 export default function Accounts() {
@@ -46,7 +47,7 @@ export default function Accounts() {
     try {
       let query = supabase
         .from('accounts')
-        .select('id, kind, name, is_active, created_at, deleted_at')
+        .select('id, kind, name, is_active, created_at, deleted_at, contacts(count)')
         .order('created_at', { ascending: false });
 
       if (viewFilter === 'active') {
@@ -57,7 +58,14 @@ export default function Accounts() {
 
       const { data, error } = await query;
       if (error) throw error;
-      setAccounts(data || []);
+      
+      // Map contact count from aggregated data
+      const accountsWithCount = (data || []).map((row: any) => ({
+        ...row,
+        contact_count: row?.contacts?.[0]?.count ?? 0
+      }));
+      
+      setAccounts(accountsWithCount);
     } catch (error: any) {
       console.error('Error loading accounts:', error);
       toast.error(error?.message ?? (i18n.language === 'es' ? 'Error al cargar cuentas' : 'Failed to load accounts'));
@@ -145,7 +153,7 @@ export default function Accounts() {
                     <div>
                       <CardTitle className="text-lg">{account.name}</CardTitle>
                       <p className="text-sm text-muted-foreground capitalize">
-                        {account.kind} • {format(new Date(account.created_at), 'MMM d, yyyy')}
+                        {account.kind} • {account.contact_count} {account.contact_count === 1 ? 'contact' : 'contacts'} • {format(new Date(account.created_at), 'MMM d, yyyy')}
                       </p>
                     </div>
                   </div>
