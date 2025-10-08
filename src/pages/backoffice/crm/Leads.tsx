@@ -33,7 +33,7 @@ type Lead = {
   id: string;
   source: string;
   stage: string;
-  account_name: string;
+  account_name: string | null;
   contact_email: string | null;
   contact_phone: string | null;
   unit_id: string | null;
@@ -109,7 +109,7 @@ export default function Leads() {
 
   const filteredLeads = leads.filter((lead) => {
     const matchesSearch =
-      lead.account_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (lead.account_name && lead.account_name.toLowerCase().includes(searchTerm.toLowerCase())) ||
       (lead.contact_email && lead.contact_email.toLowerCase().includes(searchTerm.toLowerCase())) ||
       (lead.contact_phone && lead.contact_phone.includes(searchTerm));
     const matchesStage = stageFilter === 'all' || lead.stage === stageFilter;
@@ -263,7 +263,7 @@ export default function Leads() {
                           </SelectContent>
                         </Select>
                       </TableCell>
-                      <TableCell className="font-medium">{lead.account_name}</TableCell>
+                      <TableCell className="font-medium">{lead.account_name || '-'}</TableCell>
                       <TableCell className="text-sm">{lead.contact_email || '-'}</TableCell>
                       <TableCell className="text-sm">{lead.contact_phone || '-'}</TableCell>
                       <TableCell>
