@@ -24,8 +24,7 @@ import type { Session } from '@supabase/supabase-js';
 export default function SupabaseDebug() {
   const [sessionInfo, setSessionInfo] = useState<Session | null>(null);
   const [userInfo, setUserInfo] = useState<any>(null);
-  const [pingResult, setPingResult] = useState<'idle' | 'success' | 'error'>('idle');
-  const [pingError, setPingError] = useState<string>('');
+  const [pingResult, setPingResult] = useState<string>('');
   const [loading, setLoading] = useState(false);
 
   const isReady = isSupabaseReady();
@@ -48,30 +47,128 @@ export default function SupabaseDebug() {
 
   const runPing = async () => {
     if (!isReady || !supabase) {
-      setPingResult('error');
-      setPingError('Supabase no está inicializado');
+      setPingResult('❌ Supabase no está inicializado');
       return;
     }
 
     setLoading(true);
-    setPingResult('idle');
-    setPingError('');
+    setPingResult('🔄 Ejecutando diagnóstico...');
 
     try {
-      const { data, error } = await supabase
+      // Test 1: Basic accounts query
+      const { data: accountsData, error: accountsError } = await supabase
         .from('accounts')
-        .select('id')
+        .select('id, name')
         .limit(1);
 
-      if (error) {
-        setPingResult('error');
-        setPingError(`${error.message} (code: ${error.code})`);
-      } else {
-        setPingResult('success');
+      // Test 2: Check if user is in users table
+      const currentUser = await getUser();
+      const { data: userData, error: userError } = await supabase
+        .from('users')
+        .select('id, role, status, auth_user_id')
+        .eq('auth_user_id', currentUser?.id)
+        .maybeSingle();
+
+      // Test 3: Direct RPC call to is_active_staff (if exists)
+      let isStaff: boolean | null = null;
+      let staffError: any = null;
+      try {
+        const { data, error } = await supabase.rpc('is_active_staff');
+        isStaff = data;
+        staffError = error;
+      } catch {
+        // Function might not exist
       }
+
+      // Test 4: Direct contacts count
+      const firstAccountId = accountsData?.[0]?.id;
+      let contactsTest = '';
+      if (firstAccountId) {
+        const { count: contactsCount, error: contactsError } = await supabase
+          .from('contacts')
+          .select('id', { count: 'exact', head: true })
+          .eq('account_id', firstAccountId)
+          .is('deleted_at', null);
+
+        contactsTest = contactsError 
+          ? `\n\n❌ Contacts query error: ${contactsError.message}`
+          : `\n\n✅ Contacts count for "${accountsData[0].name}": ${contactsCount ?? 0}`;
+      }
+
+      // Test 5: Aggregated count with FK
+      let aggTest = '';
+      if (firstAccountId) {
+        const { data: aggData, error: aggError } = await supabase
+          .from('accounts')
+          .select('id, name, contacts!account_id(count)')
+          .eq('id', firstAccountId)
+          .maybeSingle();
+
+        aggTest = aggError
+          ? `\n\n❌ Aggregated count error: ${aggError.message}`
+          : `\n\n📊 Aggregated count result: ${aggData?.contacts?.[0]?.count ?? 'undefined'}\nRaw data: ${JSON.stringify(aggData?.contacts)}`;
+      }
+
+      const result = `
+━━━━━━━━━━━━━━━━━━━━━━━━━━━
+📊 SUPABASE RLS DIAGNOSTIC
+━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🏢 Accounts Query:
+${accountsError ? `❌ Error: ${accountsError.message}` : `✅ Found ${accountsData?.length || 0} accounts`}
+
+👤 Current User in 'users' table:
+${userError ? `❌ Query Error: ${userError.message}` : userData ? `✅ Found
+   • Role: ${userData.role}
+   • Status: ${userData.status}
+   • Auth ID: ${userData.auth_user_id}` : '❌ User NOT FOUND in users table'}
+
+🔐 is_active_staff() RPC:
+${staffError ? `❌ Error: ${staffError.message}` : isStaff === null ? '⚠️ Function not found or not callable' : `${isStaff ? '✅' : '❌'} Returns: ${isStaff}`}
+${contactsTest}
+${aggTest}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━
+💡 DIAGNOSIS:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+${!userData ? `⚠️ CRITICAL: Your auth user is NOT in the 'users' table.
+   → RLS policies check is_active_staff() which queries users table
+   → Without a users record, ALL CRM queries will be blocked
+   → Solution: INSERT a record in users table with your auth_user_id` : ''}
+
+${userData && userData.status !== 'active' ? `⚠️ WARNING: User status is "${userData.status}" (expected: "active")
+   → is_active_staff() requires status = 'active'
+   → Solution: UPDATE users SET status = 'active' WHERE id = '${userData.id}'` : ''}
+
+${userData && !['admin','sales','inventory','finance','manager'].includes(userData.role) ? `⚠️ WARNING: Role "${userData.role}" not in allowed staff roles
+   → is_active_staff() checks role IN ('admin','sales','inventory','finance','manager')
+   → Solution: UPDATE users SET role = 'admin' WHERE id = '${userData.id}'` : ''}
+
+${isStaff === false ? `⚠️ BLOCKER: is_active_staff() returns FALSE
+   → You do not have staff access according to RLS
+   → Check role, status, and auth_user_id mapping in users table` : ''}
+
+${isStaff === true && contactsTest.includes('❌') ? `⚠️ WARNING: Staff access OK but contacts query failed
+   → Possible contacts table RLS issue
+   → Check contacts RLS policies align with accounts policies` : ''}
+
+${isStaff === true && aggTest.includes('undefined') && contactsTest.includes('✅') && !contactsTest.includes(': 0') ? `⚠️ BUG FOUND: Direct count works but aggregated count is undefined
+   → FK join syntax issue: contacts!account_id(count)
+   → Try alternative: contacts!inner(count)
+   → Or use direct count in application code` : ''}
+
+${isStaff === true && !contactsTest.includes('❌') && !aggTest.includes('undefined') && userData ? `✅ ALL TESTS PASSED
+   → Supabase connection: OK
+   → User in users table: OK
+   → Staff access: OK
+   → Contacts readable: OK
+   → Aggregated count: ${aggTest.match(/count result: (\d+)/)?.[1] || 'OK'}` : ''}
+      `.trim();
+
+      setPingResult(result);
     } catch (err: any) {
-      setPingResult('error');
-      setPingError(err?.message || 'Error desconocido');
+      setPingResult(`❌ EXCEPTION: ${err.message}\n\nStack: ${err.stack || 'No stack trace'}`);
     } finally {
       setLoading(false);
     }
@@ -227,26 +324,14 @@ export default function SupabaseDebug() {
               <p className="text-sm text-muted-foreground">
                 No se puede hacer ping sin configuración
               </p>
-            ) : pingResult === 'idle' ? (
+            ) : !pingResult ? (
               <p className="text-sm text-muted-foreground">
-                Haz clic en "Ping" para probar la conexión
+                Haz clic en "Ping" para ejecutar el diagnóstico completo
               </p>
-            ) : pingResult === 'success' ? (
-              <Alert>
-                <CheckCircle className="h-4 w-4" />
-                <AlertTitle>Conexión exitosa</AlertTitle>
-                <AlertDescription>
-                  La consulta a la base de datos se ejecutó correctamente.
-                </AlertDescription>
-              </Alert>
             ) : (
-              <Alert variant="destructive">
-                <XCircle className="h-4 w-4" />
-                <AlertTitle>Error de conexión</AlertTitle>
-                <AlertDescription className="font-mono text-xs">
-                  {pingError}
-                </AlertDescription>
-              </Alert>
+              <pre className="text-xs bg-muted p-4 rounded-md overflow-x-auto whitespace-pre-wrap">
+                {pingResult}
+              </pre>
             )}
           </CardContent>
         </Card>
