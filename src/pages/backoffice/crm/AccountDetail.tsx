@@ -321,9 +321,6 @@ export default function AccountDetail() {
                             {contact.first_name} {contact.last_name}
                           </p>
                           <p className="text-sm text-muted-foreground">{contact.email}</p>
-                          {contact.role_title && (
-                            <p className="text-xs text-muted-foreground">{contact.role_title}</p>
-                          )}
                         </div>
                         <div className="text-sm text-muted-foreground">
                           {contact.phone || '-'}

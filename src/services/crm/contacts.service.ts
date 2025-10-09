@@ -6,14 +6,13 @@ export type ContactBasic = {
   last_name: string;
   email: string;
   phone?: string | null;
-  role_title?: string | null;
   account_id: string;
 };
 
 export async function listContactsByAccount(accountId: string) {
   const { data, error, count } = await supabase
     .from('contacts')
-    .select('id, first_name, last_name, email, phone, role_title, account_id', { count: 'exact' })
+    .select('id, first_name, last_name, email, phone, account_id', { count: 'exact' })
     .eq('account_id', accountId)
     .is('deleted_at', null)
     .order('created_at', { ascending: false });
