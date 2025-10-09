@@ -37,6 +37,7 @@ type Lead = {
   account_name: string | null;
   contact_email: string | null;
   contact_phone: string | null;
+  preferred_contact: string | null;
   unit_id: string | null;
   created_at: string;
   deleted_at: string | null;
@@ -44,6 +45,8 @@ type Lead = {
 
 type UnitInfo = {
   id: string;
+  title?: string;
+  stock_number?: string;
   make?: string;
   model?: string;
   year?: number;
@@ -77,7 +80,7 @@ export default function Leads() {
     try {
       let query = supabase
         .from('leads')
-        .select('id, source, stage, account_name, contact_email, contact_phone, unit_id, created_at, deleted_at')
+        .select('id, source, stage, account_name, contact_email, contact_phone, preferred_contact, unit_id, created_at, deleted_at')
         .order('created_at', { ascending: false })
         .limit(50);
 
@@ -99,7 +102,7 @@ export default function Leads() {
         try {
           const { data: units } = await supabase
             .from('units')
-            .select('id, make, model, year, slug')
+            .select('id, title, stock_number, make, model, year, slug')
             .in('id', unitIds);
           
           setUnitsById(Object.fromEntries((units ?? []).map(u => [String(u.id), u])));
@@ -288,13 +291,15 @@ export default function Leads() {
                             className="flex items-center gap-1 text-primary hover:underline"
                           >
                             <span className="text-sm">
-                              {[
-                                unitsById[lead.unit_id].year,
-                                unitsById[lead.unit_id].make,
-                                unitsById[lead.unit_id].model,
-                              ]
-                                .filter(Boolean)
-                                .join(' ')}
+                              {unitsById[lead.unit_id].title || 
+                               unitsById[lead.unit_id].stock_number ||
+                               [
+                                 unitsById[lead.unit_id].year,
+                                 unitsById[lead.unit_id].make,
+                                 unitsById[lead.unit_id].model,
+                               ]
+                                 .filter(Boolean)
+                                 .join(' ')}
                             </span>
                             <ExternalLink className="h-3 w-3" />
                           </Link>
