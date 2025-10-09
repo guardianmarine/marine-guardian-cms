@@ -51,6 +51,7 @@ import TaxRegimes from "./pages/backoffice/deals/TaxRegimes";
 import DealsV2 from "./pages/backoffice/deals/DealsV2";
 import TaxPresetsManager from "./pages/backoffice/deals/TaxPresetsManager";
 import DealDetailEditor from "./pages/backoffice/deals/DealDetailEditor";
+import LeadsProbe from "./pages/backoffice/admin/LeadsProbe";
 import FinanceDashboard from "./pages/backoffice/finance/FinanceDashboard";
 import FinanceOverview from "./pages/backoffice/finance/FinanceOverview";
 import Commissions from "./pages/backoffice/finance/Commissions";
@@ -324,6 +325,7 @@ const App = () => (
             {/* Admin Settings Routes */}
             <Route path="/admin/settings/users" element={<ProtectedRoute><RoleGuard allowedRoles={['admin']}><UsersRoles /></RoleGuard></ProtectedRoute>} />
             <Route path="/admin/debug/supabase" element={<ProtectedRoute><RoleGuard allowedRoles={['admin']}><SupabaseDebug /></RoleGuard></ProtectedRoute>} />
+            <Route path="/admin/debug/leads-probe" element={<ProtectedRoute><RoleGuard allowedRoles={['admin']}><LeadsProbe /></RoleGuard></ProtectedRoute>} />
 
             {/* Profile Route */}
             <Route path="/backoffice/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
