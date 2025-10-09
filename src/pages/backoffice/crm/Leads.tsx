@@ -291,15 +291,9 @@ export default function Leads() {
                             className="flex items-center gap-1 text-primary hover:underline"
                           >
                             <span className="text-sm">
-                              {unitsById[lead.unit_id].title || 
-                               unitsById[lead.unit_id].stock_number ||
-                               [
-                                 unitsById[lead.unit_id].year,
-                                 unitsById[lead.unit_id].make,
-                                 unitsById[lead.unit_id].model,
-                               ]
-                                 .filter(Boolean)
-                                 .join(' ')}
+                              {unitsById[lead.unit_id].stock_number || 
+                               unitsById[lead.unit_id].title || 
+                               '—'}
                             </span>
                             <ExternalLink className="h-3 w-3" />
                           </Link>
