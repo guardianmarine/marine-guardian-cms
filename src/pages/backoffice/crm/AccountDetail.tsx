@@ -10,6 +10,7 @@ import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { supabase, isSupabaseReady } from '@/lib/supabaseClient';
 import { getEmailLink, getPhoneLink, getWhatsAppLink } from '@/lib/crm-integrations';
+import { listContactsByAccount } from '@/services/crm/contacts.service';
 import { Building, TrendingUp, Users, Mail, Phone, MessageSquare, AlertCircle } from 'lucide-react';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
@@ -53,6 +54,7 @@ export default function AccountDetail() {
   const { i18n } = useTranslation();
   const [account, setAccount] = useState<Account | null>(null);
   const [contacts, setContacts] = useState<Contact[]>([]);
+  const [contactsCount, setContactsCount] = useState(0);
   const [opportunities, setOpportunities] = useState<Opportunity[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -83,12 +85,10 @@ export default function AccountDetail() {
       if (accountError) throw accountError;
       setAccount(accountData);
 
-      const { data: contactsData } = await supabase
-        .from('contacts')
-        .select('id, first_name, last_name, email, phone, role_title')
-        .eq('account_id', id)
-        .is('deleted_at', null);
-      setContacts(contactsData || []);
+      // Use unified contacts service
+      const { data: contactsData, count: contactsCountValue } = await listContactsByAccount(id);
+      setContacts(contactsData);
+      setContactsCount(contactsCountValue);
 
       const { data: oppsData } = await supabase
         .from('opportunities')
@@ -154,7 +154,7 @@ export default function AccountDetail() {
               <div className="text-sm text-muted-foreground">
                 {i18n.language === 'es' ? 'Contactos' : 'Contacts'}
               </div>
-              <div className="text-2xl font-bold">{contacts.length}</div>
+              <div className="text-2xl font-bold">{contactsCount}</div>
             </CardContent>
           </Card>
           <Card>
@@ -182,7 +182,7 @@ export default function AccountDetail() {
               {i18n.language === 'es' ? 'Resumen' : 'Overview'}
             </TabsTrigger>
             <TabsTrigger value="contacts">
-              {i18n.language === 'es' ? 'Contactos' : 'Contacts'} ({contacts.length})
+              {i18n.language === 'es' ? 'Contactos' : 'Contacts'} ({contactsCount})
             </TabsTrigger>
             <TabsTrigger value="opportunities">
               {i18n.language === 'es' ? 'Oportunidades' : 'Opportunities'} ({opportunities.length})
