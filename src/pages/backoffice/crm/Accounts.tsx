@@ -58,6 +58,7 @@ export default function Accounts() {
 
     try {
       // Get accounts with aggregated contact count (no N+1)
+      // Trying Option B: explicit FK by column
       let query = supabase
         .from('accounts')
         .select('id, kind, name, is_active, created_at, deleted_at, contacts!account_id(count)')
@@ -78,15 +79,47 @@ export default function Accounts() {
       }
 
       // Map the aggregated count from the nested contacts array
-      const accountsWithCount = data.map((acc: any) => ({
-        id: acc.id,
-        kind: acc.kind,
-        name: acc.name,
-        is_active: acc.is_active,
-        created_at: acc.created_at,
-        deleted_at: acc.deleted_at,
-        contact_count: acc.contacts?.[0]?.count ?? 0
-      }));
+      const accountsWithCount = data.map((acc: any) => {
+        const count = acc.contacts?.[0]?.count ?? 0;
+        
+        // Debug log (only in development)
+        if (import.meta.env.DEV) {
+          console.debug('[Accounts] Row contacts agg:', {
+            accountId: acc.id,
+            accountName: acc.name,
+            contactCount: count,
+            rawContacts: acc.contacts
+          });
+        }
+        
+        return {
+          id: acc.id,
+          kind: acc.kind,
+          name: acc.name,
+          is_active: acc.is_active,
+          created_at: acc.created_at,
+          deleted_at: acc.deleted_at,
+          contact_count: count
+        };
+      });
+      
+      // Direct count verification for first account (dev only)
+      if (import.meta.env.DEV && accountsWithCount.length > 0) {
+        const firstAccount = accountsWithCount[0];
+        const { count: directCount, error: countError } = await supabase
+          .from('contacts')
+          .select('id', { count: 'exact', head: true })
+          .eq('account_id', firstAccount.id)
+          .is('deleted_at', null);
+        
+        console.debug('[Accounts] Direct count verification:', {
+          accountId: firstAccount.id,
+          accountName: firstAccount.name,
+          embeddedCount: firstAccount.contact_count,
+          directCount: directCount,
+          error: countError
+        });
+      }
       
       setAccounts(accountsWithCount);
     } catch (error: any) {
