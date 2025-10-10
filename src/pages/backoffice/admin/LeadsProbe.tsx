@@ -21,6 +21,13 @@ interface LeadRow {
   unit_id: string | null;
 }
 
+interface UnitRLSTest {
+  unit_id: string;
+  can_read: boolean;
+  stock_number: string | null;
+  title: string | null;
+}
+
 interface ColumnInfo {
   column_name: string;
 }
@@ -29,6 +36,7 @@ export default function LeadsProbe() {
   const [buyerRequests, setBuyerRequests] = useState<BuyerRequestRow[]>([]);
   const [leads, setLeads] = useState<LeadRow[]>([]);
   const [columns, setColumns] = useState<string[]>([]);
+  const [rlsTests, setRlsTests] = useState<UnitRLSTest[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -66,6 +74,30 @@ export default function LeadsProbe() {
         ? Object.keys(brData[0]).filter(k => k.toLowerCase().includes('pref'))
         : [];
       setColumns(prefCols);
+
+      // Q4: RLS Test - check if we can read units referenced by leads
+      const uniqueUnitIds = Array.from(new Set(
+        leadsData
+          ?.filter(l => l.unit_id)
+          .map(l => l.unit_id!)
+      )) || [];
+
+      const rlsTestResults: UnitRLSTest[] = [];
+      for (const unitId of uniqueUnitIds.slice(0, 5)) { // Test first 5 unique units
+        const { data: unitData, error: unitError } = await supabase
+          .from('units')
+          .select('id, stock_number, title')
+          .eq('id', unitId)
+          .single();
+
+        rlsTestResults.push({
+          unit_id: unitId,
+          can_read: !unitError,
+          stock_number: unitData?.stock_number || null,
+          title: unitData?.title || null,
+        });
+      }
+      setRlsTests(rlsTestResults);
 
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unknown error');
@@ -240,6 +272,68 @@ export default function LeadsProbe() {
           </CardContent>
         </Card>
 
+        {/* RLS Test for Units */}
+        <Card>
+          <CardHeader>
+            <CardTitle>🔒 Units RLS Test</CardTitle>
+            <CardDescription>
+              Verifies if authenticated users can read units referenced by leads
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {rlsTests.length === 0 ? (
+              <p className="text-sm text-muted-foreground">
+                No leads with unit_id found to test
+              </p>
+            ) : (
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Unit ID</TableHead>
+                      <TableHead>Can Read?</TableHead>
+                      <TableHead>Stock Number</TableHead>
+                      <TableHead>Title</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {rlsTests.map(test => (
+                      <TableRow key={test.unit_id}>
+                        <TableCell className="font-mono text-xs">
+                          {test.unit_id.slice(0, 8)}...
+                        </TableCell>
+                        <TableCell>
+                          {test.can_read ? (
+                            <Badge variant="default">✅ Yes</Badge>
+                          ) : (
+                            <Badge variant="destructive">❌ RLS Block</Badge>
+                          )}
+                        </TableCell>
+                        <TableCell className="text-xs">
+                          {test.stock_number || '—'}
+                        </TableCell>
+                        <TableCell className="text-xs truncate max-w-xs">
+                          {test.title || '—'}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            )}
+            {rlsTests.some(t => !t.can_read) && (
+              <div className="mt-4 p-4 bg-destructive/10 rounded-md">
+                <p className="text-sm font-semibold text-destructive">
+                  ⚠️ RLS is blocking units access!
+                </p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  The Leads table won't be able to join with units. Add a SELECT policy for authenticated users.
+                </p>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
         {/* Analysis Summary */}
         <Card>
           <CardHeader>
@@ -274,12 +368,24 @@ export default function LeadsProbe() {
               </p>
             </div>
 
+            <div>
+              <h3 className="font-semibold mb-2">Units RLS:</h3>
+              <p className="text-sm">
+                {rlsTests.length === 0
+                  ? '⚠️ No units to test (no leads with unit_id)'
+                  : rlsTests.every(t => t.can_read)
+                  ? `✅ All ${rlsTests.length} tested units are readable`
+                  : `❌ ${rlsTests.filter(t => !t.can_read).length}/${rlsTests.length} units blocked by RLS - Leads won't show unit info!`}
+              </p>
+            </div>
+
             <div className="border-t pt-4 mt-4">
               <h3 className="font-semibold mb-2">Next Steps:</h3>
               <ul className="text-sm space-y-1 list-disc list-inside">
                 <li>If buyer_requests has data but leads doesn't → Fix RPC mapping</li>
                 <li>If buyer_requests is empty → Fix the Inbound form to capture the fields</li>
                 <li>If column names differ → Update RPC to use correct aliases</li>
+                <li>If RLS blocks units → Add SELECT policy for authenticated users on units table</li>
               </ul>
             </div>
           </CardContent>
