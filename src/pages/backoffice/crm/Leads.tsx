@@ -277,17 +277,10 @@ export default function Leads() {
                       <TableCell className="font-medium">{lead.account_name || '-'}</TableCell>
                       <TableCell className="text-sm">{lead.contact_email || '-'}</TableCell>
                       <TableCell className="text-sm">{lead.contact_phone || '-'}</TableCell>
-                      <TableCell>
+                      <TableCell onClick={(e) => e.stopPropagation()}>
                         {lead.unit_id && unitsById[lead.unit_id] ? (
                           <Link
-                            to={
-                              unitsById[lead.unit_id].slug
-                                ? `/inventory/${unitsById[lead.unit_id].year || 'unit'}/${unitsById[lead.unit_id].slug}`
-                                : `/unit/${unitsById[lead.unit_id].id}`
-                            }
-                            target="_blank"
-                            rel="noreferrer"
-                            onClick={(e) => e.stopPropagation()}
+                            to={`/backoffice/inventory/${unitsById[lead.unit_id].id}`}
                             className="flex items-center gap-1 text-primary hover:underline"
                           >
                             <span className="text-sm">
