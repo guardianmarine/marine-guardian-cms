@@ -138,27 +138,40 @@ export default function LeadDetail() {
   const searchUnits = async (query: string) => {
     setSearchLoading(true);
     try {
-      let supaQuery = supabase.from('units').select('id, stock_number, title, make, model, year, slug');
+      // Always filter for non-deleted units
+      let supaQuery = supabase
+        .from('units')
+        .select('id, stock_number, title, make, model, year, slug, vin_serial')
+        .is('deleted_at', null);
       
       if (query.trim()) {
-        supaQuery = supaQuery.or(`stock_number.ilike.%${query}%,title.ilike.%${query}%,make.ilike.%${query}%,model.ilike.%${query}%`);
+        // Search across multiple fields
+        supaQuery = supaQuery.or(
+          `stock_number.ilike.%${query}%,title.ilike.%${query}%,make.ilike.%${query}%,model.ilike.%${query}%,vin_serial.ilike.%${query}%,slug.ilike.%${query}%`
+        );
       }
 
-      const { data, error } = await supaQuery.limit(20);
+      const { data, error } = await supaQuery.order('created_at', { ascending: false }).limit(30);
       
-      if (error) {
-        // Fallback without stock_number/title
+      if (error && error.message?.includes('does not exist')) {
+        // Fallback without stock_number/title columns
         const fallback = await supabase
           .from('units')
-          .select('id, make, model, year, slug')
-          .or(`make.ilike.%${query}%,model.ilike.%${query}%`)
-          .limit(20);
+          .select('id, make, model, year, slug, vin_serial')
+          .is('deleted_at', null)
+          .or(`make.ilike.%${query}%,model.ilike.%${query}%,slug.ilike.%${query}%`)
+          .order('created_at', { ascending: false })
+          .limit(30);
         setSearchResults((fallback.data ?? []).map(u => ({ ...u, stock_number: undefined, title: undefined })));
+      } else if (error) {
+        console.error('Error searching units:', error);
+        setSearchResults([]);
       } else {
         setSearchResults(data ?? []);
       }
     } catch (err) {
       console.error('Error searching units:', err);
+      setSearchResults([]);
     } finally {
       setSearchLoading(false);
     }
