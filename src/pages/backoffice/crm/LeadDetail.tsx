@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { Input } from '@/components/ui/input';
 import {
   Select,
   SelectContent,
@@ -13,8 +14,23 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/dialog';
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from '@/components/ui/command';
 import { supabase } from '@/integrations/supabase/client';
-import { ArrowLeft, ExternalLink, Plus } from 'lucide-react';
+import { ArrowLeft, ExternalLink, Plus, Search, Car } from 'lucide-react';
 import { toast } from 'sonner';
 import { formatDistanceToNow } from 'date-fns';
 
@@ -41,6 +57,8 @@ type UnitInfo = {
   model?: string;
   year?: number;
   slug?: string;
+  stock_number?: string;
+  title?: string;
 };
 
 export default function LeadDetail() {
@@ -51,10 +69,23 @@ export default function LeadDetail() {
   const [unit, setUnit] = useState<UnitInfo | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [assignModalOpen, setAssignModalOpen] = useState(false);
+  const [unitSearch, setUnitSearch] = useState('');
+  const [searchResults, setSearchResults] = useState<UnitInfo[]>([]);
+  const [searchLoading, setSearchLoading] = useState(false);
 
   useEffect(() => {
     if (id) loadLead();
   }, [id]);
+
+  // Search units when query changes
+  useEffect(() => {
+    if (!assignModalOpen) return;
+    const timer = setTimeout(() => {
+      searchUnits(unitSearch);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [unitSearch, assignModalOpen]);
 
   const loadLead = async () => {
     try {
@@ -67,20 +98,97 @@ export default function LeadDetail() {
       if (error) throw error;
       setLead(data);
 
-      // Fetch unit if present
+      // Fetch unit if present (with schema-safe fallback)
       if (data.unit_id) {
-        const { data: unitData } = await supabase
-          .from('units')
-          .select('id, make, model, year, slug')
-          .eq('id', data.unit_id)
-          .single();
-        if (unitData) setUnit(unitData);
+        await fetchUnit(data.unit_id);
       }
     } catch (error: any) {
       console.error('Error loading lead:', error);
       toast.error(error?.message ?? (i18n.language === 'es' ? 'Error al cargar lead' : 'Failed to load lead'));
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchUnit = async (unitId: string) => {
+    try {
+      // Try new schema first
+      let { data: unitData, error } = await supabase
+        .from('units')
+        .select('id, stock_number, title, make, model, year, slug')
+        .eq('id', unitId)
+        .single();
+
+      // Fallback if columns don't exist
+      if (error && error.message?.includes('does not exist')) {
+        const fallback = await supabase
+          .from('units')
+          .select('id, make, model, year, slug')
+          .eq('id', unitId)
+          .single();
+        unitData = fallback.data ? { ...fallback.data, stock_number: undefined, title: undefined } as any : null;
+      }
+
+      if (unitData) setUnit(unitData);
+    } catch (err) {
+      console.error('Error fetching unit:', err);
+    }
+  };
+
+  const searchUnits = async (query: string) => {
+    setSearchLoading(true);
+    try {
+      let supaQuery = supabase.from('units').select('id, stock_number, title, make, model, year, slug');
+      
+      if (query.trim()) {
+        supaQuery = supaQuery.or(`stock_number.ilike.%${query}%,title.ilike.%${query}%,make.ilike.%${query}%,model.ilike.%${query}%`);
+      }
+
+      const { data, error } = await supaQuery.limit(20);
+      
+      if (error) {
+        // Fallback without stock_number/title
+        const fallback = await supabase
+          .from('units')
+          .select('id, make, model, year, slug')
+          .or(`make.ilike.%${query}%,model.ilike.%${query}%`)
+          .limit(20);
+        setSearchResults((fallback.data ?? []).map(u => ({ ...u, stock_number: undefined, title: undefined })));
+      } else {
+        setSearchResults(data ?? []);
+      }
+    } catch (err) {
+      console.error('Error searching units:', err);
+    } finally {
+      setSearchLoading(false);
+    }
+  };
+
+  const getUnitLabel = (u: UnitInfo) => {
+    return u.stock_number 
+      || u.title 
+      || [u.year, u.make, u.model].filter(Boolean).join(' ').trim() 
+      || u.slug 
+      || '—';
+  };
+
+  const handleAssignUnit = async (unitId: string) => {
+    if (!lead) return;
+    try {
+      const { error } = await supabase
+        .from('leads')
+        .update({ unit_id: unitId })
+        .eq('id', lead.id);
+
+      if (error) throw error;
+      
+      setLead({ ...lead, unit_id: unitId });
+      await fetchUnit(unitId);
+      setAssignModalOpen(false);
+      toast.success(i18n.language === 'es' ? 'Unidad asignada' : 'Unit assigned');
+    } catch (error: any) {
+      console.error('Error assigning unit:', error);
+      toast.error(error?.message ?? (i18n.language === 'es' ? 'Error al asignar' : 'Failed to assign'));
     }
   };
 
@@ -212,20 +320,77 @@ export default function LeadDetail() {
                   </div>
                 </div>
 
-                {unit && (
-                  <div>
+                {/* Unit Section - Always show with assign option */}
+                <div>
+                  <div className="flex items-center justify-between mb-2">
                     <Label>{i18n.language === 'es' ? 'Unidad de Interés' : 'Unit of Interest'}</Label>
-                    <div className="mt-2 border rounded-lg p-4 bg-card hover:bg-accent/50 transition-colors">
+                    <Dialog open={assignModalOpen} onOpenChange={setAssignModalOpen}>
+                      <DialogTrigger asChild>
+                        <Button type="button" variant="outline" size="sm">
+                          <Search className="h-3 w-3 mr-1" />
+                          {unit 
+                            ? (i18n.language === 'es' ? 'Cambiar' : 'Change') 
+                            : (i18n.language === 'es' ? 'Asignar Unidad' : 'Assign Unit')}
+                        </Button>
+                      </DialogTrigger>
+                      <DialogContent className="max-w-md">
+                        <DialogHeader>
+                          <DialogTitle>
+                            {i18n.language === 'es' ? 'Buscar Unidad' : 'Search Unit'}
+                          </DialogTitle>
+                        </DialogHeader>
+                        <Command className="rounded-lg border shadow-md">
+                          <CommandInput 
+                            placeholder={i18n.language === 'es' ? 'Buscar por stock #, marca, modelo...' : 'Search by stock #, make, model...'} 
+                            value={unitSearch}
+                            onValueChange={setUnitSearch}
+                          />
+                          <CommandList>
+                            <CommandEmpty>
+                              {searchLoading 
+                                ? (i18n.language === 'es' ? 'Buscando...' : 'Searching...') 
+                                : (i18n.language === 'es' ? 'No se encontraron unidades' : 'No units found')}
+                            </CommandEmpty>
+                            <CommandGroup>
+                              {searchResults.map((u) => (
+                                <CommandItem
+                                  key={u.id}
+                                  value={u.id}
+                                  onSelect={() => handleAssignUnit(u.id)}
+                                  className="cursor-pointer"
+                                >
+                                  <Car className="h-4 w-4 mr-2 text-muted-foreground" />
+                                  <div className="flex flex-col">
+                                    <span className="font-medium">{getUnitLabel(u)}</span>
+                                    {u.stock_number && (
+                                      <span className="text-xs text-muted-foreground">
+                                        Stock: {u.stock_number}
+                                      </span>
+                                    )}
+                                  </div>
+                                </CommandItem>
+                              ))}
+                            </CommandGroup>
+                          </CommandList>
+                        </Command>
+                      </DialogContent>
+                    </Dialog>
+                  </div>
+                  
+                  {unit ? (
+                    <div className="border rounded-lg p-4 bg-card hover:bg-accent/50 transition-colors">
                       <Link
-                        to={unit.slug ? `/inventory/${unit.year || 'unit'}/${unit.slug}` : `/unit/${unit.id}`}
-                        target="_blank"
-                        rel="noreferrer"
+                        to={`/backoffice/inventory/${unit.id}`}
                         className="flex items-start gap-4"
                       >
+                        <Car className="h-5 w-5 text-muted-foreground mt-0.5" />
                         <div className="flex-1">
-                          <p className="font-semibold text-lg">
-                            {[unit.year, unit.make, unit.model].filter(Boolean).join(' ')}
-                          </p>
+                          <p className="font-semibold text-lg">{getUnitLabel(unit)}</p>
+                          {unit.stock_number && (
+                            <p className="text-sm text-muted-foreground">
+                              Stock #: {unit.stock_number}
+                            </p>
+                          )}
                           <div className="flex items-center gap-2 mt-1">
                             <ExternalLink className="h-3 w-3 text-muted-foreground" />
                             <span className="text-sm text-muted-foreground">
@@ -235,8 +400,17 @@ export default function LeadDetail() {
                         </div>
                       </Link>
                     </div>
-                  </div>
-                )}
+                  ) : (
+                    <div className="border rounded-lg p-4 bg-muted/30 text-muted-foreground text-center">
+                      <Car className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                      <p className="text-sm">
+                        {i18n.language === 'es' 
+                          ? 'No hay unidad asignada. Usa "Asignar Unidad" para vincular una.' 
+                          : 'No unit assigned. Use "Assign Unit" to link one.'}
+                      </p>
+                    </div>
+                  )}
+                </div>
 
                 <div>
                   <Label>{i18n.language === 'es' ? 'Notas' : 'Notes'}</Label>
