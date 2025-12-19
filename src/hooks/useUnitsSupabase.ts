@@ -93,23 +93,33 @@ export function useUnitsSupabase(options: UseUnitsOptions = {}): UseUnitsResult 
     }
 
     try {
-      // Prepare data for insert - exclude id (let DB generate it)
-      const insertData = {
-        ...unitData,
+      // Only include columns that exist in the DB schema
+      const insertData: Record<string, any> = {
+        category: unitData.category,
+        make: unitData.make,
+        year: unitData.year,
+        model: unitData.model,
+        color: unitData.color,
+        mileage: unitData.mileage,
+        engine: unitData.engine,
+        transmission: unitData.transmission,
+        vin_or_serial: unitData.vin_or_serial,
+        axles: unitData.axles,
+        type: unitData.type,
+        hours: unitData.hours,
+        display_price: unitData.display_price || 0,
         status: unitData.status || 'draft',
         photos: unitData.photos || [],
+        received_at: unitData.received_at,
+        listed_at: unitData.listed_at,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       };
 
-      // Remove undefined values and let DB handle them
+      // Remove undefined values
       const cleanData = Object.fromEntries(
-        Object.entries(insertData).filter(([_, v]) => v !== undefined)
+        Object.entries(insertData).filter(([_, v]) => v !== undefined && v !== null && v !== '')
       );
-
-      // Remove 'id' if present (let DB generate)
-      delete (cleanData as any).id;
-      delete (cleanData as any).location; // location is a computed/joined field
 
       const { data, error: insertError } = await supabase
         .from('units')
@@ -147,16 +157,23 @@ export function useUnitsSupabase(options: UseUnitsOptions = {}): UseUnitsResult 
     }
 
     try {
-      // Prepare update data
-      const updateData = {
-        ...data,
+      // Only include columns that exist in the DB schema
+      const updateData: Record<string, any> = {
         updated_at: new Date().toISOString(),
       };
 
-      // Remove fields that shouldn't be updated
-      delete (updateData as any).id;
-      delete (updateData as any).location;
-      delete (updateData as any).created_at;
+      // Whitelist of allowed update fields
+      const allowedFields = [
+        'category', 'make', 'year', 'model', 'color', 'mileage', 'engine',
+        'transmission', 'vin_or_serial', 'axles', 'type', 'hours',
+        'display_price', 'status', 'photos', 'received_at', 'listed_at', 'sold_at'
+      ];
+
+      for (const field of allowedFields) {
+        if (data[field as keyof Unit] !== undefined) {
+          updateData[field] = data[field as keyof Unit];
+        }
+      }
 
       const { data: updated, error: updateError } = await supabase
         .from('units')
