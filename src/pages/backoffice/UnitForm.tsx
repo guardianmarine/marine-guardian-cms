@@ -17,7 +17,9 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Progress } from '@/components/ui/progress';
 import { useUnitsSupabase, useUnitById } from '@/hooks/useUnitsSupabase';
+import { useUnitPhotoUpload } from '@/hooks/useUnitPhotoUpload';
 import { Unit, UnitCategory, UnitStatus, UnitPhoto } from '@/types';
 import { useToast } from '@/hooks/use-toast';
 import { getTruckTypes, getTrailerTypes } from '@/lib/i18n-helpers';
@@ -36,6 +38,7 @@ import {
   AlertCircle,
   Scan,
   Loader2,
+  ImageIcon,
 } from 'lucide-react';
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy, useSortable } from '@dnd-kit/sortable';
@@ -52,8 +55,10 @@ export default function UnitForm() {
   // Supabase hooks
   const { unit: existingUnit, loading: loadingUnit } = useUnitById(id);
   const { addUnit, updateUnit, publishUnit, unpublishUnit } = useUnitsSupabase();
+  const { uploading: uploadingPhotos, uploadMultiplePhotos, deletePhoto, getPathFromUrl } = useUnitPhotoUpload();
 
   const isNew = !id;
+  const [uploadProgress, setUploadProgress] = useState({ completed: 0, total: 0 });
 
   // Get translated type options
   const truckTypes = getTruckTypes(t);
@@ -163,26 +168,38 @@ export default function UnitForm() {
     return Object.keys(errors).length === 0;
   };
 
+  // For new units, we need to save first to get an ID for photo uploads
+  const effectiveUnitId = id || 'temp-' + Date.now();
+
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     accept: { 'image/*': ['.jpg', '.jpeg', '.png', '.webp'] },
     maxSize: 10 * 1024 * 1024,
-    onDrop: (acceptedFiles) => {
-      acceptedFiles.forEach((file) => {
-        const reader = new FileReader();
-        reader.onload = () => {
-          const newPhoto: UnitPhoto = {
-            id: Math.random().toString(36).substr(2, 9),
-            unit_id: id || 'new',
-            url: reader.result as string,
-            is_main: photos.length === 0,
-            sort: photos.length,
-            created_at: new Date().toISOString(),
-            updated_at: new Date().toISOString(),
-          };
-          setPhotos((prev) => [...prev, newPhoto]);
-        };
-        reader.readAsDataURL(file);
-      });
+    disabled: uploadingPhotos,
+    onDrop: async (acceptedFiles) => {
+      if (acceptedFiles.length === 0) return;
+
+      // Upload to Supabase Storage
+      setUploadProgress({ completed: 0, total: acceptedFiles.length });
+      
+      const results = await uploadMultiplePhotos(
+        acceptedFiles,
+        effectiveUnitId,
+        (completed, total) => setUploadProgress({ completed, total })
+      );
+
+      // Add uploaded photos to state
+      const newPhotos: UnitPhoto[] = results.map((result, idx) => ({
+        id: Math.random().toString(36).substr(2, 9),
+        unit_id: id || 'new',
+        url: result.url,
+        is_main: photos.length === 0 && idx === 0,
+        sort: photos.length + idx,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      }));
+
+      setPhotos((prev) => [...prev, ...newPhotos]);
+      setUploadProgress({ completed: 0, total: 0 });
     },
   });
 
@@ -293,7 +310,15 @@ export default function UnitForm() {
     }
   };
 
-  const handleRemovePhoto = (photoId: string) => {
+  const handleRemovePhoto = async (photoId: string) => {
+    const photo = photos.find((p) => p.id === photoId);
+    if (photo && photo.url.includes('supabase')) {
+      // Delete from storage if it's a Supabase URL
+      const path = getPathFromUrl(photo.url);
+      if (path) {
+        await deletePhoto(path);
+      }
+    }
     setPhotos((prev) => prev.filter((p) => p.id !== photoId));
   };
 
@@ -814,19 +839,45 @@ export default function UnitForm() {
                 <CardTitle>Photos (Min. 4 required to publish)</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
+                {/* Upload Progress */}
+                {uploadingPhotos && uploadProgress.total > 0 && (
+                  <div className="space-y-2 p-4 bg-muted rounded-lg">
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="flex items-center gap-2">
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        Uploading photos...
+                      </span>
+                      <span>{uploadProgress.completed} / {uploadProgress.total}</span>
+                    </div>
+                    <Progress value={(uploadProgress.completed / uploadProgress.total) * 100} />
+                  </div>
+                )}
+
                 {/* Upload Area */}
                 <div
                   {...getRootProps()}
                   className={`border-2 border-dashed rounded-lg p-8 text-center cursor-pointer transition-colors ${
+                    uploadingPhotos ? 'opacity-50 pointer-events-none' : ''
+                  } ${
                     isDragActive ? 'border-primary bg-primary/5' : 'border-muted-foreground/25'
                   }`}
                 >
                   <input {...getInputProps()} />
-                  <Upload className="h-8 w-8 mx-auto mb-3 text-muted-foreground" />
+                  {uploadingPhotos ? (
+                    <Loader2 className="h-8 w-8 mx-auto mb-3 text-muted-foreground animate-spin" />
+                  ) : (
+                    <ImageIcon className="h-8 w-8 mx-auto mb-3 text-muted-foreground" />
+                  )}
                   <p className="text-sm font-medium mb-1">
-                    {isDragActive ? 'Drop files here' : 'Drag & drop photos or click to browse'}
+                    {uploadingPhotos
+                      ? 'Uploading...'
+                      : isDragActive
+                      ? 'Drop files here'
+                      : 'Drag & drop photos or click to browse'}
                   </p>
-                  <p className="text-xs text-muted-foreground">JPG, PNG, WebP up to 10MB</p>
+                  <p className="text-xs text-muted-foreground">
+                    JPG, PNG, WebP up to 10MB • Photos are uploaded to cloud storage
+                  </p>
                 </div>
 
                 {/* Photo Grid */}
