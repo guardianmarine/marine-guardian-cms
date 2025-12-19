@@ -114,6 +114,20 @@ export function useUnitsSupabase(options: UseUnitsOptions = {}): UseUnitsResult 
         listed_at: unitData.listed_at,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
+        // Internal cost fields
+        cost_purchase: unitData.cost_purchase,
+        cost_transport_in: unitData.cost_transport_in,
+        cost_reconditioning: unitData.cost_reconditioning,
+        cost_recon_parts: unitData.cost_recon_parts,
+        cost_recon_labor: unitData.cost_recon_labor,
+        cost_detailing: unitData.cost_detailing,
+        cost_marketing: unitData.cost_marketing,
+        cost_fees: unitData.cost_fees,
+        cost_overhead_applied: unitData.cost_overhead_applied,
+        notes: unitData.notes,
+        internal_notes: unitData.internal_notes,
+        acquisition_source: unitData.acquisition_source,
+        condition: unitData.condition,
       };
 
       // Remove undefined values
@@ -166,7 +180,12 @@ export function useUnitsSupabase(options: UseUnitsOptions = {}): UseUnitsResult 
       const allowedFields = [
         'category', 'make', 'year', 'model', 'color', 'mileage', 'engine',
         'transmission', 'vin_or_serial', 'axles', 'type', 'hours',
-        'display_price', 'status', 'photos', 'received_at', 'listed_at', 'sold_at'
+        'display_price', 'status', 'photos', 'received_at', 'listed_at', 'sold_at',
+        // Internal cost fields
+        'cost_purchase', 'cost_transport_in', 'cost_reconditioning',
+        'cost_recon_parts', 'cost_recon_labor', 'cost_detailing',
+        'cost_marketing', 'cost_fees', 'cost_overhead_applied',
+        'notes', 'internal_notes', 'acquisition_source', 'condition'
       ];
 
       for (const field of allowedFields) {

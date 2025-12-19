@@ -70,6 +70,11 @@ export interface Unit {
   cost_marketing?: number;
   cost_fees?: number;
   cost_overhead_applied?: number;
+  // Additional internal fields
+  notes?: string;
+  internal_notes?: string;
+  acquisition_source?: string;
+  condition?: string;
   created_at: string;
   updated_at: string;
 }
