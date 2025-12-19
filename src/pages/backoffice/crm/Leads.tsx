@@ -96,14 +96,25 @@ export default function Leads() {
       if (error) throw error;
       setLeads(data || []);
 
-      // Fetch referenced units
+      // Fetch referenced units with schema-safe fallback
       const unitIds = Array.from(new Set((data || []).map(r => r.unit_id).filter(Boolean) as string[]));
       if (unitIds.length > 0) {
         try {
-          const { data: units } = await supabase
+          // Try new schema first (with stock_number, title)
+          let { data: units, error: unitsError } = await supabase
             .from('units')
-            .select('id, title, stock_number, make, model, year, slug')
+            .select('id, stock_number, title, slug, make, model, year')
             .in('id', unitIds);
+          
+          // Fallback to old schema if columns don't exist
+          if (unitsError && unitsError.message?.includes('does not exist')) {
+            const fallback = await supabase
+              .from('units')
+              .select('id, slug, make, model, year')
+              .in('id', unitIds);
+            // Map fallback data to include undefined stock_number/title
+            units = (fallback.data ?? []).map(u => ({ ...u, stock_number: undefined, title: undefined })) as any;
+          }
           
           setUnitsById(Object.fromEntries((units ?? []).map(u => [String(u.id), u])));
         } catch (unitError) {
@@ -284,9 +295,14 @@ export default function Leads() {
                             className="flex items-center gap-1 text-primary hover:underline"
                           >
                             <span className="text-sm">
-                              {unitsById[lead.unit_id].stock_number || 
-                               unitsById[lead.unit_id].title || 
-                               '—'}
+                              {(() => {
+                                const u = unitsById[lead.unit_id];
+                                return u.stock_number 
+                                  || u.title 
+                                  || [u.make, u.model, u.year].filter(Boolean).join(' ').trim() 
+                                  || u.slug 
+                                  || '—';
+                              })()}
                             </span>
                             <ExternalLink className="h-3 w-3" />
                           </Link>
