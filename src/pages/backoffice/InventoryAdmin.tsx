@@ -4,6 +4,7 @@ import { BackofficeLayout } from '@/components/backoffice/Layout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   Table,
   TableBody,
@@ -25,48 +26,63 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { useInventoryStore } from '@/services/inventoryStore';
+import { Skeleton } from '@/components/ui/skeleton';
+import { useUnitsSupabase } from '@/hooks/useUnitsSupabase';
 import { useAuth } from '@/contexts/AuthContext';
-import { Plus, Search, Eye, Edit, CheckCircle, XCircle, MoreVertical, Package, DollarSign, Archive } from 'lucide-react';
+import { Plus, Search, Eye, Edit, CheckCircle, XCircle, MoreVertical, Package, DollarSign, Archive, RefreshCw } from 'lucide-react';
 import { UnitStatus } from '@/types';
 import { useToast } from '@/hooks/use-toast';
+
+type StatusTab = 'all' | 'draft' | 'published' | 'reserved' | 'sold' | 'archived';
 
 export default function InventoryAdmin() {
   const navigate = useNavigate();
   const { toast } = useToast();
   const { user } = useAuth();
-  const { units, publishUnit, unpublishUnit, changeStatus, canPublish } = useInventoryStore();
   
+  const [statusTab, setStatusTab] = useState<StatusTab>('all');
   const [searchTerm, setSearchTerm] = useState('');
   const [filterCategory, setFilterCategory] = useState<string>('');
   const [filterMake, setFilterMake] = useState<string>('');
   const [filterType, setFilterType] = useState<string>('');
-  const [filterStatus, setFilterStatus] = useState<string>('');
   const [filterYearMin, setFilterYearMin] = useState<string>('');
   const [filterYearMax, setFilterYearMax] = useState<string>('');
 
-  // Get unique makes for filter
-  const uniqueMakes = Array.from(new Set(units.map(u => u.make))).sort();
+  // Use Supabase hook for real data
+  const { 
+    units, 
+    loading, 
+    error, 
+    refetch, 
+    publishUnit, 
+    unpublishUnit, 
+    changeStatus 
+  } = useUnitsSupabase({ 
+    statusFilter: statusTab === 'all' ? 'all' : statusTab as UnitStatus 
+  });
 
+  // Get unique makes for filter
+  const uniqueMakes = Array.from(new Set(units.map(u => u.make).filter(Boolean))).sort();
+
+  // Filter units based on search and filters
   const filteredUnits = units.filter((unit) => {
     const matchesSearch =
       searchTerm === '' ||
-      unit.make.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      unit.model.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      unit.vin_or_serial.toLowerCase().includes(searchTerm.toLowerCase());
+      unit.make?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      unit.model?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      unit.vin_or_serial?.toLowerCase().includes(searchTerm.toLowerCase());
 
     const matchesCategory = !filterCategory || unit.category === filterCategory;
     const matchesMake = !filterMake || unit.make === filterMake;
     const matchesType = !filterType || unit.type === filterType;
-    const matchesStatus = !filterStatus || unit.status === filterStatus;
     const matchesYearMin = !filterYearMin || unit.year >= parseInt(filterYearMin);
     const matchesYearMax = !filterYearMax || unit.year <= parseInt(filterYearMax);
 
-    return matchesSearch && matchesCategory && matchesMake && matchesType && matchesStatus && matchesYearMin && matchesYearMax;
+    return matchesSearch && matchesCategory && matchesMake && matchesType && matchesYearMin && matchesYearMax;
   });
 
   const getStatusColor = (status: UnitStatus) => {
-    const colors = {
+    const colors: Record<UnitStatus, string> = {
       draft: 'secondary',
       ready: 'outline',
       published: 'default',
@@ -77,31 +93,28 @@ export default function InventoryAdmin() {
     return colors[status] as any;
   };
 
-  const handleQuickPublish = (id: string) => {
-    const validation = canPublish(id);
-    if (!validation.valid) {
-      toast({
-        title: 'Cannot publish',
-        description: validation.errors.join(', '),
-        variant: 'destructive',
-      });
-      return;
+  const handleQuickPublish = async (id: string) => {
+    const success = await publishUnit(id);
+    if (success) {
+      toast({ title: 'Unit published', description: 'Unit is now live on the website' });
     }
-    publishUnit(id, user?.id || '1');
-    toast({ title: 'Unit published', description: 'Unit is now live' });
   };
 
-  const handleQuickUnpublish = (id: string) => {
-    unpublishUnit(id, user?.id || '1');
-    toast({ title: 'Unit unpublished', description: 'Unit moved to draft' });
+  const handleQuickUnpublish = async (id: string) => {
+    const success = await unpublishUnit(id);
+    if (success) {
+      toast({ title: 'Unit unpublished', description: 'Unit moved to draft' });
+    }
   };
 
-  const handleReserve = (id: string) => {
-    changeStatus(id, 'reserved', user?.id || '1');
-    toast({ title: 'Unit reserved', description: 'Unit marked as reserved' });
+  const handleReserve = async (id: string) => {
+    const success = await changeStatus(id, 'reserved');
+    if (success) {
+      toast({ title: 'Unit reserved', description: 'Unit marked as reserved' });
+    }
   };
 
-  const handleMarkSold = (id: string) => {
+  const handleMarkSold = async (id: string) => {
     if (user?.role !== 'admin') {
       toast({
         title: 'Permission denied',
@@ -110,13 +123,30 @@ export default function InventoryAdmin() {
       });
       return;
     }
-    changeStatus(id, 'sold', user?.id || '1');
-    toast({ title: 'Unit sold', description: 'Unit marked as sold' });
+    const success = await changeStatus(id, 'sold');
+    if (success) {
+      toast({ title: 'Unit sold', description: 'Unit marked as sold' });
+    }
   };
 
-  const handleArchive = (id: string) => {
-    changeStatus(id, 'archived', user?.id || '1');
-    toast({ title: 'Unit archived', description: 'Unit moved to archive' });
+  const handleArchive = async (id: string) => {
+    const success = await changeStatus(id, 'archived');
+    if (success) {
+      toast({ title: 'Unit archived', description: 'Unit moved to archive' });
+    }
+  };
+
+  // Stats based on all units (not filtered)
+  const stats = {
+    total: units.length,
+    published: units.filter(u => u.status === 'published').length,
+    reserved: units.filter(u => u.status === 'reserved').length,
+    soldThisMonth: units.filter(u => {
+      if (u.status !== 'sold' || !u.sold_at) return false;
+      const soldDate = new Date(u.sold_at);
+      const now = new Date();
+      return soldDate.getMonth() === now.getMonth() && soldDate.getFullYear() === now.getFullYear();
+    }).length,
   };
 
   return (
@@ -127,37 +157,61 @@ export default function InventoryAdmin() {
             <h2 className="text-3xl font-bold">Inventory Management</h2>
             <p className="text-muted-foreground">Manage units, photos, and publishing workflow</p>
           </div>
-          <Button onClick={() => navigate('/backoffice/inventory/new')}>
-            <Plus className="h-4 w-4 mr-2" />
-            Add Unit
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button variant="outline" size="icon" onClick={() => refetch()} disabled={loading}>
+              <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+            </Button>
+            <Button onClick={() => navigate('/backoffice/inventory/new')}>
+              <Plus className="h-4 w-4 mr-2" />
+              Add Unit
+            </Button>
+          </div>
         </div>
+
+        {/* Error message */}
+        {error && (
+          <div className="p-4 border border-destructive rounded-lg bg-destructive/10 text-destructive">
+            Error loading inventory: {error}
+          </div>
+        )}
 
         {/* Stats Cards */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <div className="p-4 border rounded-lg bg-card">
             <div className="text-sm text-muted-foreground">Total Units</div>
-            <div className="text-2xl font-bold">{units.length}</div>
+            <div className="text-2xl font-bold">{loading ? '...' : stats.total}</div>
           </div>
           <div className="p-4 border rounded-lg bg-card">
             <div className="text-sm text-muted-foreground">Published</div>
             <div className="text-2xl font-bold text-green-600">
-              {units.filter(u => u.status === 'published').length}
+              {loading ? '...' : stats.published}
             </div>
           </div>
           <div className="p-4 border rounded-lg bg-card">
             <div className="text-sm text-muted-foreground">Reserved</div>
             <div className="text-2xl font-bold text-blue-600">
-              {units.filter(u => u.status === 'reserved').length}
+              {loading ? '...' : stats.reserved}
             </div>
           </div>
           <div className="p-4 border rounded-lg bg-card">
             <div className="text-sm text-muted-foreground">Sold (This Month)</div>
             <div className="text-2xl font-bold text-orange-600">
-              {units.filter(u => u.status === 'sold' && u.sold_at && new Date(u.sold_at).getMonth() === new Date().getMonth()).length}
+              {loading ? '...' : stats.soldThisMonth}
             </div>
           </div>
         </div>
+
+        {/* Status Tabs */}
+        <Tabs value={statusTab} onValueChange={(v) => setStatusTab(v as StatusTab)}>
+          <TabsList>
+            <TabsTrigger value="all">All</TabsTrigger>
+            <TabsTrigger value="draft">Draft</TabsTrigger>
+            <TabsTrigger value="published">Published</TabsTrigger>
+            <TabsTrigger value="reserved">Reserved</TabsTrigger>
+            <TabsTrigger value="sold">Sold</TabsTrigger>
+            <TabsTrigger value="archived">Archived</TabsTrigger>
+          </TabsList>
+        </Tabs>
 
         {/* Filters */}
         <div className="flex flex-col gap-4">
@@ -218,20 +272,7 @@ export default function InventoryAdmin() {
               onChange={(e) => setFilterYearMax(e.target.value)}
               className="w-full sm:w-32"
             />
-            <Select value={filterStatus} onValueChange={setFilterStatus}>
-              <SelectTrigger className="w-full sm:w-40">
-                <SelectValue placeholder="Status" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="draft">Draft</SelectItem>
-                <SelectItem value="ready">Ready</SelectItem>
-                <SelectItem value="published">Published</SelectItem>
-                <SelectItem value="reserved">Reserved</SelectItem>
-                <SelectItem value="sold">Sold</SelectItem>
-                <SelectItem value="archived">Archived</SelectItem>
-              </SelectContent>
-            </Select>
-            {(searchTerm || filterCategory || filterMake || filterType || filterStatus || filterYearMin || filterYearMax) && (
+            {(searchTerm || filterCategory || filterMake || filterType || filterYearMin || filterYearMax) && (
               <Button
                 variant="ghost"
                 onClick={() => {
@@ -239,7 +280,6 @@ export default function InventoryAdmin() {
                   setFilterCategory('');
                   setFilterMake('');
                   setFilterType('');
-                  setFilterStatus('');
                   setFilterYearMin('');
                   setFilterYearMax('');
                 }}
@@ -271,7 +311,26 @@ export default function InventoryAdmin() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filteredUnits.length === 0 ? (
+              {loading ? (
+                // Loading skeleton
+                Array.from({ length: 5 }).map((_, i) => (
+                  <TableRow key={i}>
+                    <TableCell><Skeleton className="w-12 h-12 rounded" /></TableCell>
+                    <TableCell><Skeleton className="h-4 w-32" /></TableCell>
+                    <TableCell><Skeleton className="h-4 w-16" /></TableCell>
+                    <TableCell><Skeleton className="h-4 w-12" /></TableCell>
+                    <TableCell><Skeleton className="h-4 w-20" /></TableCell>
+                    <TableCell><Skeleton className="h-4 w-24" /></TableCell>
+                    <TableCell><Skeleton className="h-4 w-16" /></TableCell>
+                    <TableCell><Skeleton className="h-4 w-16" /></TableCell>
+                    <TableCell><Skeleton className="h-4 w-16" /></TableCell>
+                    <TableCell><Skeleton className="h-4 w-20" /></TableCell>
+                    <TableCell><Skeleton className="h-4 w-20" /></TableCell>
+                    <TableCell><Skeleton className="h-4 w-20" /></TableCell>
+                    <TableCell><Skeleton className="h-4 w-16" /></TableCell>
+                  </TableRow>
+                ))
+              ) : filteredUnits.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={13} className="text-center py-12 text-muted-foreground">
                     No units found
@@ -279,7 +338,8 @@ export default function InventoryAdmin() {
                 </TableRow>
               ) : (
                 filteredUnits.map((unit) => {
-                  const mainPhoto = unit.photos.find(p => p.is_main) || unit.photos[0];
+                  const photos = unit.photos || [];
+                  const mainPhoto = photos.find(p => p.is_main) || photos[0];
                   return (
                     <TableRow key={unit.id}>
                       <TableCell>
@@ -299,24 +359,24 @@ export default function InventoryAdmin() {
                         <div className="font-medium">
                           {unit.make} {unit.model}
                         </div>
-                        <Badge variant={unit.photos.length >= 4 ? 'secondary' : 'destructive'} className="text-xs">
-                          {unit.photos.length} photos
+                        <Badge variant={photos.length >= 4 ? 'secondary' : 'destructive'} className="text-xs">
+                          {photos.length} photos
                         </Badge>
                       </TableCell>
                       <TableCell className="capitalize text-xs">{unit.category}</TableCell>
                       <TableCell>{unit.year}</TableCell>
                       <TableCell className="text-sm">{unit.type}</TableCell>
                       <TableCell className="font-mono text-xs">
-                        {unit.vin_or_serial.substring(0, 10)}...
+                        {unit.vin_or_serial?.substring(0, 10)}...
                       </TableCell>
                       <TableCell className="text-sm">
                         {unit.mileage ? unit.mileage.toLocaleString() : '-'}
                       </TableCell>
-                      <TableCell className="font-semibold">${unit.display_price.toLocaleString()}</TableCell>
+                      <TableCell className="font-semibold">${unit.display_price?.toLocaleString() || 0}</TableCell>
                       <TableCell>
                         <Badge variant={getStatusColor(unit.status)}>{unit.status}</Badge>
                       </TableCell>
-                      <TableCell className="text-sm">{unit.received_at}</TableCell>
+                      <TableCell className="text-sm">{unit.received_at || '-'}</TableCell>
                       <TableCell className="text-sm">{unit.listed_at || '-'}</TableCell>
                       <TableCell className="text-sm">{unit.sold_at || '-'}</TableCell>
                       <TableCell className="text-right">
