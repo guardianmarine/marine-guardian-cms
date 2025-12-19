@@ -6,7 +6,6 @@ import { BackofficeLayout } from '@/components/backoffice/Layout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
 import {
   Select,
   SelectContent,
@@ -17,9 +16,9 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
-import { useInventoryStore } from '@/services/inventoryStore';
-import { Unit, UnitCategory, UnitStatus, TruckType, TrailerType, UnitPhoto } from '@/types';
-import { mockLocation } from '@/services/mockData';
+import { Skeleton } from '@/components/ui/skeleton';
+import { useUnitsSupabase, useUnitById } from '@/hooks/useUnitsSupabase';
+import { Unit, UnitCategory, UnitStatus, UnitPhoto } from '@/types';
 import { useToast } from '@/hooks/use-toast';
 import { getTruckTypes, getTrailerTypes } from '@/lib/i18n-helpers';
 import { useVinDecode } from '@/hooks/useVinDecode';
@@ -29,6 +28,7 @@ import {
   Save,
   Upload,
   CheckCircle,
+  XCircle,
   X,
   Star,
   GripVertical,
@@ -47,10 +47,12 @@ export default function UnitForm() {
   const { toast } = useToast();
   const { t } = useTranslation();
   const { user } = useAuth();
-  const { units, addUnit, updateUnit, publishUnit, canPublish, getUnitEvents, addPhoto, deletePhoto, setMainPhoto, updatePhotoOrder, logEvent } = useInventoryStore();
   const { loading: vinLoading, error: vinError, result: vinResult, decodeVin, reset: resetVinDecode } = useVinDecode();
 
-  const existingUnit = id ? units.find((u) => u.id === id) : null;
+  // Supabase hooks
+  const { unit: existingUnit, loading: loadingUnit } = useUnitById(id);
+  const { addUnit, updateUnit, publishUnit, unpublishUnit } = useUnitsSupabase();
+
   const isNew = !id;
 
   // Get translated type options
@@ -58,32 +60,57 @@ export default function UnitForm() {
   const trailerTypes = getTrailerTypes(t);
 
   // Form state
-  const [category, setCategory] = useState<UnitCategory>(existingUnit?.category || 'truck');
-  const [make, setMake] = useState(existingUnit?.make || '');
-  const [year, setYear] = useState(existingUnit?.year?.toString() || '');
-  const [model, setModel] = useState(existingUnit?.model || '');
-  const [color, setColor] = useState(existingUnit?.color || '');
-  const [mileage, setMileage] = useState(existingUnit?.mileage?.toString() || '');
-  const [engine, setEngine] = useState(existingUnit?.engine || '');
-  const [transmission, setTransmission] = useState(existingUnit?.transmission || '');
-  const [vinOrSerial, setVinOrSerial] = useState(existingUnit?.vin_or_serial || '');
-  const [axles, setAxles] = useState(existingUnit?.axles?.toString() || '');
-  const [type, setType] = useState(existingUnit?.type || '');
-  const [hours, setHours] = useState(existingUnit?.hours?.toString() || '');
-  const [displayPrice, setDisplayPrice] = useState(existingUnit?.display_price?.toString() || '');
-  const [costPurchase, setCostPurchase] = useState(existingUnit?.cost_purchase?.toString() || '');
-  const [costTransportIn, setCostTransportIn] = useState(existingUnit?.cost_transport_in?.toString() || '');
-  const [costReconditioning, setCostReconditioning] = useState(existingUnit?.cost_reconditioning?.toString() || '');
-  const [status, setStatus] = useState<UnitStatus>(existingUnit?.status || 'draft');
-  const [photos, setPhotos] = useState<UnitPhoto[]>(existingUnit?.photos || []);
+  const [category, setCategory] = useState<UnitCategory>('truck');
+  const [make, setMake] = useState('');
+  const [year, setYear] = useState('');
+  const [model, setModel] = useState('');
+  const [color, setColor] = useState('');
+  const [mileage, setMileage] = useState('');
+  const [engine, setEngine] = useState('');
+  const [transmission, setTransmission] = useState('');
+  const [vinOrSerial, setVinOrSerial] = useState('');
+  const [axles, setAxles] = useState('');
+  const [type, setType] = useState('');
+  const [hours, setHours] = useState('');
+  const [displayPrice, setDisplayPrice] = useState('');
+  const [costPurchase, setCostPurchase] = useState('');
+  const [costTransportIn, setCostTransportIn] = useState('');
+  const [costReconditioning, setCostReconditioning] = useState('');
+  const [status, setStatus] = useState<UnitStatus>('draft');
+  const [photos, setPhotos] = useState<UnitPhoto[]>([]);
   const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
   const [showVinPanel, setShowVinPanel] = useState(false);
+  const [saving, setSaving] = useState(false);
 
   const currentYear = new Date().getFullYear();
   const sensors = useSensors(
     useSensor(PointerSensor),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
   );
+
+  // Populate form from existing unit
+  useEffect(() => {
+    if (existingUnit) {
+      setCategory(existingUnit.category || 'truck');
+      setMake(existingUnit.make || '');
+      setYear(existingUnit.year?.toString() || '');
+      setModel(existingUnit.model || '');
+      setColor(existingUnit.color || '');
+      setMileage(existingUnit.mileage?.toString() || '');
+      setEngine(existingUnit.engine || '');
+      setTransmission(existingUnit.transmission || '');
+      setVinOrSerial(existingUnit.vin_or_serial || '');
+      setAxles(existingUnit.axles?.toString() || '');
+      setType(existingUnit.type || '');
+      setHours(existingUnit.hours?.toString() || '');
+      setDisplayPrice(existingUnit.display_price?.toString() || '');
+      setCostPurchase(existingUnit.cost_purchase?.toString() || '');
+      setCostTransportIn(existingUnit.cost_transport_in?.toString() || '');
+      setCostReconditioning(existingUnit.cost_reconditioning?.toString() || '');
+      setStatus(existingUnit.status || 'draft');
+      setPhotos(existingUnit.photos || []);
+    }
+  }, [existingUnit]);
 
   // Validate form
   const validateForm = (): boolean => {
@@ -153,16 +180,13 @@ export default function UnitForm() {
             updated_at: new Date().toISOString(),
           };
           setPhotos((prev) => [...prev, newPhoto]);
-          if (id) {
-            addPhoto(id, newPhoto);
-          }
         };
         reader.readAsDataURL(file);
       });
     },
   });
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!validateForm()) {
       toast({
         title: 'Validation errors',
@@ -171,6 +195,8 @@ export default function UnitForm() {
       });
       return;
     }
+
+    setSaving(true);
 
     const unitData: Partial<Unit> = {
       category,
@@ -190,29 +216,31 @@ export default function UnitForm() {
       cost_transport_in: costTransportIn ? parseFloat(costTransportIn) : undefined,
       cost_reconditioning: costReconditioning ? parseFloat(costReconditioning) : undefined,
       status,
+      photos,
+      received_at: existingUnit?.received_at || new Date().toISOString().split('T')[0],
     };
 
-    if (isNew) {
-      const newUnit: Unit = {
-        id: Math.random().toString(36).substr(2, 9),
-        ...unitData,
-        location_id: mockLocation.id,
-        location: mockLocation,
-        photos,
-        received_at: new Date().toISOString().split('T')[0],
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      } as Unit;
-      addUnit(newUnit);
-      toast({ title: 'Unit created', description: 'Unit has been created successfully' });
-      navigate('/backoffice/inventory');
-    } else if (id) {
-      updateUnit(id, { ...unitData, photos });
-      toast({ title: 'Unit updated', description: 'Changes saved successfully' });
+    try {
+      if (isNew) {
+        const result = await addUnit(unitData);
+        if (result) {
+          toast({ title: 'Unit created', description: 'Unit has been saved to database' });
+          navigate(`/backoffice/inventory/${result.id}`);
+        }
+      } else if (id) {
+        const result = await updateUnit(id, unitData);
+        if (result) {
+          toast({ title: 'Unit updated', description: 'Changes saved successfully' });
+          // Update local state with DB response
+          setStatus(result.status);
+        }
+      }
+    } finally {
+      setSaving(false);
     }
   };
 
-  const handlePublish = () => {
+  const handlePublish = async () => {
     if (!id) {
       toast({
         title: 'Cannot publish',
@@ -222,37 +250,57 @@ export default function UnitForm() {
       return;
     }
 
-    const validation = canPublish(id);
-    if (!validation.valid) {
+    // Basic validation for publishing
+    const errors: string[] = [];
+    if (photos.length < 4) errors.push('At least 4 photos required');
+    if (!make) errors.push('Make is required');
+    if (!model) errors.push('Model is required');
+    if (!displayPrice || parseFloat(displayPrice) <= 0) errors.push('Valid price required');
+
+    if (errors.length > 0) {
       toast({
         title: 'Cannot publish',
-        description: validation.errors.join(', '),
+        description: errors.join(', '),
         variant: 'destructive',
       });
       return;
     }
 
-    const success = publishUnit(id, '1');
-    if (success) {
-      setStatus('published');
-      toast({ title: 'Unit published', description: 'Unit is now live on the website' });
+    setSaving(true);
+    try {
+      const success = await publishUnit(id);
+      if (success) {
+        setStatus('published');
+        toast({ title: 'Unit published', description: 'Unit is now live on the website' });
+      }
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleUnpublish = async () => {
+    if (!id) return;
+
+    setSaving(true);
+    try {
+      const success = await unpublishUnit(id);
+      if (success) {
+        setStatus('draft');
+        toast({ title: 'Unit unpublished', description: 'Unit moved back to draft' });
+      }
+    } finally {
+      setSaving(false);
     }
   };
 
   const handleRemovePhoto = (photoId: string) => {
     setPhotos((prev) => prev.filter((p) => p.id !== photoId));
-    if (id) {
-      deletePhoto(id, photoId);
-    }
   };
 
   const handleSetMainPhoto = (photoId: string) => {
     setPhotos((prev) =>
       prev.map((p) => ({ ...p, is_main: p.id === photoId }))
     );
-    if (id) {
-      setMainPhoto(id, photoId);
-    }
   };
 
   const handlePhotoDragEnd = (event: any) => {
@@ -261,20 +309,15 @@ export default function UnitForm() {
       setPhotos((items) => {
         const oldIndex = items.findIndex((item) => item.id === active.id);
         const newIndex = items.findIndex((item) => item.id === over.id);
-        const reorderedPhotos = arrayMove(items, oldIndex, newIndex).map((item, idx) => ({
+        return arrayMove(items, oldIndex, newIndex).map((item, idx) => ({
           ...item,
           sort: idx,
         }));
-        if (id) {
-          updatePhotoOrder(id, reorderedPhotos);
-        }
-        return reorderedPhotos;
       });
     }
   };
 
   const handleDecodeVin = async () => {
-    // Validate VIN length
     if (category === 'truck' && vinOrSerial.length !== 17) {
       toast({
         title: t('vinDecode.error'),
@@ -334,26 +377,6 @@ export default function UnitForm() {
       setAxles(vinResult.axles);
       updates.push('axles');
     }
-    if (selectedFields.typeHint && vinResult.typeHint) {
-      // Type hint is applied as suggestion, user still needs to set it
-      updates.push('type');
-    }
-
-    // Log detailed event for audit trail
-    if (id) {
-      logEvent({
-        unit_id: id,
-        event_type: 'updated',
-        data: {
-          action: 'vin_decoded',
-          provider: 'nhtsa',
-          vin: vinOrSerial,
-          model_year: year || null,
-          fields_applied: updates,
-        },
-        actor_user_id: user?.id || '1',
-      });
-    }
 
     toast({
       title: t('vinDecode.success'),
@@ -363,11 +386,24 @@ export default function UnitForm() {
     resetVinDecode();
   };
 
-  const validation = id ? canPublish(id) : { valid: false, errors: [] };
-  const events = id ? getUnitEvents(id) : [];
-  
-  // Check if user has permission to see decode button
   const canDecodeVin = user?.role === 'inventory' || user?.role === 'admin';
+
+  // Loading state for edit mode
+  if (!isNew && loadingUnit) {
+    return (
+      <BackofficeLayout>
+        <div className="p-6 space-y-6">
+          <Skeleton className="h-10 w-64" />
+          <Skeleton className="h-6 w-48" />
+          <div className="grid grid-cols-2 gap-4">
+            <Skeleton className="h-10" />
+            <Skeleton className="h-10" />
+          </div>
+          <Skeleton className="h-64" />
+        </div>
+      </BackofficeLayout>
+    );
+  }
 
   return (
     <BackofficeLayout>
@@ -383,12 +419,18 @@ export default function UnitForm() {
             <Button variant="outline" onClick={() => navigate('/backoffice/inventory')}>
               Cancel
             </Button>
-            <Button onClick={handleSave}>
-              <Save className="h-4 w-4 mr-2" />
+            <Button onClick={handleSave} disabled={saving}>
+              {saving ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Save className="h-4 w-4 mr-2" />}
               Save
             </Button>
+            {!isNew && status === 'published' && (
+              <Button onClick={handleUnpublish} variant="outline" disabled={saving}>
+                <XCircle className="h-4 w-4 mr-2" />
+                Unpublish
+              </Button>
+            )}
             {!isNew && status !== 'published' && (
-              <Button onClick={handlePublish} variant="default">
+              <Button onClick={handlePublish} variant="default" disabled={saving}>
                 <CheckCircle className="h-4 w-4 mr-2" />
                 Publish
               </Button>
@@ -397,7 +439,7 @@ export default function UnitForm() {
         </div>
 
         {/* Validation Status */}
-        {!isNew && !validation.valid && (
+        {!isNew && photos.length < 4 && (
           <Card className="border-destructive">
             <CardContent className="p-4">
               <div className="flex items-start space-x-2">
@@ -405,9 +447,7 @@ export default function UnitForm() {
                 <div>
                   <p className="font-semibold text-destructive">Cannot publish - issues found:</p>
                   <ul className="list-disc list-inside text-sm mt-1 space-y-1">
-                    {validation.errors.map((error, idx) => (
-                      <li key={idx}>{error}</li>
-                    ))}
+                    {photos.length < 4 && <li>Unit must have at least 4 photos</li>}
                   </ul>
                 </div>
               </div>
@@ -419,7 +459,6 @@ export default function UnitForm() {
           <TabsList>
             <TabsTrigger value="details">Details</TabsTrigger>
             <TabsTrigger value="photos">Photos ({photos.length})</TabsTrigger>
-            {!isNew && <TabsTrigger value="history">History ({events.length})</TabsTrigger>}
           </TabsList>
 
           {/* Details Tab */}
@@ -814,36 +853,6 @@ export default function UnitForm() {
               </CardContent>
             </Card>
           </TabsContent>
-
-          {/* History Tab */}
-          {!isNew && (
-            <TabsContent value="history">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Activity History</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  {events.length === 0 ? (
-                    <p className="text-center py-8 text-muted-foreground">No activity yet</p>
-                  ) : (
-                    <div className="space-y-3">
-                      {events.map((event) => (
-                        <div key={event.id} className="flex items-start space-x-3 p-3 rounded-lg bg-muted/50">
-                          <Clock className="h-5 w-5 text-muted-foreground mt-0.5" />
-                          <div className="flex-1">
-                            <p className="font-medium capitalize">{event.event_type.replace('_', ' ')}</p>
-                            <p className="text-sm text-muted-foreground">
-                              {new Date(event.occurred_at).toLocaleString()}
-                            </p>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            </TabsContent>
-          )}
         </Tabs>
       </div>
 
@@ -883,7 +892,8 @@ function SortablePhotoItem({
         <button
           {...attributes}
           {...listeners}
-          className="p-2 bg-white/20 rounded-lg hover:bg-white/30 transition-colors cursor-move"
+          className="p-2 bg-white/20 rounded-lg hover:bg-white/30 transition-colors cursor-grab"
+          title="Drag to reorder"
         >
           <GripVertical className="h-4 w-4 text-white" />
         </button>
@@ -892,18 +902,20 @@ function SortablePhotoItem({
           className={`p-2 rounded-lg transition-colors ${
             photo.is_main ? 'bg-yellow-500' : 'bg-white/20 hover:bg-white/30'
           }`}
+          title={photo.is_main ? 'Main photo' : 'Set as main'}
         >
-          <Star className="h-4 w-4 text-white" fill={photo.is_main ? 'white' : 'none'} />
+          <Star className={`h-4 w-4 ${photo.is_main ? 'text-white fill-white' : 'text-white'}`} />
         </button>
         <button
           onClick={() => onRemove(photo.id)}
-          className="p-2 bg-red-500/80 rounded-lg hover:bg-red-500 transition-colors"
+          className="p-2 bg-red-500/80 rounded-lg hover:bg-red-600 transition-colors"
+          title="Remove photo"
         >
           <X className="h-4 w-4 text-white" />
         </button>
       </div>
       {photo.is_main && (
-        <Badge className="absolute top-2 left-2 bg-yellow-500">Main</Badge>
+        <Badge className="absolute top-2 left-2 bg-yellow-500 text-white">Main</Badge>
       )}
     </div>
   );

@@ -10,8 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Card, CardContent } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
-import { InventoryService } from '@/services/inventoryService';
-import { ContentService } from '@/services/contentService';
+import { usePublicInventory } from '@/hooks/useUnitsSupabase';
 import { Unit, InventoryFilters } from '@/types';
 import { Filter, SlidersHorizontal, Truck } from 'lucide-react';
 import { getUnitTypeLabel } from '@/lib/i18n-helpers';
@@ -23,13 +22,42 @@ type SortOption = 'newest' | 'year' | 'mileage' | 'price';
 export default function Inventory() {
   const { t, i18n } = useTranslation();
   const [searchParams, setSearchParams] = useSearchParams();
-  const [units, setUnits] = useState<Unit[]>([]);
   const [displayedUnits, setDisplayedUnits] = useState<Unit[]>([]);
   const [featuredPicks, setFeaturedPicks] = useState<Unit[]>([]);
-  const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);
   const [sortBy, setSortBy] = useState<SortOption>('newest');
   const [filters, setFilters] = useState<InventoryFilters>({});
+
+  // Use Supabase for real data (only published units)
+  const { units: rawUnits, loading } = usePublicInventory();
+
+  // Apply local filters and sorting
+  const units = rawUnits.filter((unit) => {
+    if (filters.category && unit.category !== filters.category) return false;
+    if (filters.make && unit.make !== filters.make) return false;
+    if (filters.type && unit.type !== filters.type) return false;
+    if (filters.year_min && unit.year < filters.year_min) return false;
+    if (filters.year_max && unit.year > filters.year_max) return false;
+    if (filters.mileage_min && (unit.mileage || 0) < filters.mileage_min) return false;
+    if (filters.mileage_max && (unit.mileage || 0) > filters.mileage_max) return false;
+    return true;
+  });
+
+  // Sort units
+  const sortedUnits = [...units].sort((a, b) => {
+    switch (sortBy) {
+      case 'newest':
+        return new Date(b.listed_at || b.created_at).getTime() - new Date(a.listed_at || a.created_at).getTime();
+      case 'year':
+        return b.year - a.year;
+      case 'mileage':
+        return (a.mileage || 0) - (b.mileage || 0);
+      case 'price':
+        return a.display_price - b.display_price;
+      default:
+        return 0;
+    }
+  });
 
   useEffect(() => {
     const category = searchParams.get('category') as any;
@@ -45,32 +73,12 @@ export default function Inventory() {
   }, [searchParams]);
 
   useEffect(() => {
-    const loadUnits = async () => {
-      setLoading(true);
-      const data = await InventoryService.getPublicUnits(filters, i18n.language as any);
-      
-      // Sort units
-      const sorted = sortUnits(data, sortBy);
-      setUnits(sorted);
-      setDisplayedUnits(sorted.slice(0, ITEMS_PER_PAGE));
-      setLoading(false);
-    };
-    loadUnits();
-  }, [filters, sortBy, i18n.language]);
+    setDisplayedUnits(sortedUnits.slice(0, page * ITEMS_PER_PAGE));
+  }, [page, sortedUnits]);
 
-  useEffect(() => {
-    setDisplayedUnits(units.slice(0, page * ITEMS_PER_PAGE));
-  }, [page, units]);
-
-  useEffect(() => {
-    // Load featured picks for empty state
-    const loadFeatured = async () => {
-      const content = await ContentService.getHomeContent(i18n.language as any);
-      const picks = content.featuredPicks.map(fp => fp.unit).filter(Boolean) as Unit[];
-      setFeaturedPicks(picks);
-    };
-    loadFeatured();
-  }, [i18n.language]);
+  // Get unique makes/types from current data
+  const makes = [...new Set(rawUnits.filter(u => !filters.category || u.category === filters.category).map(u => u.make))].sort();
+  const types = [...new Set(rawUnits.filter(u => !filters.category || u.category === filters.category).map(u => u.type))].sort();
 
   const sortUnits = (unitsList: Unit[], sort: SortOption): Unit[] => {
     const sorted = [...unitsList];
