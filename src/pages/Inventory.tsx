@@ -80,26 +80,6 @@ export default function Inventory() {
   const makes = [...new Set(rawUnits.filter(u => !filters.category || u.category === filters.category).map(u => u.make))].sort();
   const types = [...new Set(rawUnits.filter(u => !filters.category || u.category === filters.category).map(u => u.type))].sort();
 
-  const sortUnits = (unitsList: Unit[], sort: SortOption): Unit[] => {
-    const sorted = [...unitsList];
-    switch (sort) {
-      case 'newest':
-        return sorted.sort((a, b) => 
-          new Date(b.listed_at || b.created_at).getTime() - new Date(a.listed_at || a.created_at).getTime()
-        );
-      case 'year':
-        return sorted.sort((a, b) => b.year - a.year);
-      case 'mileage':
-        return sorted.sort((a, b) => (a.mileage || 0) - (b.mileage || 0));
-      case 'price':
-        return sorted.sort((a, b) => a.display_price - b.display_price);
-      default:
-        return sorted;
-    }
-  };
-
-  const makes = InventoryService.getUniqueMakes(filters.category);
-  const types = InventoryService.getUniqueTypes(filters.category);
 
   const updateFilter = (key: string, value: string) => {
     const newParams = new URLSearchParams(searchParams);
