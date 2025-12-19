@@ -46,6 +46,16 @@ ADD COLUMN IF NOT EXISTS acquisition_source TEXT;
 ALTER TABLE public.units 
 ADD COLUMN IF NOT EXISTS condition TEXT;
 
+-- 4) Add missing date tracking columns
+ALTER TABLE public.units 
+ADD COLUMN IF NOT EXISTS received_at TIMESTAMPTZ;
+
+ALTER TABLE public.units 
+ADD COLUMN IF NOT EXISTS listed_at TIMESTAMPTZ;
+
+ALTER TABLE public.units 
+ADD COLUMN IF NOT EXISTS sold_at TIMESTAMPTZ;
+
 -- Add comments for documentation
 COMMENT ON COLUMN public.units.hours IS 'Engine/equipment hours - internal use only';
 COMMENT ON COLUMN public.units.cost_purchase IS 'Initial purchase/acquisition cost - internal only';
