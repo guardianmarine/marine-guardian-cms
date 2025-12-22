@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next';
 import * as Icons from 'lucide-react';
 import { ChevronDown, User, LogOut, Sun, Moon } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { NavItem, filterNavByRole, Role } from '@/nav/config';
+import { NavItem, filterNavByRole, filterNavByPermissions, Role } from '@/nav/config';
 import { Button } from '@/components/ui/button';
 import { 
   DropdownMenu, 
@@ -15,6 +15,7 @@ import {
   DropdownMenuLabel,
 } from '@/components/ui/dropdown-menu';
 import { useAuth } from '@/contexts/AuthContext';
+import { useModuleAccess } from '@/hooks/useModuleAccess';
 import gmLogoDark from '@/assets/brand/gm-logo-dark.png';
 import gmLogoLight from '@/assets/brand/gm-logo-light.png';
 import gmMarkDark from '@/assets/brand/gm-mark-dark.png';
@@ -29,6 +30,7 @@ interface ModernSidebarProps {
 export function ModernSidebar({ items, userRole, getBadge }: ModernSidebarProps) {
   const { i18n, t } = useTranslation();
   const { user, logout } = useAuth();
+  const { canView, isAdmin, loading: permissionsLoading } = useModuleAccess();
   const location = useLocation();
   const navigate = useNavigate();
   const locale = (i18n.language === 'es' ? 'es' : 'en') as 'en' | 'es';
@@ -64,8 +66,15 @@ export function ModernSidebar({ items, userRole, getBadge }: ModernSidebarProps)
     return new Set();
   });
 
-  // Filter items by role
-  const visibleItems = filterNavByRole(items, userRole);
+  // Filter items by granular permissions (with fallback to role-based during loading)
+  const visibleItems = useMemo(() => {
+    // If permissions are still loading, use legacy role-based filter
+    if (permissionsLoading) {
+      return filterNavByRole(items, userRole);
+    }
+    // Use granular permissions
+    return filterNavByPermissions(items, canView, isAdmin);
+  }, [items, userRole, canView, isAdmin, permissionsLoading]);
 
   // Cleanup legacy localStorage
   useEffect(() => {
