@@ -5,7 +5,6 @@ import { Badge } from '@/components/ui/badge';
 import { MapPin, ArrowRight } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
-import { generateUnitSlug } from '@/lib/seo';
 import { getUnitTypeLabel } from '@/lib/i18n-helpers';
 
 interface UnitCardXLProps {
@@ -15,7 +14,7 @@ interface UnitCardXLProps {
 export function UnitCardXL({ unit }: UnitCardXLProps) {
   const { t } = useTranslation();
   const mainPhoto = unit.photos.find((p) => p.is_main) || unit.photos[0];
-  const slug = generateUnitSlug(unit);
+  const href = unit.slug ? `/unit/${unit.slug}` : `/unit/${unit.id}`;
   const typeLabel = getUnitTypeLabel(unit.type, unit.category, t);
 
   const isNewArrival = () => {
@@ -27,7 +26,7 @@ export function UnitCardXL({ unit }: UnitCardXLProps) {
   };
 
   return (
-    <Link to={slug}>
+    <Link to={href}>
       <Card className="overflow-hidden hover:shadow-strong transition-all h-full group">
         {/* Image with Gradient Overlay */}
         <div className="relative aspect-[16/10] overflow-hidden">
