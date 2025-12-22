@@ -145,7 +145,7 @@ export default function CommissionsReport() {
 
   return (
     <BackofficeLayout>
-      <PermissionGuard allowedRoles={['finance', 'admin']}>
+      <PermissionGuard module="commissions" allowedRoles={['finance', 'admin']}>
         <div className="p-6 space-y-6">
         <div>
           <h1 className="text-3xl font-bold">Commissions Report</h1>

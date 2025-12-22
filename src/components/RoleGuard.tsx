@@ -1,31 +1,63 @@
 import { ReactNode, useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
+import { useModuleAccess } from '@/hooks/useModuleAccess';
 import { useTranslation } from 'react-i18next';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { AlertCircle } from 'lucide-react';
+import { AlertCircle, ShieldX, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
+import type { ModuleName, PermissionAction, AppRole } from '@/types/permissions';
 
 interface RoleGuardProps {
   children: ReactNode;
+  /** Legacy: allowed roles for backward compatibility */
   allowedRoles: string[];
+  /** New: module to check granular permission for */
+  module?: ModuleName;
+  /** New: action to check (defaults to 'view') */
+  action?: PermissionAction;
+  /** Custom fallback component */
   fallback?: ReactNode;
 }
 
-export function RoleGuard({ children, allowedRoles, fallback }: RoleGuardProps) {
+/**
+ * RoleGuard - Hybrid route protection with granular permissions
+ * 
+ * When `module` is provided, uses granular permission checking.
+ * Otherwise, falls back to legacy role-based checking.
+ * 
+ * This provides backward compatibility while allowing gradual migration
+ * to the new granular permission system.
+ */
+export function RoleGuard({ 
+  children, 
+  allowedRoles, 
+  module,
+  action = 'view',
+  fallback 
+}: RoleGuardProps) {
   const { user } = useAuth();
   const { t } = useTranslation();
   const navigate = useNavigate();
-  const [loading, setLoading] = useState(true);
-  const [isAuthorized, setIsAuthorized] = useState(false);
+  const { loading: permLoading, can, isAdmin, hasAnyRole, roles } = useModuleAccess();
+  
+  const [legacyLoading, setLegacyLoading] = useState(!module);
+  const [legacyAuthorized, setLegacyAuthorized] = useState(false);
   const [authError, setAuthError] = useState<string | null>(null);
 
+  // Legacy role-based check (only runs if module is not provided)
   useEffect(() => {
+    if (module) {
+      // Using granular permissions, skip legacy check
+      setLegacyLoading(false);
+      return;
+    }
+
     const checkAuthorization = async () => {
       if (!user) {
-        setIsAuthorized(false);
-        setLoading(false);
+        setLegacyAuthorized(false);
+        setLegacyLoading(false);
         return;
       }
 
@@ -51,34 +83,57 @@ export function RoleGuard({ children, allowedRoles, fallback }: RoleGuardProps) 
 
         if (!staff) {
           setAuthError('noUserRecord');
-          setIsAuthorized(false);
+          setLegacyAuthorized(false);
         } else if (staff.status !== 'active') {
           setAuthError('inactiveAccount');
-          setIsAuthorized(false);
+          setLegacyAuthorized(false);
         } else if (!allowedRoles.includes(staff.role)) {
           setAuthError('insufficientRole');
-          setIsAuthorized(false);
+          setLegacyAuthorized(false);
         } else {
-          setIsAuthorized(true);
+          setLegacyAuthorized(true);
         }
       } catch (error) {
         console.error('Error checking authorization:', error);
         setAuthError('checkError');
-        setIsAuthorized(false);
+        setLegacyAuthorized(false);
       } finally {
-        setLoading(false);
+        setLegacyLoading(false);
       }
     };
 
     checkAuthorization();
-  }, [user, allowedRoles]);
+  }, [user, allowedRoles, module]);
 
-  if (loading) {
+  // Determine loading state
+  const isLoading = module ? permLoading : legacyLoading;
+  
+  if (isLoading) {
     return (
-      <div className="flex items-center justify-center min-h-[600px]">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
+      <div className="flex items-center justify-center min-h-[400px]">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
       </div>
     );
+  }
+
+  // Determine authorization
+  let isAuthorized: boolean;
+  
+  if (module) {
+    // Granular permission check
+    isAuthorized = can(module, action);
+    
+    // Also check if user has any of the allowed roles (hybrid mode)
+    // This ensures backward compatibility with existing role requirements
+    if (isAuthorized && !isAdmin && allowedRoles.length > 0) {
+      const hasRequiredRole = hasAnyRole(allowedRoles as AppRole[]);
+      // If roles are specified but user doesn't have them, and they're not admin
+      // Still allow if they have the module permission (granular takes precedence)
+      isAuthorized = hasRequiredRole || can(module, action);
+    }
+  } else {
+    // Legacy role-based check
+    isAuthorized = legacyAuthorized;
   }
 
   if (!isAuthorized) {
@@ -87,6 +142,13 @@ export function RoleGuard({ children, allowedRoles, fallback }: RoleGuardProps) 
     }
 
     const getErrorMessage = () => {
+      if (module) {
+        return t(
+          'common.noModulePermission',
+          'You do not have permission to access this module. Contact your administrator if you need access.'
+        );
+      }
+      
       switch (authError) {
         case 'noUserRecord':
           return t(
@@ -112,9 +174,9 @@ export function RoleGuard({ children, allowedRoles, fallback }: RoleGuardProps) 
     };
 
     return (
-      <div className="flex items-center justify-center min-h-[600px] p-6">
+      <div className="flex items-center justify-center min-h-[400px] p-6">
         <Alert variant="destructive" className="max-w-md">
-          <AlertCircle className="h-4 w-4" />
+          {module ? <ShieldX className="h-4 w-4" /> : <AlertCircle className="h-4 w-4" />}
           <AlertTitle className="text-lg font-semibold mb-2">
             {t('common.notAuthorized', 'Not Authorized')}
           </AlertTitle>
