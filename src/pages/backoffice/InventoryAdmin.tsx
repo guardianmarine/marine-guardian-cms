@@ -24,12 +24,23 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useUnitsSupabase } from '@/hooks/useUnitsSupabase';
 import { useAuth } from '@/contexts/AuthContext';
-import { Plus, Search, Eye, Edit, CheckCircle, XCircle, MoreVertical, Package, DollarSign, Archive, RefreshCw } from 'lucide-react';
+import { Plus, Search, Eye, Edit, CheckCircle, XCircle, MoreVertical, Package, DollarSign, Archive, RefreshCw, Trash2 } from 'lucide-react';
 import { UnitStatus } from '@/types';
 import { useToast } from '@/hooks/use-toast';
 
@@ -47,6 +58,8 @@ export default function InventoryAdmin() {
   const [filterType, setFilterType] = useState<string>('');
   const [filterYearMin, setFilterYearMin] = useState<string>('');
   const [filterYearMax, setFilterYearMax] = useState<string>('');
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [unitToDelete, setUnitToDelete] = useState<{ id: string; name: string } | null>(null);
 
   // Use Supabase hook for real data
   const { 
@@ -56,7 +69,8 @@ export default function InventoryAdmin() {
     refetch, 
     publishUnit, 
     unpublishUnit, 
-    changeStatus 
+    changeStatus,
+    deleteUnit
   } = useUnitsSupabase({ 
     statusFilter: statusTab === 'all' ? 'all' : statusTab as UnitStatus 
   });
@@ -134,6 +148,21 @@ export default function InventoryAdmin() {
     if (success) {
       toast({ title: 'Unit archived', description: 'Unit moved to archive' });
     }
+  };
+
+  const handleDeleteClick = (id: string, make: string, model: string) => {
+    setUnitToDelete({ id, name: `${make} ${model}` });
+    setDeleteDialogOpen(true);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!unitToDelete) return;
+    const success = await deleteUnit(unitToDelete.id);
+    if (success) {
+      toast({ title: 'Unit deleted', description: 'Unit has been moved to trash' });
+    }
+    setDeleteDialogOpen(false);
+    setUnitToDelete(null);
   };
 
   // Stats based on all units (not filtered)
@@ -433,6 +462,14 @@ export default function InventoryAdmin() {
                                   Archive
                                 </DropdownMenuItem>
                               )}
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem
+                                className="text-destructive focus:text-destructive"
+                                onClick={() => handleDeleteClick(unit.id, unit.make || '', unit.model || '')}
+                              >
+                                <Trash2 className="h-4 w-4 mr-2" />
+                                Delete
+                              </DropdownMenuItem>
                             </DropdownMenuContent>
                           </DropdownMenu>
                         </div>
@@ -445,6 +482,28 @@ export default function InventoryAdmin() {
           </Table>
         </div>
       </div>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete unit?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete <strong>{unitToDelete?.name}</strong>? 
+              The unit will be moved to trash and can be restored later.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleConfirmDelete}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </BackofficeLayout>
   );
 }
