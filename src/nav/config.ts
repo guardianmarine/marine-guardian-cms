@@ -201,6 +201,13 @@ export const NAV_ITEMS: NavItem[] = [
         label: { en: 'Dashboard', es: 'Panel' }, 
         roles: ['admin', 'finance'] 
       },
+      { 
+        id: 'pac-fund', 
+        route: '/backoffice/finance/pac-fund', 
+        icon: 'Wallet', 
+        label: { en: 'PAC Fund', es: 'Fondo PAC' }, 
+        roles: ['admin'] 
+      },
     ]
   },
 

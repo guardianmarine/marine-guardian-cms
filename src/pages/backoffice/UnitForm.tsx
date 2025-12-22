@@ -26,6 +26,7 @@ import { getTruckTypes, getTrailerTypes } from '@/lib/i18n-helpers';
 import { useVinDecode } from '@/hooks/useVinDecode';
 import { VinDecodePanel } from '@/components/inventory/VinDecodePanel';
 import { useAuth } from '@/contexts/AuthContext';
+import { usePacLedger } from '@/hooks/usePacLedger';
 import {
   Save,
   Upload,
@@ -56,6 +57,7 @@ export default function UnitForm() {
   const { unit: existingUnit, loading: loadingUnit } = useUnitById(id);
   const { addUnit, updateUnit, publishUnit, unpublishUnit } = useUnitsSupabase();
   const { uploading: uploadingPhotos, uploadMultiplePhotos, deletePhoto, getPathFromUrl } = useUnitPhotoUpload();
+  const { recordPacChange } = usePacLedger();
 
   const isNew = !id;
   const [uploadProgress, setUploadProgress] = useState({ completed: 0, total: 0 });
@@ -81,6 +83,8 @@ export default function UnitForm() {
   const [costPurchase, setCostPurchase] = useState('');
   const [costTransportIn, setCostTransportIn] = useState('');
   const [costReconditioning, setCostReconditioning] = useState('');
+  const [costPac, setCostPac] = useState('');
+  const [previousCostPac, setPreviousCostPac] = useState(0);
   const [status, setStatus] = useState<UnitStatus>('draft');
   const [photos, setPhotos] = useState<UnitPhoto[]>([]);
   const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
@@ -112,6 +116,8 @@ export default function UnitForm() {
       setCostPurchase(existingUnit.cost_purchase?.toString() || '');
       setCostTransportIn(existingUnit.cost_transport_in?.toString() || '');
       setCostReconditioning(existingUnit.cost_reconditioning?.toString() || '');
+      setCostPac(existingUnit.cost_pac?.toString() || '');
+      setPreviousCostPac(existingUnit.cost_pac || 0);
       setStatus(existingUnit.status || 'draft');
       setPhotos(existingUnit.photos || []);
     }
@@ -232,6 +238,7 @@ export default function UnitForm() {
       cost_purchase: costPurchase ? parseFloat(costPurchase) : undefined,
       cost_transport_in: costTransportIn ? parseFloat(costTransportIn) : undefined,
       cost_reconditioning: costReconditioning ? parseFloat(costReconditioning) : undefined,
+      cost_pac: user?.role === 'admin' && costPac ? parseFloat(costPac) : existingUnit?.cost_pac,
       status,
       photos,
       received_at: existingUnit?.received_at || new Date().toISOString().split('T')[0],
@@ -241,12 +248,23 @@ export default function UnitForm() {
       if (isNew) {
         const result = await addUnit(unitData);
         if (result) {
+          // Record PAC ledger entry for new unit if PAC was set
+          const newPac = parseFloat(costPac) || 0;
+          if (user?.role === 'admin' && newPac > 0) {
+            await recordPacChange(result.id, newPac, 0);
+          }
           toast({ title: 'Unit created', description: 'Unit has been saved to database' });
           navigate(`/backoffice/inventory/${result.id}`);
         }
       } else if (id) {
         const result = await updateUnit(id, unitData);
         if (result) {
+          // Record PAC ledger entry if PAC changed
+          const newPac = parseFloat(costPac) || 0;
+          if (user?.role === 'admin' && newPac !== previousCostPac) {
+            await recordPacChange(id, newPac, previousCostPac);
+            setPreviousCostPac(newPac);
+          }
           toast({ title: 'Unit updated', description: 'Changes saved successfully' });
           // Update local state with DB response
           setStatus(result.status);
@@ -766,7 +784,7 @@ export default function UnitForm() {
                   <h3 className="text-sm font-semibold mb-3 flex items-center gap-2">
                     Cost Tracking <Badge variant="secondary">Internal Only</Badge>
                   </h3>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                     <div className="space-y-2">
                       <Label htmlFor="cost_purchase">Purchase Cost (USD)</Label>
                       <Input
@@ -812,8 +830,28 @@ export default function UnitForm() {
                         Parts, labor, and repairs
                       </p>
                     </div>
+                    {/* PAC Field - Admin Only */}
+                    {user?.role === 'admin' && (
+                      <div className="space-y-2">
+                        <Label htmlFor="cost_pac" className="flex items-center gap-2">
+                          PAC <Badge variant="outline" className="text-xs">Admin Only</Badge>
+                        </Label>
+                        <Input
+                          id="cost_pac"
+                          type="number"
+                          value={costPac}
+                          onChange={(e) => setCostPac(e.target.value)}
+                          placeholder="0"
+                          min="0"
+                          step="0.01"
+                        />
+                        <p className="text-xs text-muted-foreground">
+                          Variable PAC cost
+                        </p>
+                      </div>
+                    )}
                   </div>
-                  {(costPurchase || costTransportIn || costReconditioning) && (
+                  {(costPurchase || costTransportIn || costReconditioning || costPac) && (
                     <div className="mt-4 p-4 bg-muted rounded-lg">
                       <div className="flex justify-between items-center">
                         <span className="font-semibold">Total Acquisition Cost:</span>
@@ -821,10 +859,16 @@ export default function UnitForm() {
                           ${(
                             (parseFloat(costPurchase) || 0) +
                             (parseFloat(costTransportIn) || 0) +
-                            (parseFloat(costReconditioning) || 0)
+                            (parseFloat(costReconditioning) || 0) +
+                            (parseFloat(costPac) || 0)
                           ).toLocaleString()}
                         </span>
                       </div>
+                      {user?.role === 'admin' && parseFloat(costPac) > 0 && (
+                        <p className="text-xs text-muted-foreground mt-2">
+                          Includes PAC: ${(parseFloat(costPac) || 0).toLocaleString()}
+                        </p>
+                      )}
                     </div>
                   )}
                 </div>
