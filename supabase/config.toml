@@ -17,3 +17,12 @@ verify_jwt = true
 
 [functions.get-commissions]
 verify_jwt = true
+
+[functions.invite-user]
+verify_jwt = true
+
+[functions.delete-user]
+verify_jwt = true
+
+[functions.update-user-roles]
+verify_jwt = true
