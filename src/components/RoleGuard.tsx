@@ -11,8 +11,8 @@ import type { ModuleName, PermissionAction, AppRole } from '@/types/permissions'
 
 interface RoleGuardProps {
   children: ReactNode;
-  /** Legacy: allowed roles for backward compatibility */
-  allowedRoles: string[];
+  /** Legacy: allowed roles for backward compatibility (optional when module is provided) */
+  allowedRoles?: string[];
   /** New: module to check granular permission for */
   module?: ModuleName;
   /** New: action to check (defaults to 'view') */
@@ -87,7 +87,7 @@ export function RoleGuard({
         } else if (staff.status !== 'active') {
           setAuthError('inactiveAccount');
           setLegacyAuthorized(false);
-        } else if (!allowedRoles.includes(staff.role)) {
+        } else if (allowedRoles && allowedRoles.length > 0 && !allowedRoles.includes(staff.role)) {
           setAuthError('insufficientRole');
           setLegacyAuthorized(false);
         } else {
@@ -125,7 +125,7 @@ export function RoleGuard({
     
     // Also check if user has any of the allowed roles (hybrid mode)
     // This ensures backward compatibility with existing role requirements
-    if (isAuthorized && !isAdmin && allowedRoles.length > 0) {
+    if (isAuthorized && !isAdmin && allowedRoles && allowedRoles.length > 0) {
       const hasRequiredRole = hasAnyRole(allowedRoles as AppRole[]);
       // If roles are specified but user doesn't have them, and they're not admin
       // Still allow if they have the module permission (granular takes precedence)

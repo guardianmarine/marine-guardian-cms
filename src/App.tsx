@@ -197,7 +197,7 @@ const App = () => (
               path="/backoffice/media"
               element={
                 <ProtectedRoute>
-                  <RoleGuard allowedRoles={['admin', 'inventory']}>
+                  <RoleGuard module="media" allowedRoles={['admin', 'inventory']}>
                     <MediaLibrary />
                   </RoleGuard>
                 </ProtectedRoute>
@@ -207,7 +207,7 @@ const App = () => (
               path="/backoffice/cms/home-hero"
               element={
                 <ProtectedRoute>
-                  <RoleGuard allowedRoles={['admin', 'inventory']}>
+                  <RoleGuard module="cms" allowedRoles={['admin', 'inventory']}>
                     <HomeHeroCMS />
                   </RoleGuard>
                 </ProtectedRoute>
@@ -217,7 +217,7 @@ const App = () => (
               path="/backoffice/content"
               element={
                 <ProtectedRoute>
-                  <RoleGuard allowedRoles={['admin', 'inventory']}>
+                  <RoleGuard module="cms" allowedRoles={['admin', 'inventory']}>
                     <HomeEditor />
                   </RoleGuard>
                 </ProtectedRoute>
@@ -227,7 +227,9 @@ const App = () => (
               path="/backoffice/inventory"
               element={
                 <ProtectedRoute>
-                  <InventoryAdmin />
+                  <RoleGuard module="inventory">
+                    <InventoryAdmin />
+                  </RoleGuard>
                 </ProtectedRoute>
               }
             />
@@ -235,7 +237,7 @@ const App = () => (
               path="/backoffice/inventory/new"
               element={
                 <ProtectedRoute>
-                  <RoleGuard allowedRoles={['admin', 'inventory']}>
+                  <RoleGuard module="inventory" action="create" allowedRoles={['admin', 'inventory']}>
                     <UnitForm />
                   </RoleGuard>
                 </ProtectedRoute>
@@ -245,7 +247,7 @@ const App = () => (
               path="/backoffice/inventory/:id"
               element={
                 <ProtectedRoute>
-                  <RoleGuard allowedRoles={['admin', 'inventory']}>
+                  <RoleGuard module="inventory" action="edit" allowedRoles={['admin', 'inventory']}>
                     <UnitForm />
                   </RoleGuard>
                 </ProtectedRoute>
@@ -255,7 +257,9 @@ const App = () => (
               path="/backoffice/buyer-requests"
               element={
                 <ProtectedRoute>
-                  <BuyerRequests />
+                  <RoleGuard module="crm_inbound">
+                    <BuyerRequests />
+                  </RoleGuard>
                 </ProtectedRoute>
               }
             />
@@ -263,7 +267,7 @@ const App = () => (
               path="/backoffice/purchasing/suppliers"
               element={
                 <ProtectedRoute>
-                  <RoleGuard allowedRoles={['admin', 'inventory']}>
+                  <RoleGuard module="purchasing" allowedRoles={['admin', 'inventory']}>
                     <Suppliers />
                   </RoleGuard>
                 </ProtectedRoute>
@@ -273,7 +277,7 @@ const App = () => (
               path="/backoffice/purchasing/intakes"
               element={
                 <ProtectedRoute>
-                  <RoleGuard allowedRoles={['admin', 'inventory']}>
+                  <RoleGuard module="purchasing" allowedRoles={['admin', 'inventory']}>
                     <PurchaseIntakes />
                   </RoleGuard>
                 </ProtectedRoute>
@@ -283,7 +287,7 @@ const App = () => (
               path="/backoffice/purchasing/batches"
               element={
                 <ProtectedRoute>
-                  <RoleGuard allowedRoles={['admin', 'inventory']}>
+                  <RoleGuard module="purchasing" allowedRoles={['admin', 'inventory']}>
                     <AcquisitionBatches />
                   </RoleGuard>
                 </ProtectedRoute>
@@ -291,49 +295,49 @@ const App = () => (
             />
             
             {/* CRM Routes */}
-            <Route path="/crm/inbound-requests" element={<ProtectedRoute><RoleGuard allowedRoles={['admin','sales']}><InboundRequests /></RoleGuard></ProtectedRoute>} />
-            <Route path="/backoffice/inbound-requests" element={<ProtectedRoute><RoleGuard allowedRoles={['admin','sales']}><InboundRequests /></RoleGuard></ProtectedRoute>} />
-            <Route path="/backoffice/crm/accounts" element={<ProtectedRoute><RoleGuard allowedRoles={['admin','sales','finance','inventory','viewer']}><Accounts /></RoleGuard></ProtectedRoute>} />
-            <Route path="/backoffice/crm/accounts/new" element={<ProtectedRoute><RoleGuard allowedRoles={['admin','sales']}><AccountForm /></RoleGuard></ProtectedRoute>} />
-            <Route path="/backoffice/crm/accounts/:id/edit" element={<ProtectedRoute><RoleGuard allowedRoles={['admin','sales']}><AccountForm /></RoleGuard></ProtectedRoute>} />
-            <Route path="/backoffice/crm/accounts/:id" element={<ProtectedRoute><RoleGuard allowedRoles={['admin','sales','finance','inventory','viewer']}><AccountDetail /></RoleGuard></ProtectedRoute>} />
-            <Route path="/backoffice/crm/contacts" element={<ProtectedRoute><RoleGuard allowedRoles={['admin','sales','finance','inventory','viewer']}><Contacts /></RoleGuard></ProtectedRoute>} />
-            <Route path="/backoffice/crm/contacts/:id" element={<ProtectedRoute><RoleGuard allowedRoles={['admin','sales','finance','inventory','viewer']}><ContactDetail /></RoleGuard></ProtectedRoute>} />
-            <Route path="/backoffice/crm/leads" element={<ProtectedRoute><RoleGuard allowedRoles={['admin','sales']}><Leads /></RoleGuard></ProtectedRoute>} />
-            <Route path="/backoffice/crm/leads/:id" element={<ProtectedRoute><RoleGuard allowedRoles={['admin','sales']}><LeadDetail /></RoleGuard></ProtectedRoute>} />
-            <Route path="/backoffice/crm/opportunities" element={<ProtectedRoute><RoleGuard allowedRoles={['admin','sales']}><Opportunities /></RoleGuard></ProtectedRoute>} />
-            <Route path="/backoffice/crm/opportunities/kanban" element={<ProtectedRoute><RoleGuard allowedRoles={['admin','sales']}><OpportunityKanban /></RoleGuard></ProtectedRoute>} />
-            <Route path="/backoffice/crm/opportunities/:id" element={<ProtectedRoute><RoleGuard allowedRoles={['admin','sales']}><OpportunityDetail /></RoleGuard></ProtectedRoute>} />
-            <Route path="/backoffice/crm/tasks" element={<ProtectedRoute><RoleGuard allowedRoles={['admin','sales']}><MyTasks /></RoleGuard></ProtectedRoute>} />
-            <Route path="/backoffice/crm/my-tasks-v2" element={<ProtectedRoute><RoleGuard allowedRoles={['admin','sales']}><MyTasksV2 /></RoleGuard></ProtectedRoute>} />
-            <Route path="/backoffice/crm/inbound-requests" element={<ProtectedRoute><RoleGuard allowedRoles={['admin','sales']}><InboundRequests /></RoleGuard></ProtectedRoute>} />
+            <Route path="/crm/inbound-requests" element={<ProtectedRoute><RoleGuard module="crm_inbound" allowedRoles={['admin','sales']}><InboundRequests /></RoleGuard></ProtectedRoute>} />
+            <Route path="/backoffice/inbound-requests" element={<ProtectedRoute><RoleGuard module="crm_inbound" allowedRoles={['admin','sales']}><InboundRequests /></RoleGuard></ProtectedRoute>} />
+            <Route path="/backoffice/crm/accounts" element={<ProtectedRoute><RoleGuard module="crm_accounts" allowedRoles={['admin','sales','finance','inventory','viewer']}><Accounts /></RoleGuard></ProtectedRoute>} />
+            <Route path="/backoffice/crm/accounts/new" element={<ProtectedRoute><RoleGuard module="crm_accounts" action="create" allowedRoles={['admin','sales']}><AccountForm /></RoleGuard></ProtectedRoute>} />
+            <Route path="/backoffice/crm/accounts/:id/edit" element={<ProtectedRoute><RoleGuard module="crm_accounts" action="edit" allowedRoles={['admin','sales']}><AccountForm /></RoleGuard></ProtectedRoute>} />
+            <Route path="/backoffice/crm/accounts/:id" element={<ProtectedRoute><RoleGuard module="crm_accounts" allowedRoles={['admin','sales','finance','inventory','viewer']}><AccountDetail /></RoleGuard></ProtectedRoute>} />
+            <Route path="/backoffice/crm/contacts" element={<ProtectedRoute><RoleGuard module="crm_contacts" allowedRoles={['admin','sales','finance','inventory','viewer']}><Contacts /></RoleGuard></ProtectedRoute>} />
+            <Route path="/backoffice/crm/contacts/:id" element={<ProtectedRoute><RoleGuard module="crm_contacts" allowedRoles={['admin','sales','finance','inventory','viewer']}><ContactDetail /></RoleGuard></ProtectedRoute>} />
+            <Route path="/backoffice/crm/leads" element={<ProtectedRoute><RoleGuard module="crm_leads" allowedRoles={['admin','sales']}><Leads /></RoleGuard></ProtectedRoute>} />
+            <Route path="/backoffice/crm/leads/:id" element={<ProtectedRoute><RoleGuard module="crm_leads" allowedRoles={['admin','sales']}><LeadDetail /></RoleGuard></ProtectedRoute>} />
+            <Route path="/backoffice/crm/opportunities" element={<ProtectedRoute><RoleGuard module="crm_opportunities" allowedRoles={['admin','sales']}><Opportunities /></RoleGuard></ProtectedRoute>} />
+            <Route path="/backoffice/crm/opportunities/kanban" element={<ProtectedRoute><RoleGuard module="crm_opportunities" allowedRoles={['admin','sales']}><OpportunityKanban /></RoleGuard></ProtectedRoute>} />
+            <Route path="/backoffice/crm/opportunities/:id" element={<ProtectedRoute><RoleGuard module="crm_opportunities" allowedRoles={['admin','sales']}><OpportunityDetail /></RoleGuard></ProtectedRoute>} />
+            <Route path="/backoffice/crm/tasks" element={<ProtectedRoute><RoleGuard module="crm_tasks" allowedRoles={['admin','sales']}><MyTasks /></RoleGuard></ProtectedRoute>} />
+            <Route path="/backoffice/crm/my-tasks-v2" element={<ProtectedRoute><RoleGuard module="crm_tasks" allowedRoles={['admin','sales']}><MyTasksV2 /></RoleGuard></ProtectedRoute>} />
+            <Route path="/backoffice/crm/inbound-requests" element={<ProtectedRoute><RoleGuard module="crm_inbound" allowedRoles={['admin','sales']}><InboundRequests /></RoleGuard></ProtectedRoute>} />
 
             {/* Deals & Finance Routes */}
-            <Route path="/backoffice/deals" element={<ProtectedRoute><RoleGuard allowedRoles={['admin','sales','finance']}><Deals /></RoleGuard></ProtectedRoute>} />
-            <Route path="/backoffice/deals/new" element={<ProtectedRoute><RoleGuard allowedRoles={['admin','sales']}><NewDeal /></RoleGuard></ProtectedRoute>} />
-            <Route path="/backoffice/deals/:id" element={<ProtectedRoute><RoleGuard allowedRoles={['admin','sales','finance']}><DealDetail /></RoleGuard></ProtectedRoute>} />
-            <Route path="/backoffice/deals/tax-regimes" element={<ProtectedRoute><RoleGuard allowedRoles={['admin','finance']}><TaxRegimes /></RoleGuard></ProtectedRoute>} />
+            <Route path="/backoffice/deals" element={<ProtectedRoute><RoleGuard module="deals" allowedRoles={['admin','sales','finance']}><Deals /></RoleGuard></ProtectedRoute>} />
+            <Route path="/backoffice/deals/new" element={<ProtectedRoute><RoleGuard module="deals" action="create" allowedRoles={['admin','sales']}><NewDeal /></RoleGuard></ProtectedRoute>} />
+            <Route path="/backoffice/deals/:id" element={<ProtectedRoute><RoleGuard module="deals" allowedRoles={['admin','sales','finance']}><DealDetail /></RoleGuard></ProtectedRoute>} />
+            <Route path="/backoffice/deals/tax-regimes" element={<ProtectedRoute><RoleGuard module="tax_presets" allowedRoles={['admin','finance']}><TaxRegimes /></RoleGuard></ProtectedRoute>} />
             
             {/* Deals V2 (Supabase) */}
-            <Route path="/backoffice/deals-v2" element={<ProtectedRoute><RoleGuard allowedRoles={['admin','sales','finance']}><DealsV2 /></RoleGuard></ProtectedRoute>} />
-            <Route path="/backoffice/deals-v2/new" element={<ProtectedRoute><RoleGuard allowedRoles={['admin','sales']}><DealDetailEditor /></RoleGuard></ProtectedRoute>} />
-            <Route path="/backoffice/deals-v2/:id" element={<ProtectedRoute><RoleGuard allowedRoles={['admin','sales','finance']}><DealDetailEditor /></RoleGuard></ProtectedRoute>} />
-            <Route path="/backoffice/deals-v2/tax-presets" element={<ProtectedRoute><RoleGuard allowedRoles={['admin','finance']}><TaxPresetsManager /></RoleGuard></ProtectedRoute>} />
-            <Route path="/backoffice/finance/dashboard" element={<ProtectedRoute><RoleGuard allowedRoles={['admin','finance']}><FinanceDashboard /></RoleGuard></ProtectedRoute>} />
-            <Route path="/backoffice/finance/overview" element={<ProtectedRoute><RoleGuard allowedRoles={['admin','finance']}><FinanceOverview /></RoleGuard></ProtectedRoute>} />
-            <Route path="/backoffice/finance/commissions" element={<ProtectedRoute><RoleGuard allowedRoles={['admin','finance','sales']}><Commissions /></RoleGuard></ProtectedRoute>} />
-            <Route path="/backoffice/finance/commissions-report" element={<ProtectedRoute><RoleGuard allowedRoles={['admin','finance','sales']}><CommissionsReport /></RoleGuard></ProtectedRoute>} />
-            <Route path="/backoffice/finance/pac-fund" element={<ProtectedRoute><RoleGuard allowedRoles={['admin']}><PACFund /></RoleGuard></ProtectedRoute>} />
+            <Route path="/backoffice/deals-v2" element={<ProtectedRoute><RoleGuard module="deals" allowedRoles={['admin','sales','finance']}><DealsV2 /></RoleGuard></ProtectedRoute>} />
+            <Route path="/backoffice/deals-v2/new" element={<ProtectedRoute><RoleGuard module="deals" action="create" allowedRoles={['admin','sales']}><DealDetailEditor /></RoleGuard></ProtectedRoute>} />
+            <Route path="/backoffice/deals-v2/:id" element={<ProtectedRoute><RoleGuard module="deals" allowedRoles={['admin','sales','finance']}><DealDetailEditor /></RoleGuard></ProtectedRoute>} />
+            <Route path="/backoffice/deals-v2/tax-presets" element={<ProtectedRoute><RoleGuard module="tax_presets" allowedRoles={['admin','finance']}><TaxPresetsManager /></RoleGuard></ProtectedRoute>} />
+            <Route path="/backoffice/finance/dashboard" element={<ProtectedRoute><RoleGuard module="finance_dashboard" allowedRoles={['admin','finance']}><FinanceDashboard /></RoleGuard></ProtectedRoute>} />
+            <Route path="/backoffice/finance/overview" element={<ProtectedRoute><RoleGuard module="finance_overview" allowedRoles={['admin','finance']}><FinanceOverview /></RoleGuard></ProtectedRoute>} />
+            <Route path="/backoffice/finance/commissions" element={<ProtectedRoute><RoleGuard module="commissions" allowedRoles={['admin','finance','sales']}><Commissions /></RoleGuard></ProtectedRoute>} />
+            <Route path="/backoffice/finance/commissions-report" element={<ProtectedRoute><RoleGuard module="commissions" allowedRoles={['admin','finance','sales']}><CommissionsReport /></RoleGuard></ProtectedRoute>} />
+            <Route path="/backoffice/finance/pac-fund" element={<ProtectedRoute><RoleGuard module="pac_fund" allowedRoles={['admin']}><PACFund /></RoleGuard></ProtectedRoute>} />
             
             {/* Insights Route */}
-            <Route path="/backoffice/insights" element={<ProtectedRoute><RoleGuard allowedRoles={['admin','finance','sales']}><Insights /></RoleGuard></ProtectedRoute>} />
+            <Route path="/backoffice/insights" element={<ProtectedRoute><RoleGuard module="insights" allowedRoles={['admin','finance','sales']}><Insights /></RoleGuard></ProtectedRoute>} />
 
             {/* Admin Settings Routes */}
-            <Route path="/admin/settings/users" element={<ProtectedRoute><RoleGuard allowedRoles={['admin']}><UserManagement /></RoleGuard></ProtectedRoute>} />
-            <Route path="/admin/settings/permissions" element={<ProtectedRoute><RoleGuard allowedRoles={['admin']}><PermissionsMatrix /></RoleGuard></ProtectedRoute>} />
-            <Route path="/admin/settings/users-legacy" element={<ProtectedRoute><RoleGuard allowedRoles={['admin']}><UsersRoles /></RoleGuard></ProtectedRoute>} />
-            <Route path="/admin/debug/supabase" element={<ProtectedRoute><RoleGuard allowedRoles={['admin']}><SupabaseDebug /></RoleGuard></ProtectedRoute>} />
-            <Route path="/admin/debug/leads-probe" element={<ProtectedRoute><RoleGuard allowedRoles={['admin']}><LeadsProbe /></RoleGuard></ProtectedRoute>} />
+            <Route path="/admin/settings/users" element={<ProtectedRoute><RoleGuard module="admin_users" allowedRoles={['admin']}><UserManagement /></RoleGuard></ProtectedRoute>} />
+            <Route path="/admin/settings/permissions" element={<ProtectedRoute><RoleGuard module="admin_users" allowedRoles={['admin']}><PermissionsMatrix /></RoleGuard></ProtectedRoute>} />
+            <Route path="/admin/settings/users-legacy" element={<ProtectedRoute><RoleGuard module="admin_users" allowedRoles={['admin']}><UsersRoles /></RoleGuard></ProtectedRoute>} />
+            <Route path="/admin/debug/supabase" element={<ProtectedRoute><RoleGuard module="admin_users" allowedRoles={['admin']}><SupabaseDebug /></RoleGuard></ProtectedRoute>} />
+            <Route path="/admin/debug/leads-probe" element={<ProtectedRoute><RoleGuard module="admin_users" allowedRoles={['admin']}><LeadsProbe /></RoleGuard></ProtectedRoute>} />
 
             {/* Profile Route */}
             <Route path="/backoffice/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
