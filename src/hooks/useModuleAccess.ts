@@ -31,8 +31,11 @@ export function useModuleAccess(): UseModuleAccessReturn {
   const [roles, setRoles] = useState<AppRole[]>([]);
   const [permissions, setPermissions] = useState<ModulePermission[]>([]);
 
+  // Use auth.users UUID, not legacy users.id
+  const authUserId = session?.user?.id;
+
   const fetchPermissions = useCallback(async () => {
-    if (!user?.id || !session) {
+    if (!authUserId || !session) {
       setLoading(false);
       setRoles([]);
       setPermissions([]);
@@ -43,11 +46,13 @@ export function useModuleAccess(): UseModuleAccessReturn {
       setLoading(true);
       setError(null);
 
-      // Fetch roles
+      console.log('[useModuleAccess] Fetching permissions for auth user:', authUserId);
+
+      // Fetch roles using auth.users UUID
       const { data: rolesData, error: rolesError } = await supabase
         .from('user_roles')
         .select('role')
-        .eq('user_id', user.id);
+        .eq('user_id', authUserId);
 
       if (rolesError) {
         console.error('Error fetching roles:', rolesError);
@@ -59,11 +64,13 @@ export function useModuleAccess(): UseModuleAccessReturn {
         setRoles((rolesData || []).map(r => r.role as AppRole));
       }
 
-      // Fetch permissions
+      // Fetch permissions using auth.users UUID
       const { data: permsData, error: permsError } = await supabase
         .from('user_permissions')
         .select('module_name, can_view, can_create, can_edit, can_delete')
-        .eq('user_id', user.id);
+        .eq('user_id', authUserId);
+
+      console.log('[useModuleAccess] Roles:', rolesData, 'Permissions:', permsData?.length);
 
       if (permsError) {
         console.error('Error fetching permissions:', permsError);
@@ -77,7 +84,7 @@ export function useModuleAccess(): UseModuleAccessReturn {
     } finally {
       setLoading(false);
     }
-  }, [user?.id, session]);
+  }, [authUserId, session]);
 
   useEffect(() => {
     fetchPermissions();
