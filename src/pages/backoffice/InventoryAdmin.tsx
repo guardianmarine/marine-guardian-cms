@@ -40,11 +40,11 @@ import {
 import { Skeleton } from '@/components/ui/skeleton';
 import { useUnitsSupabase } from '@/hooks/useUnitsSupabase';
 import { useAuth } from '@/contexts/AuthContext';
-import { Plus, Search, Eye, Edit, CheckCircle, XCircle, MoreVertical, Package, DollarSign, Archive, RefreshCw, Trash2 } from 'lucide-react';
+import { Plus, Search, Eye, Edit, CheckCircle, XCircle, MoreVertical, Package, DollarSign, Archive, RefreshCw, Trash2, RotateCcw } from 'lucide-react';
 import { UnitStatus } from '@/types';
 import { useToast } from '@/hooks/use-toast';
 
-type StatusTab = 'all' | 'draft' | 'published' | 'reserved' | 'sold' | 'archived';
+type StatusTab = 'all' | 'draft' | 'published' | 'reserved' | 'sold' | 'archived' | 'trash';
 
 export default function InventoryAdmin() {
   const navigate = useNavigate();
@@ -60,6 +60,8 @@ export default function InventoryAdmin() {
   const [filterYearMax, setFilterYearMax] = useState<string>('');
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [unitToDelete, setUnitToDelete] = useState<{ id: string; name: string } | null>(null);
+  const [hardDeleteDialogOpen, setHardDeleteDialogOpen] = useState(false);
+  const [unitToHardDelete, setUnitToHardDelete] = useState<{ id: string; name: string } | null>(null);
 
   // Use Supabase hook for real data
   const { 
@@ -70,9 +72,12 @@ export default function InventoryAdmin() {
     publishUnit, 
     unpublishUnit, 
     changeStatus,
-    deleteUnit
+    deleteUnit,
+    restoreUnit,
+    hardDeleteUnit
   } = useUnitsSupabase({ 
-    statusFilter: statusTab === 'all' ? 'all' : statusTab as UnitStatus 
+    statusFilter: statusTab === 'all' || statusTab === 'trash' ? 'all' : statusTab as UnitStatus,
+    trashedOnly: statusTab === 'trash'
   });
 
   // Get unique makes for filter
@@ -165,6 +170,28 @@ export default function InventoryAdmin() {
     setUnitToDelete(null);
   };
 
+  const handleRestore = async (id: string, make: string, model: string) => {
+    const success = await restoreUnit(id);
+    if (success) {
+      toast({ title: 'Unit restored', description: `${make} ${model} has been restored` });
+    }
+  };
+
+  const handleHardDeleteClick = (id: string, make: string, model: string) => {
+    setUnitToHardDelete({ id, name: `${make} ${model}` });
+    setHardDeleteDialogOpen(true);
+  };
+
+  const handleConfirmHardDelete = async () => {
+    if (!unitToHardDelete) return;
+    const success = await hardDeleteUnit(unitToHardDelete.id);
+    if (success) {
+      toast({ title: 'Unit permanently deleted', description: 'Unit has been permanently removed' });
+    }
+    setHardDeleteDialogOpen(false);
+    setUnitToHardDelete(null);
+  };
+
   // Stats based on all units (not filtered)
   const stats = {
     total: units.length,
@@ -239,6 +266,10 @@ export default function InventoryAdmin() {
             <TabsTrigger value="reserved">Reserved</TabsTrigger>
             <TabsTrigger value="sold">Sold</TabsTrigger>
             <TabsTrigger value="archived">Archived</TabsTrigger>
+            <TabsTrigger value="trash" className="text-destructive data-[state=active]:text-destructive">
+              <Trash2 className="h-4 w-4 mr-1" />
+              Trash
+            </TabsTrigger>
           </TabsList>
         </Tabs>
 
@@ -410,68 +441,95 @@ export default function InventoryAdmin() {
                       <TableCell className="text-sm">{unit.sold_at || '-'}</TableCell>
                       <TableCell className="text-right">
                         <div className="flex items-center justify-end space-x-2">
-                          <Button
-                            size="icon"
-                            variant="ghost"
-                            onClick={() => navigate(`/inventory/${unit.id}`)}
-                            title="View public page"
-                          >
-                            <Eye className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            size="icon"
-                            variant="ghost"
-                            onClick={() => navigate(`/backoffice/inventory/${unit.id}`)}
-                            title="Edit"
-                          >
-                            <Edit className="h-4 w-4" />
-                          </Button>
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <Button size="icon" variant="ghost">
-                                <MoreVertical className="h-4 w-4" />
-                              </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end" className="w-48">
-                              {unit.status === 'published' ? (
-                                <DropdownMenuItem onClick={() => handleQuickUnpublish(unit.id)}>
-                                  <XCircle className="h-4 w-4 mr-2" />
-                                  Unpublish
-                                </DropdownMenuItem>
-                              ) : unit.status !== 'sold' && unit.status !== 'archived' ? (
-                                <DropdownMenuItem onClick={() => handleQuickPublish(unit.id)}>
-                                  <CheckCircle className="h-4 w-4 mr-2" />
-                                  Publish
-                                </DropdownMenuItem>
-                              ) : null}
-                              {unit.status === 'published' && (
-                                <DropdownMenuItem onClick={() => handleReserve(unit.id)}>
-                                  <Package className="h-4 w-4 mr-2" />
-                                  Reserve
-                                </DropdownMenuItem>
-                              )}
-                              {unit.status === 'reserved' && (
-                                <DropdownMenuItem onClick={() => handleMarkSold(unit.id)}>
-                                  <DollarSign className="h-4 w-4 mr-2" />
-                                  Mark as Sold
-                                </DropdownMenuItem>
-                              )}
-                              {unit.status !== 'archived' && unit.status !== 'sold' && (
-                                <DropdownMenuItem onClick={() => handleArchive(unit.id)}>
-                                  <Archive className="h-4 w-4 mr-2" />
-                                  Archive
-                                </DropdownMenuItem>
-                              )}
-                              <DropdownMenuSeparator />
-                              <DropdownMenuItem
-                                className="text-destructive focus:text-destructive"
-                                onClick={() => handleDeleteClick(unit.id, unit.make || '', unit.model || '')}
+                          {statusTab === 'trash' ? (
+                            // Trash view actions
+                            <>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => handleRestore(unit.id, unit.make || '', unit.model || '')}
+                                title="Restore"
                               >
-                                <Trash2 className="h-4 w-4 mr-2" />
-                                Delete
-                              </DropdownMenuItem>
-                            </DropdownMenuContent>
-                          </DropdownMenu>
+                                <RotateCcw className="h-4 w-4 mr-1" />
+                                Restore
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="destructive"
+                                onClick={() => handleHardDeleteClick(unit.id, unit.make || '', unit.model || '')}
+                                title="Permanently Delete"
+                              >
+                                <Trash2 className="h-4 w-4 mr-1" />
+                                Delete Forever
+                              </Button>
+                            </>
+                          ) : (
+                            // Normal view actions
+                            <>
+                              <Button
+                                size="icon"
+                                variant="ghost"
+                                onClick={() => navigate(`/inventory/${unit.id}`)}
+                                title="View public page"
+                              >
+                                <Eye className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                size="icon"
+                                variant="ghost"
+                                onClick={() => navigate(`/backoffice/inventory/${unit.id}`)}
+                                title="Edit"
+                              >
+                                <Edit className="h-4 w-4" />
+                              </Button>
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                  <Button size="icon" variant="ghost">
+                                    <MoreVertical className="h-4 w-4" />
+                                  </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end" className="w-48">
+                                  {unit.status === 'published' ? (
+                                    <DropdownMenuItem onClick={() => handleQuickUnpublish(unit.id)}>
+                                      <XCircle className="h-4 w-4 mr-2" />
+                                      Unpublish
+                                    </DropdownMenuItem>
+                                  ) : unit.status !== 'sold' && unit.status !== 'archived' ? (
+                                    <DropdownMenuItem onClick={() => handleQuickPublish(unit.id)}>
+                                      <CheckCircle className="h-4 w-4 mr-2" />
+                                      Publish
+                                    </DropdownMenuItem>
+                                  ) : null}
+                                  {unit.status === 'published' && (
+                                    <DropdownMenuItem onClick={() => handleReserve(unit.id)}>
+                                      <Package className="h-4 w-4 mr-2" />
+                                      Reserve
+                                    </DropdownMenuItem>
+                                  )}
+                                  {unit.status === 'reserved' && (
+                                    <DropdownMenuItem onClick={() => handleMarkSold(unit.id)}>
+                                      <DollarSign className="h-4 w-4 mr-2" />
+                                      Mark as Sold
+                                    </DropdownMenuItem>
+                                  )}
+                                  {unit.status !== 'archived' && unit.status !== 'sold' && (
+                                    <DropdownMenuItem onClick={() => handleArchive(unit.id)}>
+                                      <Archive className="h-4 w-4 mr-2" />
+                                      Archive
+                                    </DropdownMenuItem>
+                                  )}
+                                  <DropdownMenuSeparator />
+                                  <DropdownMenuItem
+                                    className="text-destructive focus:text-destructive"
+                                    onClick={() => handleDeleteClick(unit.id, unit.make || '', unit.model || '')}
+                                  >
+                                    <Trash2 className="h-4 w-4 mr-2" />
+                                    Delete
+                                  </DropdownMenuItem>
+                                </DropdownMenuContent>
+                              </DropdownMenu>
+                            </>
+                          )}
                         </div>
                       </TableCell>
                     </TableRow>
@@ -500,6 +558,28 @@ export default function InventoryAdmin() {
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
               Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Hard Delete Confirmation Dialog */}
+      <AlertDialog open={hardDeleteDialogOpen} onOpenChange={setHardDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Permanently delete unit?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to permanently delete <strong>{unitToHardDelete?.name}</strong>? 
+              This action cannot be undone and the unit will be removed forever.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleConfirmHardDelete}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Delete Forever
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

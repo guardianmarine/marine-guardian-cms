@@ -6,6 +6,7 @@ import { useToast } from '@/hooks/use-toast';
 interface UseUnitsOptions {
   statusFilter?: UnitStatus | 'all';
   publicOnly?: boolean;
+  trashedOnly?: boolean;
 }
 
 interface UseUnitsResult {
@@ -16,13 +17,15 @@ interface UseUnitsResult {
   addUnit: (unit: Partial<Unit>) => Promise<Unit | null>;
   updateUnit: (id: string, data: Partial<Unit>) => Promise<Unit | null>;
   deleteUnit: (id: string) => Promise<boolean>;
+  restoreUnit: (id: string) => Promise<boolean>;
+  hardDeleteUnit: (id: string) => Promise<boolean>;
   publishUnit: (id: string) => Promise<boolean>;
   unpublishUnit: (id: string) => Promise<boolean>;
   changeStatus: (id: string, status: UnitStatus) => Promise<boolean>;
 }
 
 export function useUnitsSupabase(options: UseUnitsOptions = {}): UseUnitsResult {
-  const { statusFilter = 'all', publicOnly = false } = options;
+  const { statusFilter = 'all', publicOnly = false, trashedOnly = false } = options;
   const [units, setUnits] = useState<Unit[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -43,8 +46,14 @@ export function useUnitsSupabase(options: UseUnitsOptions = {}): UseUnitsResult 
       let query = supabase
         .from('units')
         .select('*')
-        .is('deleted_at', null)
         .order('created_at', { ascending: false });
+
+      // Trashed units have deleted_at set
+      if (trashedOnly) {
+        query = query.not('deleted_at', 'is', null);
+      } else {
+        query = query.is('deleted_at', null);
+      }
 
       // Apply status filter
       if (statusFilter !== 'all') {
@@ -78,7 +87,7 @@ export function useUnitsSupabase(options: UseUnitsOptions = {}): UseUnitsResult 
     } finally {
       setLoading(false);
     }
-  }, [statusFilter, publicOnly]);
+  }, [statusFilter, publicOnly, trashedOnly]);
 
   // Initial fetch
   useEffect(() => {
@@ -253,6 +262,66 @@ export function useUnitsSupabase(options: UseUnitsOptions = {}): UseUnitsResult 
     }
   }, [toast]);
 
+  // Restore a unit from trash
+  const restoreUnit = useCallback(async (id: string): Promise<boolean> => {
+    if (!isSupabaseReady() || !supabase) {
+      toast({ title: 'Error', description: 'Supabase not configured', variant: 'destructive' });
+      return false;
+    }
+
+    try {
+      const { error: restoreError } = await supabase
+        .from('units')
+        .update({ deleted_at: null })
+        .eq('id', id);
+
+      if (restoreError) {
+        console.error('Error restoring unit:', restoreError);
+        toast({ title: 'Error', description: restoreError.message, variant: 'destructive' });
+        return false;
+      }
+
+      // Update local state
+      setUnits(prev => prev.filter(u => u.id !== id));
+
+      return true;
+    } catch (err) {
+      console.error('Exception restoring unit:', err);
+      toast({ title: 'Error', description: err instanceof Error ? err.message : 'Unknown error', variant: 'destructive' });
+      return false;
+    }
+  }, [toast]);
+
+  // Permanently delete a unit
+  const hardDeleteUnit = useCallback(async (id: string): Promise<boolean> => {
+    if (!isSupabaseReady() || !supabase) {
+      toast({ title: 'Error', description: 'Supabase not configured', variant: 'destructive' });
+      return false;
+    }
+
+    try {
+      const { error: deleteError } = await supabase
+        .from('units')
+        .delete()
+        .eq('id', id);
+
+      if (deleteError) {
+        console.error('Error permanently deleting unit:', deleteError);
+        toast({ title: 'Error', description: deleteError.message, variant: 'destructive' });
+        return false;
+      }
+
+      // Update local state
+      setUnits(prev => prev.filter(u => u.id !== id));
+
+      return true;
+    } catch (err) {
+      console.error('Exception permanently deleting unit:', err);
+      toast({ title: 'Error', description: err instanceof Error ? err.message : 'Unknown error', variant: 'destructive' });
+      return false;
+    }
+  }, [toast]);
+
   // Publish a unit
   const publishUnit = useCallback(async (id: string): Promise<boolean> => {
     const result = await updateUnit(id, {
@@ -294,6 +363,8 @@ export function useUnitsSupabase(options: UseUnitsOptions = {}): UseUnitsResult 
     addUnit,
     updateUnit,
     deleteUnit,
+    restoreUnit,
+    hardDeleteUnit,
     publishUnit,
     unpublishUnit,
     changeStatus,
