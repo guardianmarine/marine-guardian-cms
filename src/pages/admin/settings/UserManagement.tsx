@@ -52,7 +52,10 @@ import {
   Users,
   ShieldCheck,
   ShieldAlert,
-  Mail
+  Mail,
+  KeyRound,
+  Send,
+  RotateCcw
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -73,6 +76,7 @@ interface UserWithRoles {
   full_name: string | null;
   phone: string | null;
   avatar_url: string | null;
+  status: 'active' | 'invited' | 'inactive';
   created_at: string;
   roles: AppRole[];
 }
@@ -91,6 +95,18 @@ const ROLE_COLORS: Record<AppRole, string> = {
   sales: 'bg-chart-2/10 text-chart-2 border-chart-2/20',
   inventory: 'bg-chart-3/10 text-chart-3 border-chart-3/20',
   viewer: 'bg-muted text-muted-foreground border-border',
+};
+
+const STATUS_COLORS: Record<string, string> = {
+  active: 'bg-green-500/10 text-green-600 border-green-500/20',
+  invited: 'bg-yellow-500/10 text-yellow-600 border-yellow-500/20',
+  inactive: 'bg-muted text-muted-foreground border-border',
+};
+
+const STATUS_LABELS: Record<string, string> = {
+  active: 'Active',
+  invited: 'Invited',
+  inactive: 'Inactive',
 };
 
 export default function UserManagement() {
@@ -129,7 +145,7 @@ export default function UserManagement() {
       // Fetch profiles
       const { data: profiles, error: profilesError } = await supabase
         .from('profiles')
-        .select('id, email, full_name, phone, avatar_url, created_at')
+        .select('id, email, full_name, phone, avatar_url, status, created_at')
         .order('created_at', { ascending: false });
       
       if (profilesError) {
@@ -160,6 +176,7 @@ export default function UserManagement() {
         
         return {
           ...profile,
+          status: (profile.status as 'active' | 'invited' | 'inactive') || 'inactive',
           roles: userRoles,
         };
       });
@@ -406,6 +423,92 @@ export default function UserManagement() {
     );
   };
 
+  // New action handlers
+  const handleResendInvite = async (user: UserWithRoles) => {
+    if (!session?.access_token) return;
+    
+    try {
+      setActionLoading(true);
+      const response = await supabase?.functions.invoke('resend-invite', {
+        body: { user_id: user.id },
+      });
+
+      if (response?.error) throw new Error(response.error.message);
+      if (response?.data?.error) throw new Error(response.data.error);
+
+      toast({
+        title: 'Success',
+        description: `Invitation resent to ${user.email}`,
+      });
+      fetchUsers();
+    } catch (error: any) {
+      console.error('Error resending invite:', error);
+      toast({
+        title: 'Error',
+        description: error.message || 'Failed to resend invitation',
+        variant: 'destructive',
+      });
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleSendMagicLink = async (user: UserWithRoles) => {
+    if (!session?.access_token) return;
+    
+    try {
+      setActionLoading(true);
+      const response = await supabase?.functions.invoke('send-magic-link', {
+        body: { user_id: user.id },
+      });
+
+      if (response?.error) throw new Error(response.error.message);
+      if (response?.data?.error) throw new Error(response.data.error);
+
+      toast({
+        title: 'Success',
+        description: `Magic link sent to ${user.email}`,
+      });
+    } catch (error: any) {
+      console.error('Error sending magic link:', error);
+      toast({
+        title: 'Error',
+        description: error.message || 'Failed to send magic link',
+        variant: 'destructive',
+      });
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleSendPasswordReset = async (user: UserWithRoles) => {
+    if (!session?.access_token) return;
+    
+    try {
+      setActionLoading(true);
+      const response = await supabase?.functions.invoke('send-password-reset', {
+        body: { user_id: user.id },
+      });
+
+      if (response?.error) throw new Error(response.error.message);
+      if (response?.data?.error) throw new Error(response.data.error);
+
+      toast({
+        title: 'Success',
+        description: `Password reset email sent to ${user.email}`,
+      });
+    } catch (error: any) {
+      console.error('Error sending password reset:', error);
+      toast({
+        title: 'Error',
+        description: error.message || 'Failed to send password reset',
+        variant: 'destructive',
+      });
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
   const getInitials = (name: string | null, email: string) => {
     if (name) {
       return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
@@ -541,6 +644,7 @@ export default function UserManagement() {
                 <TableHeader>
                   <TableRow>
                     <TableHead>User</TableHead>
+                    <TableHead>Status</TableHead>
                     <TableHead>Roles</TableHead>
                     <TableHead>Joined</TableHead>
                     <TableHead className="w-[70px]"></TableHead>
@@ -569,6 +673,14 @@ export default function UserManagement() {
                         </div>
                       </TableCell>
                       <TableCell>
+                        <Badge 
+                          variant="outline"
+                          className={STATUS_COLORS[user.status] || STATUS_COLORS.inactive}
+                        >
+                          {STATUS_LABELS[user.status] || 'Unknown'}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
                         <div className="flex flex-wrap gap-1">
                           {user.roles.length > 0 ? (
                             user.roles.map(role => (
@@ -593,13 +705,36 @@ export default function UserManagement() {
                       <TableCell>
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="icon" className="h-8 w-8">
+                            <Button variant="ghost" size="icon" className="h-8 w-8" disabled={actionLoading}>
                               <MoreHorizontal className="h-4 w-4" />
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
                             <DropdownMenuLabel>Actions</DropdownMenuLabel>
                             <DropdownMenuSeparator />
+                            
+                            {/* Resend Invite - only for invited users */}
+                            {user.status === 'invited' && (
+                              <DropdownMenuItem onClick={() => handleResendInvite(user)}>
+                                <RotateCcw className="h-4 w-4 mr-2" />
+                                Resend Invite
+                              </DropdownMenuItem>
+                            )}
+                            
+                            {/* Send Magic Link - for all users */}
+                            <DropdownMenuItem onClick={() => handleSendMagicLink(user)}>
+                              <Send className="h-4 w-4 mr-2" />
+                              Send Magic Link
+                            </DropdownMenuItem>
+                            
+                            {/* Reset Password - for all users */}
+                            <DropdownMenuItem onClick={() => handleSendPasswordReset(user)}>
+                              <KeyRound className="h-4 w-4 mr-2" />
+                              Reset Password
+                            </DropdownMenuItem>
+                            
+                            <DropdownMenuSeparator />
+                            
                             <DropdownMenuItem onClick={() => openEditRolesDialog(user)}>
                               <Shield className="h-4 w-4 mr-2" />
                               Edit Roles
