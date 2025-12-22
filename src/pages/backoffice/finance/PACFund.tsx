@@ -32,7 +32,7 @@ import { Link } from 'react-router-dom';
 
 export default function PACFund() {
   const { t } = useTranslation();
-  const { entries, loading, balance, addDebit, fetchEntries } = usePacLedger();
+  const { entries, loading, balance, addDebit, fetchEntries } = usePacLedger({ autoFetch: true, showErrors: true });
   const [dialogOpen, setDialogOpen] = useState(false);
   const [debitAmount, setDebitAmount] = useState('');
   const [debitNote, setDebitNote] = useState('');
