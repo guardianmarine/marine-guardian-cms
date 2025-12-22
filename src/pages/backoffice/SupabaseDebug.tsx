@@ -10,7 +10,9 @@ import {
   RefreshCw,
   Database,
   User,
-  Settings
+  Settings,
+  Shield,
+  Key
 } from 'lucide-react';
 import { 
   supabase, 
@@ -21,10 +23,20 @@ import {
 } from '@/lib/supabaseClient';
 import type { Session } from '@supabase/supabase-js';
 
+interface DiagnosticResult {
+  profiles: { found: boolean; status: string | null; error: string | null };
+  userRoles: { found: boolean; roles: string[]; error: string | null };
+  userPermissions: { count: number; error: string | null };
+  legacyUsers: { found: boolean; role: string | null; status: string | null; error: string | null };
+  isActiveStaff: { result: boolean | null; error: string | null };
+  isAdmin: { result: boolean | null; error: string | null };
+  crmAccess: { accounts: boolean; contacts: boolean; leads: boolean; error: string | null };
+}
+
 export default function SupabaseDebug() {
   const [sessionInfo, setSessionInfo] = useState<Session | null>(null);
   const [userInfo, setUserInfo] = useState<any>(null);
-  const [pingResult, setPingResult] = useState<string>('');
+  const [diagnostic, setDiagnostic] = useState<DiagnosticResult | null>(null);
   const [loading, setLoading] = useState(false);
 
   const isReady = isSupabaseReady();
@@ -45,130 +57,128 @@ export default function SupabaseDebug() {
     }
   };
 
-  const runPing = async () => {
+  const runDiagnostic = async () => {
     if (!isReady || !supabase) {
-      setPingResult('❌ Supabase no está inicializado');
       return;
     }
 
     setLoading(true);
-    setPingResult('🔄 Ejecutando diagnóstico...');
+    const result: DiagnosticResult = {
+      profiles: { found: false, status: null, error: null },
+      userRoles: { found: false, roles: [], error: null },
+      userPermissions: { count: 0, error: null },
+      legacyUsers: { found: false, role: null, status: null, error: null },
+      isActiveStaff: { result: null, error: null },
+      isAdmin: { result: null, error: null },
+      crmAccess: { accounts: false, contacts: false, leads: false, error: null }
+    };
 
     try {
-      // Test 1: Basic accounts query
-      const { data: accountsData, error: accountsError } = await supabase
-        .from('accounts')
-        .select('id, name')
-        .limit(1);
-
-      // Test 2: Check if user is in users table
       const currentUser = await getUser();
-      const { data: userData, error: userError } = await supabase
-        .from('users')
-        .select('id, role, status, auth_user_id')
-        .eq('auth_user_id', currentUser?.id)
+      const userId = currentUser?.id;
+
+      if (!userId) {
+        setDiagnostic(result);
+        setLoading(false);
+        return;
+      }
+
+      // Test 1: Check profiles table (NEW system)
+      const { data: profileData, error: profileError } = await supabase
+        .from('profiles')
+        .select('id, status, email, full_name')
+        .eq('id', userId)
         .maybeSingle();
 
-      // Test 3: Direct RPC call to is_active_staff (if exists)
-      let isStaff: boolean | null = null;
-      let staffError: any = null;
+      if (profileError) {
+        result.profiles.error = profileError.message;
+      } else if (profileData) {
+        result.profiles.found = true;
+        result.profiles.status = profileData.status;
+      }
+
+      // Test 2: Check user_roles table (NEW system)
+      const { data: rolesData, error: rolesError } = await supabase
+        .from('user_roles')
+        .select('role')
+        .eq('user_id', userId);
+
+      if (rolesError) {
+        result.userRoles.error = rolesError.message;
+      } else if (rolesData && rolesData.length > 0) {
+        result.userRoles.found = true;
+        result.userRoles.roles = rolesData.map(r => r.role);
+      }
+
+      // Test 3: Check user_permissions table (NEW system)
+      const { count: permCount, error: permError } = await supabase
+        .from('user_permissions')
+        .select('*', { count: 'exact', head: true })
+        .eq('user_id', userId);
+
+      if (permError) {
+        result.userPermissions.error = permError.message;
+      } else {
+        result.userPermissions.count = permCount || 0;
+      }
+
+      // Test 4: Check legacy users table
+      const { data: legacyData, error: legacyError } = await supabase
+        .from('users')
+        .select('id, role, status, auth_user_id')
+        .eq('auth_user_id', userId)
+        .maybeSingle();
+
+      if (legacyError) {
+        result.legacyUsers.error = legacyError.message;
+      } else if (legacyData) {
+        result.legacyUsers.found = true;
+        result.legacyUsers.role = legacyData.role;
+        result.legacyUsers.status = legacyData.status;
+      }
+
+      // Test 5: Call is_active_staff() RPC
       try {
-        const { data, error } = await supabase.rpc('is_active_staff');
-        isStaff = data;
-        staffError = error;
-      } catch {
-        // Function might not exist
+        const { data: staffData, error: staffError } = await supabase.rpc('is_active_staff');
+        if (staffError) {
+          result.isActiveStaff.error = staffError.message;
+        } else {
+          result.isActiveStaff.result = staffData;
+        }
+      } catch (err: any) {
+        result.isActiveStaff.error = err.message;
       }
 
-      // Test 4: Direct contacts count
-      const firstAccountId = accountsData?.[0]?.id;
-      let contactsTest = '';
-      if (firstAccountId) {
-        const { count: contactsCount, error: contactsError } = await supabase
-          .from('contacts')
-          .select('id', { count: 'exact', head: true })
-          .eq('account_id', firstAccountId)
-          .is('deleted_at', null);
-
-        contactsTest = contactsError 
-          ? `\n\n❌ Contacts query error: ${contactsError.message}`
-          : `\n\n✅ Contacts count for "${accountsData[0].name}": ${contactsCount ?? 0}`;
+      // Test 6: Call is_admin() RPC
+      try {
+        const { data: adminData, error: adminError } = await supabase.rpc('is_admin');
+        if (adminError) {
+          result.isAdmin.error = adminError.message;
+        } else {
+          result.isAdmin.result = adminData;
+        }
+      } catch (err: any) {
+        result.isAdmin.error = err.message;
       }
 
-      // Test 5: Aggregated count with FK
-      let aggTest = '';
-      if (firstAccountId) {
-        const { data: aggData, error: aggError } = await supabase
-          .from('accounts')
-          .select('id, name, contacts!account_id(count)')
-          .eq('id', firstAccountId)
-          .maybeSingle();
+      // Test 7: CRM table access
+      const { error: accountsErr } = await supabase.from('accounts').select('id').limit(1);
+      result.crmAccess.accounts = !accountsErr;
 
-        aggTest = aggError
-          ? `\n\n❌ Aggregated count error: ${aggError.message}`
-          : `\n\n📊 Aggregated count result: ${aggData?.contacts?.[0]?.count ?? 'undefined'}\nRaw data: ${JSON.stringify(aggData?.contacts)}`;
+      const { error: contactsErr } = await supabase.from('contacts').select('id').limit(1);
+      result.crmAccess.contacts = !contactsErr;
+
+      const { error: leadsErr } = await supabase.from('leads').select('id').limit(1);
+      result.crmAccess.leads = !leadsErr;
+
+      if (accountsErr || contactsErr || leadsErr) {
+        result.crmAccess.error = [accountsErr?.message, contactsErr?.message, leadsErr?.message]
+          .filter(Boolean).join('; ');
       }
 
-      const result = `
-━━━━━━━━━━━━━━━━━━━━━━━━━━━
-📊 SUPABASE RLS DIAGNOSTIC
-━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-🏢 Accounts Query:
-${accountsError ? `❌ Error: ${accountsError.message}` : `✅ Found ${accountsData?.length || 0} accounts`}
-
-👤 Current User in 'users' table:
-${userError ? `❌ Query Error: ${userError.message}` : userData ? `✅ Found
-   • Role: ${userData.role}
-   • Status: ${userData.status}
-   • Auth ID: ${userData.auth_user_id}` : '❌ User NOT FOUND in users table'}
-
-🔐 is_active_staff() RPC:
-${staffError ? `❌ Error: ${staffError.message}` : isStaff === null ? '⚠️ Function not found or not callable' : `${isStaff ? '✅' : '❌'} Returns: ${isStaff}`}
-${contactsTest}
-${aggTest}
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━
-💡 DIAGNOSIS:
-━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-${!userData ? `⚠️ CRITICAL: Your auth user is NOT in the 'users' table.
-   → RLS policies check is_active_staff() which queries users table
-   → Without a users record, ALL CRM queries will be blocked
-   → Solution: INSERT a record in users table with your auth_user_id` : ''}
-
-${userData && userData.status !== 'active' ? `⚠️ WARNING: User status is "${userData.status}" (expected: "active")
-   → is_active_staff() requires status = 'active'
-   → Solution: UPDATE users SET status = 'active' WHERE id = '${userData.id}'` : ''}
-
-${userData && !['admin','sales','inventory','finance','manager'].includes(userData.role) ? `⚠️ WARNING: Role "${userData.role}" not in allowed staff roles
-   → is_active_staff() checks role IN ('admin','sales','inventory','finance','manager')
-   → Solution: UPDATE users SET role = 'admin' WHERE id = '${userData.id}'` : ''}
-
-${isStaff === false ? `⚠️ BLOCKER: is_active_staff() returns FALSE
-   → You do not have staff access according to RLS
-   → Check role, status, and auth_user_id mapping in users table` : ''}
-
-${isStaff === true && contactsTest.includes('❌') ? `⚠️ WARNING: Staff access OK but contacts query failed
-   → Possible contacts table RLS issue
-   → Check contacts RLS policies align with accounts policies` : ''}
-
-${isStaff === true && aggTest.includes('undefined') && contactsTest.includes('✅') && !contactsTest.includes(': 0') ? `⚠️ BUG FOUND: Direct count works but aggregated count is undefined
-   → FK join syntax issue: contacts!account_id(count)
-   → Try alternative: contacts!inner(count)
-   → Or use direct count in application code` : ''}
-
-${isStaff === true && !contactsTest.includes('❌') && !aggTest.includes('undefined') && userData ? `✅ ALL TESTS PASSED
-   → Supabase connection: OK
-   → User in users table: OK
-   → Staff access: OK
-   → Contacts readable: OK
-   → Aggregated count: ${aggTest.match(/count result: (\d+)/)?.[1] || 'OK'}` : ''}
-      `.trim();
-
-      setPingResult(result);
+      setDiagnostic(result);
     } catch (err: any) {
-      setPingResult(`❌ EXCEPTION: ${err.message}\n\nStack: ${err.stack || 'No stack trace'}`);
+      console.error('Diagnostic error:', err);
     } finally {
       setLoading(false);
     }
@@ -178,17 +188,24 @@ ${isStaff === true && !contactsTest.includes('❌') && !aggTest.includes('undefi
     fetchSessionInfo();
   }, []);
 
+  const getStatusBadge = (ok: boolean, label?: string) => (
+    <Badge variant={ok ? 'default' : 'destructive'} className="gap-1">
+      {ok ? <CheckCircle className="h-3 w-3" /> : <XCircle className="h-3 w-3" />}
+      {label || (ok ? 'OK' : 'FAIL')}
+    </Badge>
+  );
+
   return (
     <div className="container mx-auto p-6 max-w-4xl">
       <div className="mb-6">
         <h1 className="text-3xl font-bold mb-2">Diagnóstico de Supabase</h1>
         <p className="text-muted-foreground">
-          Estado actual de configuración y conexión
+          Estado de configuración, permisos y acceso RLS
         </p>
       </div>
 
       <div className="space-y-4">
-        {/* Estado de configuración */}
+        {/* Configuración */}
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
@@ -198,57 +215,29 @@ ${isStaff === true && !contactsTest.includes('❌') && !aggTest.includes('undefi
           </CardHeader>
           <CardContent className="space-y-3">
             <div className="flex items-center justify-between">
-              <span className="font-medium">Estado de inicialización:</span>
-              {isReady ? (
-                <Badge variant="default" className="gap-1">
-                  <CheckCircle className="h-3 w-3" />
-                  Listo
-                </Badge>
-              ) : (
-                <Badge variant="destructive" className="gap-1">
-                  <XCircle className="h-3 w-3" />
-                  No configurado
-                </Badge>
-              )}
+              <span className="font-medium">Estado:</span>
+              {getStatusBadge(isReady, isReady ? 'Listo' : 'No configurado')}
             </div>
-
             <div className="flex items-center justify-between">
-              <span className="font-medium">Fuente de configuración:</span>
+              <span className="font-medium">Fuente:</span>
               <Badge variant="outline">
-                {configSource === 'env' && '🔐 Variables de entorno (VITE_*)'}
+                {configSource === 'env' && '🔐 Variables de entorno'}
                 {configSource === 'window' && '🌐 window.__SUPABASE__'}
                 {configSource === 'none' && '❌ No configurado'}
               </Badge>
             </div>
-
-            {!isReady && (
-              <Alert variant="destructive">
-                <AlertCircle className="h-4 w-4" />
-                <AlertTitle>Sin configuración</AlertTitle>
-                <AlertDescription>
-                  Configure VITE_SUPABASE_URL y VITE_SUPABASE_ANON_KEY en las
-                  variables de entorno, o defina window.__SUPABASE__ en
-                  index.html.
-                </AlertDescription>
-              </Alert>
-            )}
           </CardContent>
         </Card>
 
-        {/* Información de sesión */}
+        {/* Sesión */}
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center justify-between">
               <span className="flex items-center gap-2">
                 <User className="h-5 w-5" />
-                Sesión de usuario
+                Sesión de Usuario
               </span>
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={fetchSessionInfo}
-                disabled={loading || !isReady}
-              >
+              <Button size="sm" variant="outline" onClick={fetchSessionInfo} disabled={loading || !isReady}>
                 <RefreshCw className="h-4 w-4 mr-1" />
                 Actualizar
               </Button>
@@ -256,19 +245,14 @@ ${isStaff === true && !contactsTest.includes('❌') && !aggTest.includes('undefi
           </CardHeader>
           <CardContent className="space-y-3">
             {!isReady ? (
-              <p className="text-sm text-muted-foreground">
-                No se puede verificar sin configuración
-              </p>
+              <p className="text-sm text-muted-foreground">Sin configuración</p>
             ) : loading ? (
               <p className="text-sm text-muted-foreground">Cargando...</p>
             ) : sessionInfo ? (
               <>
                 <div className="flex items-center justify-between">
                   <span className="font-medium">Autenticado:</span>
-                  <Badge variant="default" className="gap-1">
-                    <CheckCircle className="h-3 w-3" />
-                    Sí
-                  </Badge>
+                  {getStatusBadge(true, 'Sí')}
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="font-medium">Email:</span>
@@ -276,62 +260,190 @@ ${isStaff === true && !contactsTest.includes('❌') && !aggTest.includes('undefi
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="font-medium">User ID:</span>
-                  <span className="text-sm font-mono text-xs">
-                    {userInfo?.id || 'N/A'}
-                  </span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="font-medium">Expira en:</span>
-                  <span className="text-sm">
-                    {sessionInfo.expires_at
-                      ? new Date(sessionInfo.expires_at * 1000).toLocaleString()
-                      : 'N/A'}
-                  </span>
+                  <code className="text-xs bg-muted px-2 py-1 rounded">{userInfo?.id || 'N/A'}</code>
                 </div>
               </>
             ) : (
               <Alert>
                 <AlertCircle className="h-4 w-4" />
                 <AlertTitle>Sin sesión</AlertTitle>
-                <AlertDescription>
-                  No hay una sesión activa. Inicie sesión para continuar.
-                </AlertDescription>
+                <AlertDescription>Inicie sesión para continuar.</AlertDescription>
               </Alert>
             )}
           </CardContent>
         </Card>
 
-        {/* Ping a la base de datos */}
+        {/* Diagnóstico de Permisos */}
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center justify-between">
               <span className="flex items-center gap-2">
-                <Database className="h-5 w-5" />
-                Prueba de conexión
+                <Shield className="h-5 w-5" />
+                Sistema de Permisos
               </span>
-              <Button
-                size="sm"
-                onClick={runPing}
-                disabled={loading || !isReady}
-              >
-                <RefreshCw className="h-4 w-4 mr-1" />
-                Ping
+              <Button size="sm" onClick={runDiagnostic} disabled={loading || !isReady || !sessionInfo}>
+                <Database className="h-4 w-4 mr-1" />
+                Ejecutar Diagnóstico
               </Button>
             </CardTitle>
           </CardHeader>
-          <CardContent className="space-y-3">
-            {!isReady ? (
+          <CardContent>
+            {!diagnostic ? (
               <p className="text-sm text-muted-foreground">
-                No se puede hacer ping sin configuración
-              </p>
-            ) : !pingResult ? (
-              <p className="text-sm text-muted-foreground">
-                Haz clic en "Ping" para ejecutar el diagnóstico completo
+                Haz clic en "Ejecutar Diagnóstico" para verificar tu configuración de permisos
               </p>
             ) : (
-              <pre className="text-xs bg-muted p-4 rounded-md overflow-x-auto whitespace-pre-wrap">
-                {pingResult}
-              </pre>
+              <div className="space-y-4">
+                {/* NEW System: profiles */}
+                <div className="border rounded-lg p-3">
+                  <h4 className="font-semibold mb-2 flex items-center gap-2">
+                    <Key className="h-4 w-4" />
+                    profiles (Sistema Nuevo)
+                  </h4>
+                  <div className="grid grid-cols-2 gap-2 text-sm">
+                    <span>Registro encontrado:</span>
+                    {getStatusBadge(diagnostic.profiles.found)}
+                    <span>Status:</span>
+                    <Badge variant={diagnostic.profiles.status === 'active' ? 'default' : 'secondary'}>
+                      {diagnostic.profiles.status || 'N/A'}
+                    </Badge>
+                  </div>
+                  {diagnostic.profiles.error && (
+                    <p className="text-xs text-destructive mt-2">Error: {diagnostic.profiles.error}</p>
+                  )}
+                </div>
+
+                {/* NEW System: user_roles */}
+                <div className="border rounded-lg p-3">
+                  <h4 className="font-semibold mb-2 flex items-center gap-2">
+                    <Key className="h-4 w-4" />
+                    user_roles (Sistema Nuevo)
+                  </h4>
+                  <div className="grid grid-cols-2 gap-2 text-sm">
+                    <span>Roles asignados:</span>
+                    {getStatusBadge(diagnostic.userRoles.found)}
+                    <span>Roles:</span>
+                    <div className="flex gap-1 flex-wrap">
+                      {diagnostic.userRoles.roles.length > 0 ? 
+                        diagnostic.userRoles.roles.map(r => <Badge key={r} variant="outline">{r}</Badge>) :
+                        <span className="text-muted-foreground">Ninguno</span>
+                      }
+                    </div>
+                  </div>
+                  {diagnostic.userRoles.error && (
+                    <p className="text-xs text-destructive mt-2">Error: {diagnostic.userRoles.error}</p>
+                  )}
+                </div>
+
+                {/* NEW System: user_permissions */}
+                <div className="border rounded-lg p-3">
+                  <h4 className="font-semibold mb-2 flex items-center gap-2">
+                    <Key className="h-4 w-4" />
+                    user_permissions (Sistema Nuevo)
+                  </h4>
+                  <div className="grid grid-cols-2 gap-2 text-sm">
+                    <span>Permisos de módulo:</span>
+                    <Badge variant={diagnostic.userPermissions.count > 0 ? 'default' : 'secondary'}>
+                      {diagnostic.userPermissions.count} registros
+                    </Badge>
+                  </div>
+                  {diagnostic.userPermissions.error && (
+                    <p className="text-xs text-destructive mt-2">Error: {diagnostic.userPermissions.error}</p>
+                  )}
+                </div>
+
+                {/* Legacy: users table */}
+                <div className="border rounded-lg p-3 opacity-70">
+                  <h4 className="font-semibold mb-2 flex items-center gap-2">
+                    <User className="h-4 w-4" />
+                    users (Sistema Legacy)
+                  </h4>
+                  <div className="grid grid-cols-2 gap-2 text-sm">
+                    <span>Registro encontrado:</span>
+                    {getStatusBadge(diagnostic.legacyUsers.found)}
+                    <span>Role / Status:</span>
+                    <span>{diagnostic.legacyUsers.role || 'N/A'} / {diagnostic.legacyUsers.status || 'N/A'}</span>
+                  </div>
+                  {diagnostic.legacyUsers.error && (
+                    <p className="text-xs text-destructive mt-2">Error: {diagnostic.legacyUsers.error}</p>
+                  )}
+                </div>
+
+                {/* RPC Functions */}
+                <div className="border rounded-lg p-3">
+                  <h4 className="font-semibold mb-2">Funciones RPC</h4>
+                  <div className="grid grid-cols-2 gap-2 text-sm">
+                    <span>is_active_staff():</span>
+                    {diagnostic.isActiveStaff.error ? (
+                      <Badge variant="destructive">Error</Badge>
+                    ) : (
+                      getStatusBadge(diagnostic.isActiveStaff.result === true)
+                    )}
+                    <span>is_admin():</span>
+                    {diagnostic.isAdmin.error ? (
+                      <Badge variant="destructive">Error</Badge>
+                    ) : (
+                      getStatusBadge(diagnostic.isAdmin.result === true)
+                    )}
+                  </div>
+                  {(diagnostic.isActiveStaff.error || diagnostic.isAdmin.error) && (
+                    <p className="text-xs text-destructive mt-2">
+                      {diagnostic.isActiveStaff.error || diagnostic.isAdmin.error}
+                    </p>
+                  )}
+                </div>
+
+                {/* CRM Access */}
+                <div className="border rounded-lg p-3">
+                  <h4 className="font-semibold mb-2">Acceso CRM (RLS)</h4>
+                  <div className="grid grid-cols-3 gap-2 text-sm">
+                    <div className="flex items-center gap-1">
+                      accounts: {getStatusBadge(diagnostic.crmAccess.accounts)}
+                    </div>
+                    <div className="flex items-center gap-1">
+                      contacts: {getStatusBadge(diagnostic.crmAccess.contacts)}
+                    </div>
+                    <div className="flex items-center gap-1">
+                      leads: {getStatusBadge(diagnostic.crmAccess.leads)}
+                    </div>
+                  </div>
+                  {diagnostic.crmAccess.error && (
+                    <p className="text-xs text-destructive mt-2">Error: {diagnostic.crmAccess.error}</p>
+                  )}
+                </div>
+
+                {/* Summary / Action Items */}
+                {(!diagnostic.profiles.found || !diagnostic.userRoles.found || diagnostic.isActiveStaff.result !== true) && (
+                  <Alert variant="destructive">
+                    <AlertCircle className="h-4 w-4" />
+                    <AlertTitle>Acción Requerida</AlertTitle>
+                    <AlertDescription className="text-xs space-y-1">
+                      {!diagnostic.profiles.found && (
+                        <p>• Falta registro en <code>profiles</code> para tu user ID</p>
+                      )}
+                      {diagnostic.profiles.found && diagnostic.profiles.status !== 'active' && (
+                        <p>• El status del perfil no es 'active' (actual: {diagnostic.profiles.status})</p>
+                      )}
+                      {!diagnostic.userRoles.found && (
+                        <p>• Falta registro en <code>user_roles</code> para tu user ID</p>
+                      )}
+                      {diagnostic.isActiveStaff.result !== true && (
+                        <p>• <code>is_active_staff()</code> retorna FALSE - sin acceso a módulos CRM</p>
+                      )}
+                    </AlertDescription>
+                  </Alert>
+                )}
+
+                {diagnostic.isActiveStaff.result === true && diagnostic.crmAccess.accounts && (
+                  <Alert>
+                    <CheckCircle className="h-4 w-4" />
+                    <AlertTitle>Todo OK</AlertTitle>
+                    <AlertDescription>
+                      Tu configuración de permisos está correcta. Tienes acceso a los módulos CRM.
+                    </AlertDescription>
+                  </Alert>
+                )}
+              </div>
             )}
           </CardContent>
         </Card>
