@@ -1,6 +1,6 @@
-import { HeroBlock, FeaturedPick, Locale } from '@/types';
-import { mockHeroBlocks, mockFeaturedPicks } from './mockData';
-import { isUnitPublished } from '@/lib/publishing-utils';
+import { HeroBlock, FeaturedPick, Locale, Unit } from '@/types';
+import { mockHeroBlocks } from './mockData';
+import { supabase } from '@/lib/supabaseClient';
 
 // Simple in-memory cache
 let contentCache: Record<string, { data: any; timestamp: number }> = {};
@@ -19,7 +19,7 @@ export class ContentService {
       return cached.data;
     }
 
-    await new Promise((resolve) => setTimeout(resolve, 100));
+    // Hero block still uses mock data (or could be from site_settings)
     const data = mockHeroBlocks[lang] || mockHeroBlocks.en;
     
     contentCache[cacheKey] = { data, timestamp: Date.now() };
@@ -34,14 +34,36 @@ export class ContentService {
       return cached.data;
     }
 
-    await new Promise((resolve) => setTimeout(resolve, 100));
-    // Use flexible publishing logic for both featured picks and their units
-    const data = mockFeaturedPicks.filter(
-      (pick) => pick.status === 'published' && pick.unit && isUnitPublished(pick.unit)
-    );
+    if (!supabase) {
+      console.warn('Supabase not initialized');
+      return [];
+    }
+
+    // Fetch latest published units from Supabase as featured picks
+    const { data, error } = await supabase
+      .from('units')
+      .select('*')
+      .eq('status', 'published')
+      .is('deleted_at', null)
+      .order('listed_at', { ascending: false })
+      .limit(8);
+
+    if (error) {
+      console.error('Error fetching featured picks:', error);
+      return [];
+    }
+
+    // Transform units into FeaturedPick format
+    const featuredPicks: FeaturedPick[] = (data || []).map((unit: Unit, index: number) => ({
+      id: unit.id,
+      unit_id: unit.id,
+      unit: unit,
+      sort: index,
+      status: 'published' as const,
+    }));
     
-    contentCache[cacheKey] = { data, timestamp: Date.now() };
-    return data;
+    contentCache[cacheKey] = { data: featuredPicks, timestamp: Date.now() };
+    return featuredPicks;
   }
 
   static async getHomeContent(lang: Locale = 'en') {
