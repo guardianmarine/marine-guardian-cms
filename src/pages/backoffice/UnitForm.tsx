@@ -57,7 +57,7 @@ export default function UnitForm() {
   const { unit: existingUnit, loading: loadingUnit } = useUnitById(id);
   const { addUnit, updateUnit, publishUnit, unpublishUnit } = useUnitsSupabase();
   const { uploading: uploadingPhotos, uploadMultiplePhotos, deletePhoto, getPathFromUrl } = useUnitPhotoUpload();
-  const { recordPacChange } = usePacLedger();
+  const { recordPacChange } = usePacLedger({ autoFetch: false, showErrors: false });
 
   const isNew = !id;
   const [uploadProgress, setUploadProgress] = useState({ completed: 0, total: 0 });
@@ -90,6 +90,7 @@ export default function UnitForm() {
   const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
   const [showVinPanel, setShowVinPanel] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [activeTab, setActiveTab] = useState('details');
 
   const currentYear = new Date().getFullYear();
   const sensors = useSensors(
@@ -211,11 +212,15 @@ export default function UnitForm() {
 
   const handleSave = async () => {
     if (!validateForm()) {
+      const errorMessages = Object.values(validationErrors).slice(0, 3);
+      const remainingCount = Object.keys(validationErrors).length - 3;
       toast({
         title: 'Validation errors',
-        description: 'Please fix the errors before saving',
+        description: errorMessages.join('. ') + (remainingCount > 0 ? ` (+${remainingCount} more)` : ''),
         variant: 'destructive',
       });
+      // Switch to details tab if errors exist
+      setActiveTab('details');
       return;
     }
 
@@ -498,7 +503,7 @@ export default function UnitForm() {
           </Card>
         )}
 
-        <Tabs defaultValue="details">
+        <Tabs value={activeTab} onValueChange={setActiveTab}>
           <TabsList>
             <TabsTrigger value="details">Details</TabsTrigger>
             <TabsTrigger value="photos">Photos ({photos.length})</TabsTrigger>

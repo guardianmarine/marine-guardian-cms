@@ -23,10 +23,12 @@ export interface PacLedgerEntry {
   };
 }
 
-export function usePacLedger() {
+export function usePacLedger(options: { autoFetch?: boolean; showErrors?: boolean } = {}) {
+  const { autoFetch = false, showErrors = false } = options;
   const [entries, setEntries] = useState<PacLedgerEntry[]>([]);
   const [loading, setLoading] = useState(false);
   const [balance, setBalance] = useState(0);
+  const [tableExists, setTableExists] = useState<boolean | null>(null);
   const { user } = useAuth();
   const { toast } = useToast();
 
@@ -41,8 +43,17 @@ export function usePacLedger() {
         `)
         .order('created_at', { ascending: false });
 
-      if (error) throw error;
+      if (error) {
+        // Check if table doesn't exist
+        if (error.code === '42P01' || error.message?.includes('does not exist')) {
+          console.warn('PAC ledger table not found - feature not available');
+          setTableExists(false);
+          return;
+        }
+        throw error;
+      }
 
+      setTableExists(true);
       setEntries(data || []);
 
       // Calculate balance
@@ -56,19 +67,23 @@ export function usePacLedger() {
       setBalance(totalCredits - totalDebits);
     } catch (error: any) {
       console.error('Error fetching PAC ledger:', error);
-      toast({
-        title: 'Error loading PAC Fund',
-        description: error.message,
-        variant: 'destructive',
-      });
+      if (showErrors) {
+        toast({
+          title: 'Error loading PAC Fund',
+          description: error.message,
+          variant: 'destructive',
+        });
+      }
     } finally {
       setLoading(false);
     }
-  }, [toast]);
+  }, [toast, showErrors]);
 
   useEffect(() => {
-    fetchEntries();
-  }, [fetchEntries]);
+    if (autoFetch) {
+      fetchEntries();
+    }
+  }, [autoFetch, fetchEntries]);
 
   const addDebit = async (amount: number, note: string) => {
     if (!user?.id) {
@@ -105,7 +120,7 @@ export function usePacLedger() {
 
   const recordPacChange = async (unitId: string, newPacAmount: number, previousPacAmount: number = 0) => {
     if (!user?.id) {
-      console.error('No user session for PAC ledger');
+      console.warn('No user session for PAC ledger');
       return false;
     }
 
@@ -131,7 +146,14 @@ export function usePacLedger() {
           created_by: user.id,
         });
 
-      if (error) throw error;
+      if (error) {
+        // Silently fail if table doesn't exist
+        if (error.code === '42P01' || error.message?.includes('does not exist')) {
+          console.warn('PAC ledger table not found - skipping PAC change recording');
+          return true;
+        }
+        throw error;
+      }
       return true;
     } catch (error: any) {
       console.error('Error recording PAC change:', error);
@@ -143,6 +165,7 @@ export function usePacLedger() {
     entries,
     loading,
     balance,
+    tableExists,
     fetchEntries,
     addDebit,
     recordPacChange,
