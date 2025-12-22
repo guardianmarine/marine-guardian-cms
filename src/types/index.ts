@@ -69,6 +69,7 @@ export interface Unit {
   cost_detailing?: number;
   cost_marketing?: number;
   cost_fees?: number;
+  cost_pac?: number; // PAC cost - admin only
   cost_overhead_applied?: number;
   // Additional internal fields
   notes?: string;
@@ -626,4 +627,17 @@ export interface Invoice {
   };
   created_at: string;
   updated_at: string;
+}
+
+// PAC Ledger types
+export type PacDirection = 'credit' | 'debit';
+
+export interface PacLedgerEntry {
+  id: string;
+  unit_id?: string;
+  amount: number;
+  direction: PacDirection;
+  note?: string;
+  created_by: string;
+  created_at: string;
 }

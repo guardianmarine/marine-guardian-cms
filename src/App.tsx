@@ -57,6 +57,7 @@ import FinanceDashboard from "./pages/backoffice/finance/FinanceDashboard";
 import FinanceOverview from "./pages/backoffice/finance/FinanceOverview";
 import Commissions from "./pages/backoffice/finance/Commissions";
 import CommissionsReport from "./pages/backoffice/finance/CommissionsReport";
+import PACFund from "./pages/backoffice/finance/PACFund";
 import Insights from "./pages/backoffice/Insights";
 import UsersRoles from "./pages/admin/settings/UsersRoles";
 import Profile from "./pages/backoffice/Profile";
@@ -320,6 +321,7 @@ const App = () => (
             <Route path="/backoffice/finance/overview" element={<ProtectedRoute><RoleGuard allowedRoles={['admin','finance']}><FinanceOverview /></RoleGuard></ProtectedRoute>} />
             <Route path="/backoffice/finance/commissions" element={<ProtectedRoute><RoleGuard allowedRoles={['admin','finance','sales']}><Commissions /></RoleGuard></ProtectedRoute>} />
             <Route path="/backoffice/finance/commissions-report" element={<ProtectedRoute><RoleGuard allowedRoles={['admin','finance','sales']}><CommissionsReport /></RoleGuard></ProtectedRoute>} />
+            <Route path="/backoffice/finance/pac-fund" element={<ProtectedRoute><RoleGuard allowedRoles={['admin']}><PACFund /></RoleGuard></ProtectedRoute>} />
             
             {/* Insights Route */}
             <Route path="/backoffice/insights" element={<ProtectedRoute><RoleGuard allowedRoles={['admin','finance','sales']}><Insights /></RoleGuard></ProtectedRoute>} />
