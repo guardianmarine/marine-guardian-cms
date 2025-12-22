@@ -60,6 +60,7 @@ import CommissionsReport from "./pages/backoffice/finance/CommissionsReport";
 import PACFund from "./pages/backoffice/finance/PACFund";
 import Insights from "./pages/backoffice/Insights";
 import UsersRoles from "./pages/admin/settings/UsersRoles";
+import UserManagement from "./pages/admin/settings/UserManagement";
 import Profile from "./pages/backoffice/Profile";
 import SupabaseDebug from "./pages/backoffice/SupabaseDebug";
 import NotFound from "./pages/NotFound";
@@ -327,7 +328,8 @@ const App = () => (
             <Route path="/backoffice/insights" element={<ProtectedRoute><RoleGuard allowedRoles={['admin','finance','sales']}><Insights /></RoleGuard></ProtectedRoute>} />
 
             {/* Admin Settings Routes */}
-            <Route path="/admin/settings/users" element={<ProtectedRoute><RoleGuard allowedRoles={['admin']}><UsersRoles /></RoleGuard></ProtectedRoute>} />
+            <Route path="/admin/settings/users" element={<ProtectedRoute><RoleGuard allowedRoles={['admin']}><UserManagement /></RoleGuard></ProtectedRoute>} />
+            <Route path="/admin/settings/users-legacy" element={<ProtectedRoute><RoleGuard allowedRoles={['admin']}><UsersRoles /></RoleGuard></ProtectedRoute>} />
             <Route path="/admin/debug/supabase" element={<ProtectedRoute><RoleGuard allowedRoles={['admin']}><SupabaseDebug /></RoleGuard></ProtectedRoute>} />
             <Route path="/admin/debug/leads-probe" element={<ProtectedRoute><RoleGuard allowedRoles={['admin']}><LeadsProbe /></RoleGuard></ProtectedRoute>} />
 
