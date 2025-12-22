@@ -156,7 +156,7 @@ export default function Insights() {
 
   return (
     <BackofficeLayout>
-      <PermissionGuard allowedRoles={['sales', 'finance', 'admin']}>
+      <PermissionGuard module="insights" allowedRoles={['sales', 'finance', 'admin']}>
         <div className="p-6 space-y-6">
           <div className="flex items-center justify-between">
             <div>

@@ -233,7 +233,7 @@ export default function FinanceOverview() {
 
   return (
     <BackofficeLayout>
-      <PermissionGuard allowedRoles={['finance', 'admin']}>
+      <PermissionGuard module="finance_overview" allowedRoles={['finance', 'admin']}>
         <div className="p-6 space-y-6">
         {/* Header */}
         <div>
