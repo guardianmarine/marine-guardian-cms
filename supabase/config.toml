@@ -26,3 +26,12 @@ verify_jwt = true
 
 [functions.update-user-roles]
 verify_jwt = true
+
+[functions.resend-invite]
+verify_jwt = true
+
+[functions.send-magic-link]
+verify_jwt = true
+
+[functions.send-password-reset]
+verify_jwt = true

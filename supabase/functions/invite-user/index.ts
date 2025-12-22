@@ -164,18 +164,20 @@ serve(async (req) => {
       // Continue anyway, permissions can be fixed later
     }
 
-    // Send password reset email so user can set their password
-    const { error: resetError } = await supabaseAdmin.auth.admin.generateLink({
-      type: "invite",
-      email,
-      options: {
-        redirectTo: `${req.headers.get("origin") || supabaseUrl}/auth/set-password`,
-      },
+    // Send invite email so user can set their password
+    const redirectTo = `${req.headers.get("origin") || supabaseUrl}/auth/callback?type=invite`;
+    console.log("Sending invite email with redirect to:", redirectTo);
+    
+    const { data: inviteData, error: inviteError } = await supabaseAdmin.auth.admin.inviteUserByEmail(email, {
+      redirectTo,
+      data: { full_name },
     });
 
-    if (resetError) {
-      console.error("Error sending invite email:", resetError);
-      // User is created, just log the error
+    if (inviteError) {
+      console.error("Error sending invite email:", inviteError);
+      // User is created, but email failed - log it but don't fail the request
+    } else {
+      console.log("Invite email sent successfully");
     }
 
     console.log("User invited successfully:", newUserId);

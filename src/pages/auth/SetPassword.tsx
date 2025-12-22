@@ -89,9 +89,20 @@ export default function SetPassword() {
 
       if (error) throw error;
 
+      // Update profile status to 'active' after password is set
+      const { error: profileError } = await supabase
+        .from('profiles')
+        .update({ status: 'active', updated_at: new Date().toISOString() })
+        .eq('id', user.id);
+
+      if (profileError) {
+        console.error('Error updating profile status:', profileError);
+        // Continue anyway - admin can fix if needed
+      }
+
       toast({
         title: t('common.success', 'Success'),
-        description: t('auth.passwordCreated', 'Password created successfully. Please ask an admin to activate your account if you cannot access the system.'),
+        description: t('auth.passwordCreated', 'Password created successfully. You can now log in.'),
       });
 
       // Sign out and redirect to login
