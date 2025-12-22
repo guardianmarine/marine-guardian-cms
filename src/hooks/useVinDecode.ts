@@ -36,8 +36,18 @@ export function useVinDecode() {
       const data = await response.json();
       const results = data.Results?.[0];
 
-      if (!results || results.ErrorCode !== '0') {
+      // NHTSA returns comma-separated error codes
+      // Code 0 = success, other codes may be warnings (e.g., 12 = model year mismatch, 14 = partial data)
+      const errorCodes = (results?.ErrorCode || '').split(',').map(c => c.trim());
+      const hasSuccessCode = errorCodes.includes('0');
+
+      if (!results || !hasSuccessCode) {
         throw new Error(results?.ErrorText || 'Invalid VIN');
+      }
+
+      // Log warnings for debugging but don't fail
+      if (errorCodes.length > 1) {
+        console.debug('VIN decode warnings:', results.ErrorText);
       }
 
       // Normalize using utility
